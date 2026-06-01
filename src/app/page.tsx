@@ -1,65 +1,108 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useStore } from "@/lib/store";
+import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
+import { Badge, Button, Card } from "@/components/ui";
+import { CreateTournamentForm } from "@/components/CreateTournamentForm";
+import { HydrationGate } from "@/components/HydrationGate";
+
+const FORMAT_COLOR: Record<string, string> = {
+  "round-robin": "blue",
+  "single-elim": "green",
+  "double-elim": "purple",
+  "pool-bracket": "amber",
+};
 
 export default function Home() {
+  const [creating, setCreating] = useState(false);
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <HydrationGate>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Tournaments</h1>
+          <p className="text-sm text-[var(--muted)]">
+            Round robins, brackets &amp; pool play for any sport.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        {!creating && <Button onClick={() => setCreating(true)}>+ New Tournament</Button>}
+      </div>
+
+      {creating && (
+        <Card className="p-5 mb-6">
+          <h2 className="font-semibold mb-4">New tournament</h2>
+          <CreateTournamentForm onDone={() => setCreating(false)} />
+        </Card>
+      )}
+
+      <TournamentList />
+    </HydrationGate>
+  );
+}
+
+function TournamentList() {
+  const tournaments = useStore((s) => s.tournaments);
+  const remove = useStore((s) => s.removeTournament);
+  const duplicate = useStore((s) => s.duplicateTournament);
+
+  if (tournaments.length === 0) {
+    return (
+      <Card className="p-10 text-center">
+        <div className="text-4xl mb-2">🎾</div>
+        <p className="font-medium">No tournaments yet</p>
+        <p className="text-sm text-[var(--muted)]">
+          Create one to build a schedule, track scores, and crown a champion.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {tournaments.map((t) => {
+        const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
+        return (
+          <Card key={t.id} className="p-4 flex flex-col">
+            <Link href={`/t/${t.id}`} className="flex-1 block group">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
+                {!t.generated && <Badge color="slate">Setup</Badge>}
+              </div>
+              <h3 className="font-semibold group-hover:text-[var(--brand)] transition">{t.name}</h3>
+              <p className="text-sm text-[var(--muted)]">
+                {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
+              </p>
+              <p className="text-xs text-[var(--muted)] mt-2">
+                {t.participants.length} participants
+                {t.matches.length > 0 && ` · ${played}/${t.matches.length} games played`}
+              </p>
+            </Link>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+              <Link
+                href={`/t/${t.id}`}
+                className="text-sm font-medium text-[var(--brand)] hover:underline"
+              >
+                Open →
+              </Link>
+              <div className="flex gap-1">
+                <Button variant="ghost" className="px-2 py-1" onClick={() => duplicate(t.id)}>
+                  Duplicate
+                </Button>
+                <Button
+                  variant="danger"
+                  className="px-2 py-1"
+                  onClick={() => {
+                    if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
