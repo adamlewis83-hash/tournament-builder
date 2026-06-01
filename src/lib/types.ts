@@ -79,6 +79,32 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",
 };
 
+// Common tournament-able sports/activities for the picklist. "Other…" is added
+// by the UI to allow any custom sport or non-sport bracket.
+export const SPORTS: string[] = [
+  "Pickleball",
+  "Tennis",
+  "Table Tennis (Ping Pong)",
+  "Foosball",
+  "Basketball",
+  "Cornhole",
+  "Spikeball",
+  "Volleyball",
+  "Soccer",
+  "Golf",
+  "Disc Golf",
+  "Darts",
+  "Pool / Billiards",
+  "Bowling",
+  "Badminton",
+  "Racquetball",
+  "Pop-A-Shot",
+  "Beer Pong",
+  "Chess",
+  "Video Games / Esports",
+  "Board Games",
+];
+
 export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {
   singles: "Singles (1v1)",
   doubles: "Doubles — rotating partners",

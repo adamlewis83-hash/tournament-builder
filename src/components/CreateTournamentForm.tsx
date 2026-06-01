@@ -9,19 +9,25 @@ import {
   FORMAT_LABELS,
   PlayStyle,
   PLAYSTYLE_LABELS,
+  SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
 
 const FORMATS: Format[] = ["round-robin", "single-elim", "double-elim", "pool-bracket"];
 const STYLES: PlayStyle[] = ["singles", "doubles", "teams"];
+const OTHER = "__other__";
 
 export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const router = useRouter();
   const createTournament = useStore((s) => s.createTournament);
   const [name, setName] = useState("");
-  const [sport, setSport] = useState("Pickleball");
+  const [sportChoice, setSportChoice] = useState<string>("Pickleball");
+  const [customSport, setCustomSport] = useState("");
   const [format, setFormat] = useState<Format>("round-robin");
   const [playStyle, setPlayStyle] = useState<PlayStyle>("doubles");
+
+  const sport =
+    sportChoice === OTHER ? customSport.trim() || "Custom Tournament" : sportChoice;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,13 +50,28 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Sport</span>
-          <input
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            placeholder="Pickleball, Tennis, Cornhole…"
+          <span className="text-sm font-medium">Sport / activity</span>
+          <select
+            value={sportChoice}
+            onChange={(e) => setSportChoice(e.target.value)}
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-          />
+          >
+            {SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+            <option value={OTHER}>Other / custom…</option>
+          </select>
+          {sportChoice === OTHER && (
+            <input
+              autoFocus
+              value={customSport}
+              onChange={(e) => setCustomSport(e.target.value)}
+              placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
+              className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+            />
+          )}
         </label>
       </div>
 
