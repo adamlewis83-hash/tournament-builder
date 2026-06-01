@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tournament, TournamentConfig } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
@@ -20,15 +20,32 @@ function NumberField({
   onChange: (v: number) => void;
   hint?: string;
 }) {
+  // Local draft lets the field be emptied/edited freely; clamp only on blur.
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
       <input
         type="number"
-        value={value}
+        value={draft}
         min={min}
         max={max}
-        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
+        onChange={(e) => {
+          const v = e.target.value;
+          setDraft(v);
+          if (v === "") return; // allow empty while typing
+          const n = Number(v);
+          if (!Number.isNaN(n)) onChange(n);
+        }}
+        onBlur={() => {
+          let n = Number(draft);
+          if (draft === "" || Number.isNaN(n)) n = min;
+          n = Math.max(min, Math.min(max, n));
+          setDraft(String(n));
+          onChange(n);
+        }}
         className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
       />
       {hint && <span className="text-xs text-[var(--muted)]">{hint}</span>}
