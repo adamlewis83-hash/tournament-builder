@@ -27,6 +27,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   advanceCount: 4,
   poolCount: 2,
   bracketType: "single",
+  tiebreaker: "diff",
 };
 
 export interface CreateInput {
@@ -207,7 +208,7 @@ export const useStore = create<State>()(
 
             let finals: Match[] = [];
             if (t.format === "round-robin") {
-              const standings = computeStandings(t.participants, baseMatches);
+              const standings = computeStandings(t.participants, baseMatches, t.config.tiebreaker);
               const n = Math.min(t.config.advanceCount, standings.length);
               const seedIds = standings.slice(0, n).map((r) => r.participantId);
               if (t.playStyle === "doubles") {
@@ -227,6 +228,7 @@ export const useStore = create<State>()(
                 computeStandings(
                   t.participants,
                   baseMatches.filter((m) => m.poolId === pid),
+                  t.config.tiebreaker,
                 ),
               );
               const advancePerPool = Math.max(1, Math.ceil(t.config.advanceCount / Math.max(1, poolIds.length)));

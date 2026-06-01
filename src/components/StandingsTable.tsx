@@ -1,6 +1,6 @@
 "use client";
 
-import { Match, Participant } from "@/lib/types";
+import { Match, Participant, Tiebreaker, TIEBREAKER_LABELS } from "@/lib/types";
 import { computeStandings } from "@/lib/standings";
 import { colorFor } from "@/lib/colors";
 
@@ -9,13 +9,15 @@ export function StandingsTable({
   matches,
   highlightTop = 0,
   title,
+  tiebreaker = "diff",
 }: {
   participants: Participant[];
   matches: Match[];
   highlightTop?: number;
   title?: string;
+  tiebreaker?: Tiebreaker;
 }) {
-  const rows = computeStandings(participants, matches);
+  const rows = computeStandings(participants, matches, tiebreaker);
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
       {title && (
@@ -79,7 +81,7 @@ export function StandingsTable({
       </table>
       {highlightTop > 0 && (
         <div className="px-4 py-2 text-xs text-[var(--muted)] border-t border-[var(--border)]">
-          Top {highlightTop} advance · ties broken by point differential
+          Top {highlightTop} advance · ties broken by {TIEBREAKER_LABELS[tiebreaker].toLowerCase()}
         </div>
       )}
     </div>

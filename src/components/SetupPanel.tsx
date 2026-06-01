@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Tournament, TournamentConfig } from "@/lib/types";
+import { Tiebreaker, TIEBREAKER_LABELS, Tournament, TournamentConfig } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { colorForIndex } from "@/lib/colors";
 import { Button, Card } from "./ui";
@@ -196,11 +196,30 @@ export function SetupPanel({ t }: { t: Tournament }) {
               <select
                 value={cfg.bracketType}
                 onChange={(e) => setCfg({ bracketType: e.target.value as "single" | "double" })}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+                className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
               >
                 <option value="single">Single elimination</option>
                 <option value="double">Double elimination</option>
               </select>
+            </label>
+          )}
+          {(t.format === "round-robin" || t.format === "pool-bracket") && (
+            <label className="block col-span-2">
+              <span className="text-sm font-medium">Tiebreaker</span>
+              <select
+                value={cfg.tiebreaker ?? "diff"}
+                onChange={(e) => setCfg({ tiebreaker: e.target.value as Tiebreaker })}
+                className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+              >
+                {(Object.keys(TIEBREAKER_LABELS) as Tiebreaker[]).map((k) => (
+                  <option key={k} value={k}>
+                    {TIEBREAKER_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-[var(--muted)]">
+                How to rank players with the same win-loss record
+              </span>
             </label>
           )}
         </div>

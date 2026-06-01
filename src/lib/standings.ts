@@ -1,4 +1,4 @@
-import { Match, Participant } from "./types";
+import { Match, Participant, Tiebreaker } from "./types";
 
 export interface Standing {
   participantId: string;
@@ -22,7 +22,11 @@ function isPlayed(m: Match): boolean {
  * Sorted by wins desc, then point differential desc, then points-for desc, then name.
  * Ranks are unique (1..N) following that sort order, so seeds are unambiguous.
  */
-export function computeStandings(participants: Participant[], matches: Match[]): Standing[] {
+export function computeStandings(
+  participants: Participant[],
+  matches: Match[],
+  tiebreaker: Tiebreaker = "diff",
+): Standing[] {
   const table = new Map<string, Standing>();
   for (const p of participants) {
     table.set(p.id, {
@@ -72,9 +76,35 @@ export function computeStandings(participants: Participant[], matches: Match[]):
   const rows = [...table.values()];
   for (const r of rows) r.diff = r.pointsFor - r.pointsAgainst;
 
+  // Head-to-head wins counted only among players tied on total wins.
+  const h2h = new Map<string, number>();
+  if (tiebreaker === "headToHead") {
+    const winsOf = new Map(rows.map((r) => [r.participantId, r.wins]));
+    const group = new Map<number, Set<string>>();
+    for (const r of rows) {
+      if (!group.has(r.wins)) group.set(r.wins, new Set());
+      group.get(r.wins)!.add(r.participantId);
+      h2h.set(r.participantId, 0);
+    }
+    for (const m of matches) {
+      if (!isPlayed(m) || m.scoreA === m.scoreB) continue;
+      const aWin = (m.scoreA as number) > (m.scoreB as number);
+      const winners = aWin ? m.sideA : m.sideB;
+      const losers = aWin ? m.sideB : m.sideA;
+      for (const w of winners) {
+        const g = group.get(winsOf.get(w) ?? -1);
+        if (g && losers.some((l) => g.has(l))) h2h.set(w, (h2h.get(w) ?? 0) + 1);
+      }
+    }
+  }
+
   rows.sort(
     (x, y) =>
       y.wins - x.wins ||
+      (tiebreaker === "headToHead"
+        ? (h2h.get(y.participantId) ?? 0) - (h2h.get(x.participantId) ?? 0)
+        : 0) ||
+      (tiebreaker === "pointsFor" ? y.pointsFor - x.pointsFor : 0) ||
       y.diff - x.diff ||
       y.pointsFor - x.pointsFor ||
       x.name.localeCompare(y.name),

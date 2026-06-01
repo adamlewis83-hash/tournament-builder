@@ -16,7 +16,7 @@ function resultsText(t: Tournament): string {
   }
   const base = t.matches.filter((m) => m.phase === "rr" || m.phase === "pool");
   if (base.length) {
-    const rows = computeStandings(t.participants, base);
+    const rows = computeStandings(t.participants, base, t.config.tiebreaker);
     lines.push("Standings (W-L, diff):");
     rows.forEach((r) =>
       lines.push(`  ${r.rank}. ${r.name}  ${r.wins}-${r.losses}  (${r.diff > 0 ? "+" : ""}${r.diff})`),

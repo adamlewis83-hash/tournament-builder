@@ -26,6 +26,7 @@ export function FinalsPanel({ t }: { t: Tournament }) {
         matches={rrMatches}
         highlightTop={t.config.advanceCount}
         title="Round Robin Standings"
+        tiebreaker={t.config.tiebreaker}
       />
 
       {!hasFinals && (

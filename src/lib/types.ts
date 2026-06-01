@@ -41,6 +41,14 @@ export interface Match {
   loserNextSlot?: "A" | "B";
 }
 
+export type Tiebreaker = "diff" | "headToHead" | "pointsFor";
+
+export const TIEBREAKER_LABELS: Record<Tiebreaker, string> = {
+  diff: "Point differential",
+  headToHead: "Head-to-head, then point differential",
+  pointsFor: "Total points scored",
+};
+
 export interface TournamentConfig {
   rounds: number; // round-robin rounds
   courts: number; // simultaneous games
@@ -48,6 +56,7 @@ export interface TournamentConfig {
   advanceCount: number; // top N advance from RR / overall pools
   poolCount: number; // pool-bracket: number of pools
   bracketType: "single" | "double"; // pool-bracket: knockout style after pools
+  tiebreaker: Tiebreaker; // how to break equal win-loss records
 }
 
 export interface Tournament {

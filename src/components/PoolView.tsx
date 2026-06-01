@@ -27,7 +27,12 @@ export function PoolView({ t }: { t: Tournament }) {
           <div key={pid} className="space-y-3">
             <h2 className="text-lg font-bold">Pool {String.fromCharCode(65 + i)}</h2>
             <div className="grid lg:grid-cols-2 gap-4">
-              <StandingsTable participants={t.participants} matches={pm} title="Standings" />
+              <StandingsTable
+                participants={t.participants}
+                matches={pm}
+                title="Standings"
+                tiebreaker={t.config.tiebreaker}
+              />
               <div>
                 <ScheduleView matches={pm} participants={t.participants} tournamentId={t.id} />
               </div>
