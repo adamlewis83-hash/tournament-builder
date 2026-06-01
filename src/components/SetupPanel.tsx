@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { Tournament, TournamentConfig } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { colorForIndex } from "@/lib/colors";
 import { Button, Card } from "./ui";
+
+const SAMPLE_PLAYERS = [
+  "Cody", "Adam", "Logan", "Brittany", "Joe", "Tyler",
+  "Ashley", "Dustin", "Davis", "Richard", "Ryan", "Matt",
+];
+const SAMPLE_TEAMS = ["Net Ninjas", "Dink Dynasty", "Smash Bros", "Paddle Pirates", "Court Kings", "Spin Doctors"];
 
 function NumberField({
   label,
@@ -70,6 +77,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
     patch(t.id, { config: { ...cfg, ...patchCfg } });
 
   const isDoubles = t.playStyle === "doubles";
+  const isTeams = t.playStyle === "teams";
   const minNeeded = t.format === "round-robin" && isDoubles ? 4 : 2;
   const canGenerate = count >= minNeeded;
 
@@ -85,24 +93,51 @@ export function SetupPanel({ t }: { t: Tournament }) {
   return (
     <div className="grid lg:grid-cols-2 gap-5">
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">Participants</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-semibold">{isTeams ? "Teams" : "Participants"}</h2>
+          <button
+            type="button"
+            onClick={() => setText((isTeams ? SAMPLE_TEAMS : SAMPLE_PLAYERS).join("\n"))}
+            className="text-xs font-medium text-cyan-300 hover:text-cyan-200"
+          >
+            Fill sample
+          </button>
+        </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           One per line.{" "}
           {t.format === "single-elim" || t.format === "double-elim"
             ? "Order = seeding (top seed first)."
             : isDoubles
               ? "Individuals — partners rotate each round."
-              : "Each line is a player or team."}
+              : isTeams
+                ? "Name each team (e.g. “Net Ninjas” or “Cody & Adam”)."
+                : "Each line is a player."}
         </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={commitNames}
-          rows={12}
-          placeholder={"Cody\nAdam\nLogan\nBrittany\n…"}
-          className="w-full rounded-lg border px-3 py-2 text-sm font-mono bg-[var(--surface)]"
+          rows={10}
+          placeholder={isTeams ? "Net Ninjas\nDink Dynasty\nCody & Adam\n…" : "Cody\nAdam\nLogan\nBrittany\n…"}
+          className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
         />
         <p className="text-sm text-[var(--muted)] mt-2">{count} entered</p>
+        {count > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {names.slice(0, 40).map((n, i) => (
+              <span
+                key={`${n}-${i}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white/[0.03] px-2 py-0.5 text-xs"
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: colorForIndex(i) }}
+                />
+                {n}
+              </span>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card className="p-5 flex flex-col">
@@ -172,7 +207,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
 
         <div className="mt-auto pt-5">
           {!canGenerate && (
-            <p className="text-sm text-amber-700 mb-2">
+            <p className="text-sm text-amber-400 mb-2">
               Add at least {minNeeded} participants to generate.
             </p>
           )}

@@ -13,6 +13,7 @@ import { FinalsPanel } from "@/components/FinalsPanel";
 import { PoolView } from "@/components/PoolView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
+import { ShareBar } from "@/components/ShareBar";
 
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
@@ -56,12 +57,14 @@ function TournamentDetail({ id }: { id: string }) {
               className="text-2xl font-bold bg-transparent border-b border-transparent hover:border-[var(--border)] focus:border-[var(--brand)] outline-none"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge color="blue">{FORMAT_LABELS[t.format]}</Badge>
             <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>
+            {t.generated && <ShareBar t={t} />}
             {t.generated && (
               <Button
                 variant="outline"
+                className="px-2.5 py-1.5"
                 onClick={() => {
                   if (
                     confirm(
@@ -131,7 +134,9 @@ function TabButton({
     <button
       onClick={onClick}
       className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
-        active ? "bg-[var(--brand)] text-white" : "text-[var(--muted)] hover:text-[var(--foreground)]"
+        active
+          ? "bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-950"
+          : "text-[var(--muted)] hover:text-[var(--foreground)]"
       }`}
     >
       {children}

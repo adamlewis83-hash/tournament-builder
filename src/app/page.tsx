@@ -1,12 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
+import { decodeTournament } from "@/lib/share";
+import { sportEmoji } from "@/lib/sportEmoji";
 import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
+
+function useSharedImport() {
+  const router = useRouter();
+  const importTournament = useStore((s) => s.importTournament);
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("t");
+    if (!code) return;
+    const t = decodeTournament(code);
+    if (t) {
+      const id = importTournament(t);
+      router.replace(`/t/${id}`);
+    } else {
+      router.replace("/");
+    }
+  }, [router, importTournament]);
+}
 
 const FORMAT_COLOR: Record<string, string> = {
   "round-robin": "blue",
@@ -17,6 +40,7 @@ const FORMAT_COLOR: Record<string, string> = {
 
 export default function Home() {
   const [creating, setCreating] = useState(false);
+  useSharedImport();
   return (
     <HydrationGate>
       <div className="flex items-center justify-between gap-4 mb-6">
@@ -69,7 +93,10 @@ function TournamentList() {
                 <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
                 {!t.generated && <Badge color="slate">Setup</Badge>}
               </div>
-              <h3 className="font-semibold group-hover:text-[var(--brand)] transition">{t.name}</h3>
+              <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
+                <span className="text-xl">{sportEmoji(t.sport)}</span>
+                {t.name}
+              </h3>
               <p className="text-sm text-[var(--muted)]">
                 {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
               </p>

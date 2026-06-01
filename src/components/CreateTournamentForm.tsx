@@ -85,8 +85,8 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
               onClick={() => setFormat(f)}
               className={`text-left rounded-lg border p-3 transition ${
                 format === f
-                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-blue-50/50"
-                  : "hover:bg-slate-50"
+                  ? "border-cyan-400/60 ring-1 ring-cyan-400/50 bg-cyan-400/10"
+                  : "border-[var(--border)] hover:bg-white/5"
               }`}
             >
               <div className="font-medium text-sm">{FORMAT_LABELS[f]}</div>
@@ -106,8 +106,8 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
               onClick={() => setPlayStyle(s)}
               className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 playStyle === s
-                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-blue-50/50"
-                  : "hover:bg-slate-50"
+                  ? "border-cyan-400/60 ring-1 ring-cyan-400/50 bg-cyan-400/10"
+                  : "border-[var(--border)] hover:bg-white/5"
               }`}
             >
               {PLAYSTYLE_LABELS[s]}

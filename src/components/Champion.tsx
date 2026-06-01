@@ -2,6 +2,8 @@
 
 import { Match, Participant } from "@/lib/types";
 import { bracketChampion } from "@/lib/bracket";
+import { colorFor } from "@/lib/colors";
+import { Confetti } from "./Confetti";
 
 export function Champion({
   matches,
@@ -13,13 +15,28 @@ export function Champion({
   const champ = bracketChampion(matches);
   if (!champ) return null;
   const label = champ.map((id) => participants.find((p) => p.id === id)?.name ?? "?").join(" & ");
+
   return (
-    <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-100 p-5 text-center">
-      <div className="text-3xl">🏆</div>
-      <div className="text-xs uppercase tracking-widest text-amber-700 font-semibold mt-1">
-        Champion
+    <>
+      <Confetti trigger={label} />
+      <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-cyan-400/10 p-6 text-center glow-brand">
+        <div className="text-5xl drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]">🏆</div>
+        <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
+          Champion
+        </div>
+        <div className="mt-1 flex items-center justify-center gap-2 text-2xl font-extrabold">
+          <span className="flex -space-x-1">
+            {champ.map((id) => (
+              <span
+                key={id}
+                className="h-3.5 w-3.5 rounded-full ring-2 ring-black/40"
+                style={{ background: colorFor(participants, id) }}
+              />
+            ))}
+          </span>
+          {label}
+        </div>
       </div>
-      <div className="text-xl font-bold text-amber-900">{label}</div>
-    </div>
+    </>
   );
 }

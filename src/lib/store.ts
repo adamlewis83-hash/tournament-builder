@@ -41,6 +41,7 @@ interface State {
   tournaments: Tournament[];
   hydrated: boolean;
   createTournament: (input: CreateInput) => string;
+  importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
   duplicateTournament: (id: string) => string | null;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
@@ -117,6 +118,17 @@ export const useStore = create<State>()(
           generated: false,
         };
         set((s) => ({ tournaments: [t, ...s.tournaments] }));
+        return id;
+      },
+
+      importTournament: (t) => {
+        const id = uid();
+        const now = Date.now();
+        const copy: Tournament = { ...structuredClone(t), id, createdAt: now, updatedAt: now };
+        set((s) => {
+          if (s.tournaments.some((x) => x.id === id)) return {} as Partial<State>;
+          return { tournaments: [copy, ...s.tournaments] };
+        });
         return id;
       },
 
