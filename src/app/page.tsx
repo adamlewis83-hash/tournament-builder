@@ -43,15 +43,7 @@ export default function Home() {
   useSharedImport();
   return (
     <HydrationGate>
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Tournaments</h1>
-          <p className="text-sm text-[var(--muted)]">
-            Round robins, brackets &amp; pool play for any sport.
-          </p>
-        </div>
-        {!creating && <Button onClick={() => setCreating(true)}>+ New Tournament</Button>}
-      </div>
+      <Hero creating={creating} onCreate={() => setCreating(true)} />
 
       {creating && (
         <Card className="p-5 mb-6">
@@ -60,8 +52,83 @@ export default function Home() {
         </Card>
       )}
 
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold">Your tournaments</h2>
+        {!creating && (
+          <Button variant="outline" className="px-3 py-1.5" onClick={() => setCreating(true)}>
+            + New
+          </Button>
+        )}
+      </div>
       <TournamentList />
     </HydrationGate>
+  );
+}
+
+const FLOATERS = [
+  { e: "🏓", cls: "top-6 right-10 text-5xl", d: "0s" },
+  { e: "🎾", cls: "top-24 right-40 text-3xl", d: ".5s" },
+  { e: "🏀", cls: "bottom-8 right-20 text-4xl", d: "1s" },
+  { e: "⛳", cls: "top-10 right-64 text-2xl", d: ".8s" },
+  { e: "🎯", cls: "bottom-16 right-52 text-3xl", d: "1.3s" },
+  { e: "🥏", cls: "top-32 right-12 text-2xl", d: ".3s" },
+];
+
+const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
+  { f: "round-robin", c: "blue" },
+  { f: "single-elim", c: "green" },
+  { f: "double-elim", c: "purple" },
+  { f: "pool-bracket", c: "amber" },
+];
+
+function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl glass p-7 sm:p-10 mb-6">
+      <div aria-hidden className="pointer-events-none absolute inset-0 hidden sm:block">
+        {FLOATERS.map((f) => (
+          <span
+            key={f.e + f.cls}
+            className={`absolute animate-float opacity-80 drop-shadow-[0_0_12px_rgba(34,211,238,0.25)] ${f.cls}`}
+            style={{ animationDelay: f.d }}
+          >
+            {f.e}
+          </span>
+        ))}
+      </div>
+
+      <div className="relative z-10 max-w-2xl">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-lime-400 pulse-ring" />
+          OFFLINE-FIRST · ANY SPORT
+        </span>
+        <h1 className="mt-4 text-4xl sm:text-6xl font-extrabold tracking-tight leading-none">
+          <span className="brand-animated">Bracket Lab</span>
+        </h1>
+        <p className="mt-3 text-xl sm:text-2xl font-bold">
+          Run any tournament. Crown a champion. 🏆
+        </p>
+        <p className="mt-2 text-[var(--muted)] max-w-xl">
+          Round robins, single &amp; double elimination, and pool play — for pickleball, ping
+          pong, foosball, or whatever you dream up. Tracks wins, losses &amp; point differential
+          automatically.
+        </p>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          {!creating && (
+            <Button onClick={onCreate} className="text-base px-6 py-3">
+              + New Tournament
+            </Button>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {FORMAT_LIST.map(({ f, c }) => (
+              <Badge key={f} color={c}>
+                {FORMAT_LABELS[f]}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -73,10 +140,15 @@ function TournamentList() {
   if (tournaments.length === 0) {
     return (
       <Card className="p-10 text-center">
-        <div className="text-4xl mb-2">🎾</div>
-        <p className="font-medium">No tournaments yet</p>
+        <div className="text-4xl mb-3 flex justify-center gap-2">
+          <span className="animate-float" style={{ animationDelay: "0s" }}>🏓</span>
+          <span className="animate-float" style={{ animationDelay: ".4s" }}>🏀</span>
+          <span className="animate-float" style={{ animationDelay: ".8s" }}>🎯</span>
+        </div>
+        <p className="font-semibold">No tournaments yet</p>
         <p className="text-sm text-[var(--muted)]">
-          Create one to build a schedule, track scores, and crown a champion.
+          Hit <span className="text-cyan-300 font-medium">+ New Tournament</span> to build a
+          schedule, track scores, and crown a champion.
         </p>
       </Card>
     );
