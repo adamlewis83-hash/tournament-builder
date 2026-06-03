@@ -230,6 +230,55 @@ export function genSwissRound(
   );
 }
 
+/**
+ * King of the Court: winner stays on, loser goes to the back of the line, next
+ * challenger comes on. The rotation is replayed deterministically from results,
+ * so this returns the NEXT game (or null if the current one isn't decided yet).
+ */
+export function genKotcNext(ids: string[], existing: Match[], court = 1): Match | null {
+  if (ids.length < 2) return null;
+  const ordered = [...existing].sort((a, b) => a.round - b.round);
+  const queue = [...ids];
+  let onCourt: string | null = null;
+
+  for (const m of ordered) {
+    const decided = m.scoreA !== null && m.scoreB !== null && m.scoreA !== m.scoreB;
+    if (!decided) return null; // finish the current game before drawing the next
+    let a: string, b: string;
+    if (onCourt === null) {
+      a = queue.shift()!;
+      b = queue.shift()!;
+    } else {
+      a = onCourt;
+      b = queue.shift()!;
+    }
+    const aWin = (m.scoreA as number) > (m.scoreB as number);
+    onCourt = aWin ? a : b;
+    queue.push(aWin ? b : a);
+  }
+
+  let a: string, b: string;
+  if (onCourt === null) {
+    a = queue.shift()!;
+    b = queue.shift()!;
+  } else {
+    a = onCourt;
+    b = queue.shift()!;
+  }
+  if (a === undefined || b === undefined) return null;
+
+  const gameNumber = ordered.length + 1;
+  return makeMatch({
+    phase: "rr",
+    round: gameNumber,
+    order: 0,
+    court,
+    sideA: [a],
+    sideB: [b],
+    label: `Game ${gameNumber}`,
+  });
+}
+
 export function nameOf(participants: Participant[], id: string): string {
   return participants.find((p) => p.id === id)?.name ?? "—";
 }

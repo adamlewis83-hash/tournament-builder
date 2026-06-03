@@ -11,7 +11,7 @@ import {
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
-import { genDoublesRR, genSinglesRR, genSwissRound } from "./schedule";
+import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext } from "./schedule";
 import {
   genDoubleElim,
   genSingleElim,
@@ -71,6 +71,11 @@ function buildMatches(t: Tournament): Match[] {
 
     case "swiss":
       return genSwissRound(ids, [], 1, courts);
+
+    case "kotc": {
+      const g = genKotcNext(ids, [], 1);
+      return g ? [g] : [];
+    }
 
     case "single-elim":
       return genSingleElim(ids, "winners", { thirdPlace: t.config.thirdPlace });
@@ -186,16 +191,32 @@ export const useStore = create<State>()(
       generateNextRound: (id) =>
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
-            if (t.id !== id || t.format !== "swiss") return t;
+            if (t.id !== id) return t;
             const maxRound = t.matches.reduce((mx, m) => Math.max(mx, m.round), 0);
             const cur = t.matches.filter((m) => m.round === maxRound);
-            const complete = cur.length > 0 && cur.every((m) => m.scoreA !== null && m.scoreB !== null);
-            if (!complete || maxRound >= t.config.rounds) return t;
-            const ordered = computeStandings(t.participants, t.matches, t.config.tiebreaker).map(
-              (r) => r.participantId,
-            );
-            const next = genSwissRound(ordered, t.matches, maxRound + 1, t.config.courts);
-            return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+            const complete =
+              cur.length > 0 && cur.every((m) => m.scoreA !== null && m.scoreB !== null);
+            if (!complete) return t;
+            const ids = t.participants.map((p) => p.id);
+
+            if (t.format === "swiss") {
+              if (maxRound >= t.config.rounds) return t;
+              const ordered = computeStandings(t.participants, t.matches, t.config.tiebreaker).map(
+                (r) => r.participantId,
+              );
+              const next = genSwissRound(ordered, t.matches, maxRound + 1, t.config.courts);
+              return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+            }
+
+            if (t.format === "kotc") {
+              const standings = computeStandings(t.participants, t.matches, t.config.tiebreaker);
+              const topWins = standings.reduce((mx, r) => Math.max(mx, r.wins), 0);
+              if (topWins >= t.config.advanceCount) return t; // crown already won
+              const g = genKotcNext(ids, t.matches);
+              return g ? { ...t, matches: [...t.matches, g], updatedAt: Date.now() } : t;
+            }
+
+            return t;
           }),
         })),
 

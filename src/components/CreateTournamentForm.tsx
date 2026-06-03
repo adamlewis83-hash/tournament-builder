@@ -13,7 +13,14 @@ import {
 } from "@/lib/types";
 import { Button } from "./ui";
 
-const FORMATS: Format[] = ["round-robin", "swiss", "single-elim", "double-elim", "pool-bracket"];
+const FORMATS: Format[] = [
+  "round-robin",
+  "swiss",
+  "kotc",
+  "single-elim",
+  "double-elim",
+  "pool-bracket",
+];
 const STYLES: PlayStyle[] = ["singles", "doubles", "teams"];
 const OTHER = "__other__";
 

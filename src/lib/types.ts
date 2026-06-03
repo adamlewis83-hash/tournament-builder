@@ -3,6 +3,7 @@
 export type Format =
   | "round-robin"
   | "swiss"
+  | "kotc"
   | "single-elim"
   | "double-elim"
   | "pool-bracket";
@@ -89,6 +90,7 @@ export interface Tournament {
 export const FORMAT_LABELS: Record<Format, string> = {
   "round-robin": "Round Robin",
   swiss: "Swiss",
+  kotc: "King of the Court",
   "single-elim": "Single Elimination",
   "double-elim": "Double Elimination",
   "pool-bracket": "Pool Play → Bracket",
@@ -99,6 +101,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
     "Everyone plays. Standings by wins, then point differential. Top N advance to a final.",
   swiss:
     "Fixed number of rounds; each round you're paired against someone with a similar record. No one's eliminated — scales to lots of players.",
+  kotc:
+    "Winner stays on, loser rotates out, next challenger comes on. First to the win target takes the crown. Fast and casual.",
   "single-elim": "Seeded knockout bracket. Lose once and you're out.",
   "double-elim": "Knockout with a losers bracket — one loss before elimination.",
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",

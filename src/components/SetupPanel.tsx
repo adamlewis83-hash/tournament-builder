@@ -78,7 +78,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
 
   const isDoubles = t.playStyle === "doubles";
   const isTeams = t.playStyle === "teams";
-  const minNeeded = t.format === "round-robin" && isDoubles ? 4 : 2;
+  const minNeeded = t.format === "round-robin" && isDoubles ? 4 : t.format === "kotc" ? 3 : 2;
   const showThirdPlace =
     t.format === "single-elim" ||
     (t.format === "pool-bracket" && cfg.bracketType === "single") ||
@@ -186,6 +186,16 @@ export function SetupPanel({ t }: { t: Tournament }) {
               hint="Top N by record"
             />
           )}
+          {t.format === "kotc" && (
+            <NumberField
+              label="Wins to win the crown"
+              value={cfg.advanceCount}
+              min={1}
+              max={50}
+              onChange={(v) => setCfg({ advanceCount: v })}
+              hint="First to this many wins"
+            />
+          )}
           <NumberField
             label="Games to"
             value={cfg.pointsTo}
@@ -207,7 +217,10 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </select>
             </label>
           )}
-          {(t.format === "round-robin" || t.format === "pool-bracket" || t.format === "swiss") && (
+          {(t.format === "round-robin" ||
+            t.format === "pool-bracket" ||
+            t.format === "swiss" ||
+            t.format === "kotc") && (
             <label className="block col-span-2">
               <span className="text-sm font-medium">Tiebreaker</span>
               <select
@@ -251,9 +264,11 @@ export function SetupPanel({ t }: { t: Tournament }) {
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
             {t.format === "swiss"
               ? "Generate Round 1 →"
-              : t.format === "round-robin" || t.format === "pool-bracket"
-                ? "Generate schedule →"
-                : "Generate bracket →"}
+              : t.format === "kotc"
+                ? "Start — Game 1 →"
+                : t.format === "round-robin" || t.format === "pool-bracket"
+                  ? "Generate schedule →"
+                  : "Generate bracket →"}
           </Button>
         </div>
       </Card>

@@ -12,6 +12,7 @@ import { ScheduleView } from "@/components/ScheduleView";
 import { FinalsPanel } from "@/components/FinalsPanel";
 import { PoolView } from "@/components/PoolView";
 import { SwissView } from "@/components/SwissView";
+import { KotcView } from "@/components/KotcView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
@@ -118,6 +119,8 @@ function TournamentDetail({ id }: { id: string }) {
       )}
 
       {t.generated && t.format === "swiss" && <SwissView t={t} />}
+
+      {t.generated && t.format === "kotc" && <KotcView t={t} />}
 
       {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
     </div>
