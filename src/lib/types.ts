@@ -1,6 +1,11 @@
 // Core domain types for the tournament builder.
 
-export type Format = "round-robin" | "single-elim" | "double-elim" | "pool-bracket";
+export type Format =
+  | "round-robin"
+  | "swiss"
+  | "single-elim"
+  | "double-elim"
+  | "pool-bracket";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -83,6 +88,7 @@ export interface Tournament {
 
 export const FORMAT_LABELS: Record<Format, string> = {
   "round-robin": "Round Robin",
+  swiss: "Swiss",
   "single-elim": "Single Elimination",
   "double-elim": "Double Elimination",
   "pool-bracket": "Pool Play → Bracket",
@@ -91,6 +97,8 @@ export const FORMAT_LABELS: Record<Format, string> = {
 export const FORMAT_BLURBS: Record<Format, string> = {
   "round-robin":
     "Everyone plays. Standings by wins, then point differential. Top N advance to a final.",
+  swiss:
+    "Fixed number of rounds; each round you're paired against someone with a similar record. No one's eliminated — scales to lots of players.",
   "single-elim": "Seeded knockout bracket. Lose once and you're out.",
   "double-elim": "Knockout with a losers bracket — one loss before elimination.",
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",

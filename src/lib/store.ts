@@ -11,7 +11,7 @@ import {
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
-import { genDoublesRR, genSinglesRR } from "./schedule";
+import { genDoublesRR, genSinglesRR, genSwissRound } from "./schedule";
 import {
   genDoubleElim,
   genSingleElim,
@@ -49,6 +49,7 @@ interface State {
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
   generate: (id: string) => void;
+  generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
   setScore: (id: string, matchId: string, a: number | null, b: number | null) => void;
   generateFinals: (id: string) => void;
@@ -67,6 +68,9 @@ function buildMatches(t: Tournament): Match[] {
       return t.playStyle === "doubles"
         ? genDoublesRR(ids, rounds, courts)
         : genSinglesRR(ids, courts, "rr");
+
+    case "swiss":
+      return genSwissRound(ids, [], 1, courts);
 
     case "single-elim":
       return genSingleElim(ids, "winners", { thirdPlace: t.config.thirdPlace });
@@ -177,6 +181,22 @@ export const useStore = create<State>()(
           tournaments: s.tournaments.map((t) =>
             t.id === id ? { ...t, matches: buildMatches(t), generated: true, updatedAt: Date.now() } : t,
           ),
+        })),
+
+      generateNextRound: (id) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.format !== "swiss") return t;
+            const maxRound = t.matches.reduce((mx, m) => Math.max(mx, m.round), 0);
+            const cur = t.matches.filter((m) => m.round === maxRound);
+            const complete = cur.length > 0 && cur.every((m) => m.scoreA !== null && m.scoreB !== null);
+            if (!complete || maxRound >= t.config.rounds) return t;
+            const ordered = computeStandings(t.participants, t.matches, t.config.tiebreaker).map(
+              (r) => r.participantId,
+            );
+            const next = genSwissRound(ordered, t.matches, maxRound + 1, t.config.courts);
+            return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+          }),
         })),
 
       resetToSetup: (id) =>

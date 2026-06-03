@@ -33,6 +33,7 @@ function useSharedImport() {
 
 const FORMAT_COLOR: Record<string, string> = {
   "round-robin": "blue",
+  swiss: "slate",
   "single-elim": "green",
   "double-elim": "purple",
   "pool-bracket": "amber",
@@ -76,6 +77,7 @@ const FLOATERS = [
 
 const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
   { f: "round-robin", c: "blue" },
+  { f: "swiss", c: "slate" },
   { f: "single-elim", c: "green" },
   { f: "double-elim", c: "purple" },
   { f: "pool-bracket", c: "amber" },

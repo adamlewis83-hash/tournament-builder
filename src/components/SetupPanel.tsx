@@ -147,17 +147,17 @@ export function SetupPanel({ t }: { t: Tournament }) {
       <Card className="p-5 flex flex-col">
         <h2 className="font-semibold mb-3">Settings</h2>
         <div className="grid grid-cols-2 gap-4">
-          {t.format === "round-robin" && isDoubles && (
+          {((t.format === "round-robin" && isDoubles) || t.format === "swiss") && (
             <NumberField
               label="Rounds"
               value={cfg.rounds}
               min={1}
               max={20}
               onChange={(v) => setCfg({ rounds: v })}
-              hint="Games each player plays"
+              hint={t.format === "swiss" ? "Swiss rounds" : "Games each player plays"}
             />
           )}
-          {(t.format === "round-robin" || t.format === "pool-bracket") && (
+          {(t.format === "round-robin" || t.format === "pool-bracket" || t.format === "swiss") && (
             <NumberField
               label="Courts"
               value={cfg.courts}
@@ -207,7 +207,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </select>
             </label>
           )}
-          {(t.format === "round-robin" || t.format === "pool-bracket") && (
+          {(t.format === "round-robin" || t.format === "pool-bracket" || t.format === "swiss") && (
             <label className="block col-span-2">
               <span className="text-sm font-medium">Tiebreaker</span>
               <select
@@ -249,9 +249,11 @@ export function SetupPanel({ t }: { t: Tournament }) {
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
-            {t.format === "round-robin" || t.format === "pool-bracket"
-              ? "Generate schedule →"
-              : "Generate bracket →"}
+            {t.format === "swiss"
+              ? "Generate Round 1 →"
+              : t.format === "round-robin" || t.format === "pool-bracket"
+                ? "Generate schedule →"
+                : "Generate bracket →"}
           </Button>
         </div>
       </Card>

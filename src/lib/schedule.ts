@@ -150,6 +150,86 @@ export function genDoublesRR(ids: string[], rounds: number, courts: number): Mat
   return matches;
 }
 
+/**
+ * Generate one Swiss round. Players are paired down an ordering (seed order for
+ * round 1, standings order afterward), skipping opponents they've already faced.
+ * An odd player out gets a bye (sits the round out). 1v1 (singles/teams).
+ */
+// Backtracking: find a pairing of `pool` with zero rematches, or null if impossible.
+// Pairs the first player with each unplayed candidate (in order) and recurses.
+function matchNoRematch(pool: string[], played: Set<string>): [string, string][] | null {
+  if (pool.length === 0) return [];
+  const [a, ...rest] = pool;
+  for (let i = 0; i < rest.length; i++) {
+    const b = rest[i];
+    if (played.has(pairKey(a, b))) continue;
+    const remaining = rest.slice(0, i).concat(rest.slice(i + 1));
+    const sub = matchNoRematch(remaining, played);
+    if (sub) return [[a, b], ...sub];
+  }
+  return null;
+}
+
+function greedyPairs(pool: string[], played: Set<string>): [string, string][] {
+  const remaining = [...pool];
+  const pairs: [string, string][] = [];
+  while (remaining.length > 1) {
+    const a = remaining.shift()!;
+    let idx = remaining.findIndex((q) => !played.has(pairKey(a, q)));
+    if (idx === -1) idx = 0;
+    const b = remaining.splice(idx, 1)[0];
+    pairs.push([a, b]);
+  }
+  return pairs;
+}
+
+export function genSwissRound(
+  orderedIds: string[],
+  existing: Match[],
+  roundNumber: number,
+  courts: number,
+): Match[] {
+  const played = new Set<string>();
+  const games = new Map<string, number>();
+  for (const m of existing) {
+    for (const id of [...m.sideA, ...m.sideB]) games.set(id, (games.get(id) ?? 0) + 1);
+    if (m.sideA[0] && m.sideB[0]) played.add(pairKey(m.sideA[0], m.sideB[0]));
+  }
+
+  let pool = [...orderedIds];
+  // Odd field: one player gets a bye. Prefer whoever's played most (fewest prior byes),
+  // breaking ties toward the lower-ranked end, and only if the rest can still avoid rematches.
+  if (pool.length % 2 === 1) {
+    const cand = [...pool].sort(
+      (a, b) => (games.get(b) ?? 0) - (games.get(a) ?? 0) || pool.indexOf(b) - pool.indexOf(a),
+    );
+    let bye = cand[0];
+    if (pool.length <= 17) {
+      for (const c of cand) {
+        if (matchNoRematch(pool.filter((x) => x !== c), played)) {
+          bye = c;
+          break;
+        }
+      }
+    }
+    pool = pool.filter((x) => x !== bye);
+  }
+
+  const pairs =
+    (pool.length <= 16 ? matchNoRematch(pool, played) : null) ?? greedyPairs(pool, played);
+
+  return pairs.map(([a, b], i) =>
+    makeMatch({
+      phase: "rr",
+      round: roundNumber,
+      order: i,
+      court: (i % Math.max(1, courts)) + 1,
+      sideA: [a],
+      sideB: [b],
+    }),
+  );
+}
+
 export function nameOf(participants: Participant[], id: string): string {
   return participants.find((p) => p.id === id)?.name ?? "—";
 }
