@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { uid } from "./id";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext } from "./schedule";
+import { genRyder } from "./ryder";
 import {
   genDoubleElim,
   genSingleElim,
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   bracketType: "single",
   tiebreaker: "diff",
   thirdPlace: false,
+  teamNames: ["Team A", "Team B"],
 };
 
 export interface CreateInput {
@@ -48,6 +50,7 @@ interface State {
   duplicateTournament: (id: string) => string | null;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
+  setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -82,6 +85,9 @@ function buildMatches(t: Tournament): Match[] {
 
     case "double-elim":
       return genDoubleElim(ids);
+
+    case "ryder":
+      return genRyder(t.participants);
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -178,6 +184,26 @@ export const useStore = create<State>()(
               .filter(Boolean)
               .map((n) => existing.get(n.toLowerCase()) ?? { id: uid(), name: n });
             return { ...t, participants, updatedAt: Date.now() };
+          }),
+        })),
+
+      setRyderTeams: (id, teamA, teamB, teamNames) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
+            const build = (names: string[], team: 0 | 1): Participant[] =>
+              names
+                .map((n) => n.trim())
+                .filter(Boolean)
+                .map((n) => ({ ...(existing.get(n.toLowerCase()) ?? { id: uid(), name: n }), team }));
+            const participants = [...build(teamA, 0), ...build(teamB, 1)];
+            return {
+              ...t,
+              participants,
+              config: { ...t.config, teamNames },
+              updatedAt: Date.now(),
+            };
           }),
         })),
 

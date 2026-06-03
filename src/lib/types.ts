@@ -6,7 +6,8 @@ export type Format =
   | "kotc"
   | "single-elim"
   | "double-elim"
-  | "pool-bracket";
+  | "pool-bracket"
+  | "ryder";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -20,12 +21,14 @@ export type Phase =
   | "losers"
   | "final"
   | "championship"
-  | "placement"; // 3rd-place / consolation games
+  | "placement" // 3rd-place / consolation games
+  | "ryder"; // Ryder Cup team match-play games
 
 export interface Participant {
   id: string;
   name: string;
   seed?: number; // optional manual seed override
+  team?: 0 | 1; // Ryder Cup team assignment
 }
 
 export interface Match {
@@ -71,6 +74,7 @@ export interface TournamentConfig {
   bracketType: "single" | "double"; // pool-bracket: knockout style after pools
   tiebreaker: Tiebreaker; // how to break equal win-loss records
   thirdPlace: boolean; // add a 3rd-place game to single-elimination brackets
+  teamNames: [string, string]; // Ryder Cup team names
 }
 
 export interface Tournament {
@@ -94,6 +98,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   "single-elim": "Single Elimination",
   "double-elim": "Double Elimination",
   "pool-bracket": "Pool Play → Bracket",
+  ryder: "Ryder Cup (Team Match Play)",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -106,6 +111,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   "single-elim": "Seeded knockout bracket. Lose once and you're out.",
   "double-elim": "Knockout with a losers bracket — one loss before elimination.",
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",
+  ryder:
+    "Two teams face off in pairs + singles matches. Each match is worth a point (½ for a tie); first team past half the points wins the cup. Great for golf.",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added

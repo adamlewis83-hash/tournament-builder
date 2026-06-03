@@ -5,6 +5,7 @@ import { Tiebreaker, TIEBREAKER_LABELS, Tournament, TournamentConfig } from "@/l
 import { useStore } from "@/lib/store";
 import { colorForIndex } from "@/lib/colors";
 import { Button, Card } from "./ui";
+import { RyderSetup } from "./RyderSetup";
 
 const SAMPLE_PLAYERS = [
   "Cody", "Adam", "Logan", "Brittany", "Joe", "Tyler",
@@ -93,6 +94,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
     setParticipants(t.id, names); // commits synchronously
     generate(t.id); // reads the just-updated participants
   }
+
+  if (t.format === "ryder") return <RyderSetup t={t} />;
 
   return (
     <div className="grid lg:grid-cols-2 gap-5">

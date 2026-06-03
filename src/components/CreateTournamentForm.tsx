@@ -20,6 +20,7 @@ const FORMATS: Format[] = [
   "single-elim",
   "double-elim",
   "pool-bracket",
+  "ryder",
 ];
 const STYLES: PlayStyle[] = ["singles", "doubles", "teams"];
 const OTHER = "__other__";
@@ -103,7 +104,7 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
         </div>
       </div>
 
-      <div>
+      <div className={format === "ryder" ? "hidden" : ""}>
         <span className="text-sm font-medium">Play style</span>
         <div className="mt-2 flex flex-wrap gap-2">
           {STYLES.map((s) => (

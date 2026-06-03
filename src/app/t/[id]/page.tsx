@@ -13,6 +13,7 @@ import { FinalsPanel } from "@/components/FinalsPanel";
 import { PoolView } from "@/components/PoolView";
 import { SwissView } from "@/components/SwissView";
 import { KotcView } from "@/components/KotcView";
+import { RyderView } from "@/components/RyderView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
@@ -61,7 +62,7 @@ function TournamentDetail({ id }: { id: string }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge color="blue">{FORMAT_LABELS[t.format]}</Badge>
-            <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>
+            {t.format !== "ryder" && <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>}
             {t.generated && <ShareBar t={t} />}
             {t.generated && (
               <Button
@@ -121,6 +122,8 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && t.format === "swiss" && <SwissView t={t} />}
 
       {t.generated && t.format === "kotc" && <KotcView t={t} />}
+
+      {t.generated && t.format === "ryder" && <RyderView t={t} />}
 
       {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
     </div>

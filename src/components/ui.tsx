@@ -38,6 +38,7 @@ export function Badge({ children, color = "slate" }: { children: ReactNode; colo
     green: "bg-lime-400/15 text-lime-300 border border-lime-400/30",
     amber: "bg-amber-400/15 text-amber-300 border border-amber-400/30",
     purple: "bg-indigo-400/15 text-indigo-300 border border-indigo-400/30",
+    rose: "bg-rose-400/15 text-rose-300 border border-rose-400/30",
   };
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${map[color]}`}>
