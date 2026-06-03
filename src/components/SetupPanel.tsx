@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { colorForIndex } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
+import { GolfSetup } from "./GolfSetup";
 
 const SAMPLE_PLAYERS = [
   "Cody", "Adam", "Logan", "Brittany", "Joe", "Tyler",
@@ -96,6 +97,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
   }
 
   if (t.format === "ryder") return <RyderSetup t={t} />;
+  if (t.format === "golf") return <GolfSetup t={t} />;
 
   return (
     <div className="grid lg:grid-cols-2 gap-5">

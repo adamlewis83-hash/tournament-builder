@@ -13,6 +13,7 @@ import {
 import { uid } from "./id";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext } from "./schedule";
 import { genRyder } from "./ryder";
+import { defaultGolf } from "./golf";
 import {
   genDoubleElim,
   genSingleElim,
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   tiebreaker: "diff",
   thirdPlace: false,
   teamNames: ["Team A", "Team B"],
+  golfMode: "stroke",
 };
 
 export interface CreateInput {
@@ -51,6 +53,8 @@ interface State {
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
   setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
+  setGolfPlayers: (id: string, players: { name: string; handicap: number }[], holes: number) => void;
+  setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -88,6 +92,9 @@ function buildMatches(t: Tournament): Match[] {
 
     case "ryder":
       return genRyder(t.participants);
+
+    case "golf":
+      return []; // golf uses the scorecard model, not matches
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -204,6 +211,38 @@ export const useStore = create<State>()(
               config: { ...t.config, teamNames },
               updatedAt: Date.now(),
             };
+          }),
+        })),
+
+      setGolfPlayers: (id, players, holes) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
+            const participants: Participant[] = players
+              .filter((p) => p.name.trim())
+              .map((p) => ({
+                ...(existing.get(p.name.trim().toLowerCase()) ?? { id: uid(), name: p.name.trim() }),
+                name: p.name.trim(),
+                handicap: p.handicap,
+              }));
+            const golf = defaultGolf(
+              holes,
+              participants.map((p) => p.id),
+            );
+            return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
+          }),
+        })),
+
+      setGolfScore: (id, participantId, hole, strokes) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const scores = { ...t.golf.scores };
+            const card = [...(scores[participantId] ?? Array(t.golf.holes).fill(null))];
+            card[hole] = strokes;
+            scores[participantId] = card;
+            return { ...t, golf: { ...t.golf, scores }, updatedAt: Date.now() };
           }),
         })),
 

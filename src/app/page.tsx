@@ -39,6 +39,7 @@ const FORMAT_COLOR: Record<string, string> = {
   "double-elim": "purple",
   "pool-bracket": "amber",
   ryder: "rose",
+  golf: "green",
 };
 
 export default function Home() {
@@ -85,6 +86,7 @@ const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
   { f: "double-elim", c: "purple" },
   { f: "pool-bracket", c: "amber" },
   { f: "ryder", c: "rose" },
+  { f: "golf", c: "green" },
 ];
 
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {

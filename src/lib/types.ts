@@ -7,7 +7,8 @@ export type Format =
   | "single-elim"
   | "double-elim"
   | "pool-bracket"
-  | "ryder";
+  | "ryder"
+  | "golf";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -29,6 +30,23 @@ export interface Participant {
   name: string;
   seed?: number; // optional manual seed override
   team?: 0 | 1; // Ryder Cup team assignment
+  handicap?: number; // golf handicap (for net scoring)
+}
+
+export type GolfMode = "stroke" | "stableford" | "skins" | "scramble";
+
+export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
+  stroke: "Stroke Play",
+  stableford: "Stableford",
+  skins: "Skins",
+  scramble: "Scramble (teams)",
+};
+
+export interface GolfData {
+  holes: number; // 9 or 18
+  pars: number[]; // par for each hole
+  strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)
+  scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
 }
 
 export interface Match {
@@ -75,6 +93,7 @@ export interface TournamentConfig {
   tiebreaker: Tiebreaker; // how to break equal win-loss records
   thirdPlace: boolean; // add a 3rd-place game to single-elimination brackets
   teamNames: [string, string]; // Ryder Cup team names
+  golfMode: GolfMode; // golf scoring mode
 }
 
 export interface Tournament {
@@ -85,6 +104,7 @@ export interface Tournament {
   playStyle: PlayStyle;
   participants: Participant[];
   matches: Match[];
+  golf?: GolfData;
   config: TournamentConfig;
   createdAt: number;
   updatedAt: number;
@@ -99,6 +119,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   "double-elim": "Double Elimination",
   "pool-bracket": "Pool Play → Bracket",
   ryder: "Ryder Cup (Team Match Play)",
+  golf: "Golf",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -113,6 +134,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",
   ryder:
     "Two teams face off in pairs + singles matches. Each match is worth a point (½ for a tie); first team past half the points wins the cup. Great for golf.",
+  golf:
+    "Hole-by-hole scorecard with handicaps. Score it as Stroke Play (gross/net), Stableford, Skins, or a team Scramble — switch anytime.",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added
