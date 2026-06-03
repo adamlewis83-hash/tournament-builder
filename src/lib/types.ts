@@ -7,7 +7,14 @@ export type Format = "round-robin" | "single-elim" | "double-elim" | "pool-brack
 // teams: each participant IS a team (e.g. a fixed doubles pair "Cody / Adam")
 export type PlayStyle = "singles" | "doubles" | "teams";
 
-export type Phase = "rr" | "pool" | "winners" | "losers" | "final" | "championship";
+export type Phase =
+  | "rr"
+  | "pool"
+  | "winners"
+  | "losers"
+  | "final"
+  | "championship"
+  | "placement"; // 3rd-place / consolation games
 
 export interface Participant {
   id: string;
@@ -57,6 +64,7 @@ export interface TournamentConfig {
   poolCount: number; // pool-bracket: number of pools
   bracketType: "single" | "double"; // pool-bracket: knockout style after pools
   tiebreaker: Tiebreaker; // how to break equal win-loss records
+  thirdPlace: boolean; // add a 3rd-place game to single-elimination brackets
 }
 
 export interface Tournament {

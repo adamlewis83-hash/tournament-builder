@@ -28,6 +28,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   poolCount: 2,
   bracketType: "single",
   tiebreaker: "diff",
+  thirdPlace: false,
 };
 
 export interface CreateInput {
@@ -68,7 +69,7 @@ function buildMatches(t: Tournament): Match[] {
         : genSinglesRR(ids, courts, "rr");
 
     case "single-elim":
-      return genSingleElim(ids);
+      return genSingleElim(ids, "winners", { thirdPlace: t.config.thirdPlace });
 
     case "double-elim":
       return genDoubleElim(ids);
@@ -217,9 +218,9 @@ export const useStore = create<State>()(
                 for (let i = 0; i < Math.floor(seedIds.length / 2); i++) {
                   sides.push([seedIds[i], seedIds[seedIds.length - 1 - i]]);
                 }
-                finals = genSingleElimSides(sides, "winners");
+                finals = genSingleElimSides(sides, "winners", { thirdPlace: t.config.thirdPlace });
               } else {
-                finals = genSingleElim(seedIds, "winners");
+                finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.thirdPlace });
               }
             } else if (t.format === "pool-bracket") {
               // Seed across pools: all pool winners first, then runners-up, etc.
@@ -242,7 +243,7 @@ export const useStore = create<State>()(
               finals =
                 t.config.bracketType === "double"
                   ? genDoubleElim(seedIds)
-                  : genSingleElim(seedIds, "winners");
+                  : genSingleElim(seedIds, "winners", { thirdPlace: t.config.thirdPlace });
             }
             return { ...t, matches: [...baseMatches, ...finals], updatedAt: Date.now() };
           }),

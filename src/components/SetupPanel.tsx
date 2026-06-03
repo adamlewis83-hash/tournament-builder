@@ -79,6 +79,10 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const isDoubles = t.playStyle === "doubles";
   const isTeams = t.playStyle === "teams";
   const minNeeded = t.format === "round-robin" && isDoubles ? 4 : 2;
+  const showThirdPlace =
+    t.format === "single-elim" ||
+    (t.format === "pool-bracket" && cfg.bracketType === "single") ||
+    (t.format === "round-robin" && !isDoubles);
   const canGenerate = count >= minNeeded;
 
   function commitNames() {
@@ -219,6 +223,20 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </select>
               <span className="text-xs text-[var(--muted)]">
                 How to rank players with the same win-loss record
+              </span>
+            </label>
+          )}
+          {showThirdPlace && (
+            <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={cfg.thirdPlace ?? false}
+                onChange={(e) => setCfg({ thirdPlace: e.target.checked })}
+                className="h-4 w-4 accent-cyan-400"
+              />
+              <span className="text-sm font-medium">
+                Add a 3rd-place game{" "}
+                <span className="text-[var(--muted)] font-normal">(semifinal losers play off)</span>
               </span>
             </label>
           )}

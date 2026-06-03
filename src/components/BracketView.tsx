@@ -78,6 +78,7 @@ export function BracketView({
   const winners = matches.filter((m) => m.phase === "winners");
   const losers = matches.filter((m) => m.phase === "losers");
   const finals = matches.filter((m) => m.phase === "final" || m.phase === "championship");
+  const placement = matches.filter((m) => m.phase === "placement");
   const hasLosers = losers.length > 0;
 
   const winnerLabel = (_r: number, count: number) =>
@@ -108,6 +109,15 @@ export function BracketView({
           participants={participants}
           tournamentId={tournamentId}
           roundLabel={(r) => (r === 1 ? "Grand Final" : "Reset (if needed)")}
+        />
+      )}
+      {placement.length > 0 && (
+        <Section
+          label="3rd-Place Game"
+          phaseMatches={placement}
+          participants={participants}
+          tournamentId={tournamentId}
+          roundLabel={() => "Bronze"}
         />
       )}
     </div>

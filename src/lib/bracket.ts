@@ -145,15 +145,24 @@ function elimRoundLabel(matchesInRound: number): string {
  * Build a single-elimination bracket from seeded ids (index 0 = top seed).
  * Byes are auto-resolved: a lone participant advances into the next round.
  */
-export function genSingleElim(seedIds: string[], phase: Phase = "winners"): Match[] {
+export function genSingleElim(
+  seedIds: string[],
+  phase: Phase = "winners",
+  opts?: { thirdPlace?: boolean },
+): Match[] {
   return genSingleElimSides(
     seedIds.map((id) => [id]),
     phase,
+    opts,
   );
 }
 
 /** Single elimination where each "seed" is a side that may hold multiple ids (doubles teams). */
-export function genSingleElimSides(seedSides: string[][], phase: Phase = "winners"): Match[] {
+export function genSingleElimSides(
+  seedSides: string[][],
+  phase: Phase = "winners",
+  opts?: { thirdPlace?: boolean },
+): Match[] {
   const S = seedSides.length;
   const P = nextPow2(S);
   const order = seedOrder(P);
@@ -201,6 +210,27 @@ export function genSingleElimSides(seedSides: string[][], phase: Phase = "winner
     const cnt = byRound[m.round - 1].length;
     m.label = elimRoundLabel(cnt);
   }
+
+  // Optional 3rd-place game: the two semifinal losers play off.
+  if (opts?.thirdPlace && byRound.length >= 2) {
+    const semis = byRound[byRound.length - 2];
+    if (semis.length === 2) {
+      const placement = makeMatch({
+        phase: "placement",
+        round: byRound.length,
+        order: 1,
+        label: "3rd-Place Game",
+        sideALabel: "Semifinal loser",
+        sideBLabel: "Semifinal loser",
+      });
+      semis[0].loserNextMatchId = placement.id;
+      semis[0].loserNextSlot = "A";
+      semis[1].loserNextMatchId = placement.id;
+      semis[1].loserNextSlot = "B";
+      all.push(placement);
+    }
+  }
+
   return collapseByes(all);
 }
 
@@ -232,7 +262,7 @@ function collapseByes(matches: Match[]): Match[] {
     const hasFeeder = (id: string, slot: "A" | "B") => feeders.has(`${id}:${slot}`);
 
     for (const m of live) {
-      if (m.phase === "final" || m.phase === "championship") continue;
+      if (m.phase === "final" || m.phase === "championship" || m.phase === "placement") continue;
       const aBye = m.sideA.length === 0 && !hasFeeder(m.id, "A");
       const bBye = m.sideB.length === 0 && !hasFeeder(m.id, "B");
       if (!aBye && !bBye) continue;
