@@ -72,7 +72,10 @@ function PairingEditor({
 }
 
 export function RyderView({ t }: { t: Tournament }) {
-  const [editing, setEditing] = useState(false);
+  // Default into captain's-picks mode until scoring has started.
+  const [editing, setEditing] = useState(
+    () => !t.matches.some((m) => m.phase === "ryder" && m.scoreA !== null),
+  );
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
   const score = ryderScore(t.matches);
   const ryder = t.matches.filter((m) => m.phase === "ryder");

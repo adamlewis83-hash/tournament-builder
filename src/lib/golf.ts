@@ -1,6 +1,16 @@
-import { GolfData, GolfMode, Participant, Tournament } from "./types";
+import { GolfData, GolfMode, GolfSegment, Participant, Tournament } from "./types";
 
 export const isSideGame = (m: GolfMode) => m === "bingo" || m === "wolf";
+
+export interface HoleRange {
+  from: number; // 1-based inclusive
+  to: number;
+}
+
+export function segmentForHole(segments: GolfSegment[] | undefined, holeIdx0: number): GolfSegment | undefined {
+  const h = holeIdx0 + 1;
+  return segments?.find((s) => h >= s.from && h <= s.to);
+}
 
 // Standard par-72 layout + a spread stroke index (front nine odd, back nine even).
 const PAR_18 = [4, 4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 5];
@@ -30,13 +40,16 @@ export interface PointRow {
 }
 
 /** Bingo Bango Bongo: 1 point per award (first on, closest, first in). */
-export function computeBbb(t: Tournament): PointRow[] {
+export function computeBbb(t: Tournament, range?: HoleRange): PointRow[] {
   const g = t.golf;
+  const lo = range ? range.from - 1 : 0;
+  const hi = range ? range.to - 1 : (g?.holes ?? 1) - 1;
   const counts = new Map<string, { points: number; bi: number; ba: number; bo: number }>();
   t.participants.forEach((p) => counts.set(p.id, { points: 0, bi: 0, ba: 0, bo: 0 }));
   if (g?.bbb) {
     const tally = (arr: (string | null)[], key: "bi" | "ba" | "bo") => {
-      for (const id of arr) {
+      for (let h = lo; h <= hi; h++) {
+        const id = arr[h];
         if (id && counts.has(id)) {
           const c = counts.get(id)!;
           c.points += 1;
@@ -135,17 +148,19 @@ export interface GolfRow {
   backNet: number; // Nassau back 9 (net)
 }
 
-export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[] {
+export function computeGolf(t: Tournament, mode: GolfMode = "stroke", range?: HoleRange): GolfRow[] {
   const g = t.golf;
   if (!g) return [];
   const players = t.participants;
+  const lo = range ? range.from - 1 : 0;
+  const hi = range ? range.to - 1 : g.holes - 1;
 
   // Skins (gross) with carryover — resolved only over consecutive completed holes.
   const skinsMap = new Map<string, number>();
   players.forEach((p) => skinsMap.set(p.id, 0));
   {
     let pot = 1;
-    for (let h = 0; h < g.holes; h++) {
+    for (let h = lo; h <= hi; h++) {
       const entries = players.map((p) => ({ id: p.id, v: g.scores[p.id]?.[h] ?? null }));
       if (entries.some((e) => e.v === null)) break; // can't resolve this/later holes yet
       const min = Math.min(...entries.map((e) => e.v as number));
@@ -169,7 +184,7 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[]
     let stableford = 0;
     let frontNet = 0;
     let backNet = 0;
-    for (let h = 0; h < g.holes; h++) {
+    for (let h = lo; h <= hi; h++) {
       const s = card[h];
       if (s === null || s === undefined) continue;
       thru++;

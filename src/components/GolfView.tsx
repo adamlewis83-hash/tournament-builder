@@ -8,6 +8,7 @@ import { colorFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { BbbView } from "./BbbView";
 import { WolfView } from "./WolfView";
+import { MixedGolfView } from "./MixedGolfView";
 
 const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins", "nassau"];
 
@@ -21,6 +22,7 @@ export function GolfView({ t }: { t: Tournament }) {
 
   if (t.config.golfMode === "bingo") return <BbbView t={t} />;
   if (t.config.golfMode === "wolf") return <WolfView t={t} />;
+  if (t.config.golfMode === "mixed") return <MixedGolfView t={t} />;
 
   const isScramble = t.config.golfMode === "scramble";
   const mode: GolfMode = isScramble

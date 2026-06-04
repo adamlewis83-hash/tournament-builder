@@ -1,12 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
+import { GOLF_MODE_LABELS, GolfMode, GolfSegment, SegmentFormat, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
 import { Button, Card } from "./ui";
 
-const MODES: GolfMode[] = ["stroke", "stableford", "skins", "nassau", "bingo", "wolf", "scramble"];
+const MODES: GolfMode[] = [
+  "stroke",
+  "stableford",
+  "skins",
+  "nassau",
+  "bingo",
+  "wolf",
+  "scramble",
+  "mixed",
+];
+
+const SEGMENT_FORMATS: SegmentFormat[] = ["stroke", "stableford", "skins", "bingo"];
+
+function defaultSegments(holes: number): GolfSegment[] {
+  const chunk = Math.ceil(holes / 3);
+  const fmts: SegmentFormat[] = ["stroke", "stableford", "skins"];
+  const segs: GolfSegment[] = [];
+  for (let i = 0; i < 3; i++) {
+    const from = i * chunk + 1;
+    const to = Math.min((i + 1) * chunk, holes);
+    if (from <= to) segs.push({ from, to, format: fmts[i] });
+  }
+  return segs;
+}
 
 interface PlayerRow {
   name: string;
@@ -26,6 +49,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
   const [showCourse, setShowCourse] = useState(false);
+  const [segments, setSegments] = useState<GolfSegment[]>(
+    t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18),
+  );
 
   const seed: PlayerRow[] = t.participants.length
     ? t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0) }))
@@ -42,6 +68,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     const c = defaultCourse(n);
     setPars(c.pars);
     setSi(c.strokeIndex);
+    setSegments(defaultSegments(n));
   }
 
   const valid = players.filter((p) => p.name.trim()).length >= 1;
@@ -57,6 +84,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       pars: pars.slice(0, holes),
       strokeIndex: si.slice(0, holes),
       courseName,
+      segments: mode === "mixed" ? segments : undefined,
     });
   }
 
@@ -230,6 +258,82 @@ export function GolfSetup({ t }: { t: Tournament }) {
           Stroke / Stableford / Skins / Nassau share one scorecard — switch views anytime while you
           play.
         </p>
+
+        {mode === "mixed" && (
+          <div className="mt-4 border-t border-[var(--border)] pt-4">
+            <h3 className="font-medium text-sm mb-1">Segments</h3>
+            <p className="text-xs text-[var(--muted)] mb-3">
+              Assign a format to each stretch of holes — e.g. 1–6 Stroke, 7–12 Bingo, 13–18
+              Stableford.
+            </p>
+            <div className="space-y-2">
+              {segments.map((seg, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className="text-[var(--muted)]">Holes</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={holes}
+                    value={seg.from}
+                    onChange={(e) => {
+                      const next = [...segments];
+                      next[i] = { ...next[i], from: Number(e.target.value) || 1 };
+                      setSegments(next);
+                    }}
+                    className="w-14 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center bg-[var(--surface)]"
+                  />
+                  <span className="text-[var(--muted)]">–</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={holes}
+                    value={seg.to}
+                    onChange={(e) => {
+                      const next = [...segments];
+                      next[i] = { ...next[i], to: Number(e.target.value) || 1 };
+                      setSegments(next);
+                    }}
+                    className="w-14 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center bg-[var(--surface)]"
+                  />
+                  <select
+                    value={seg.format}
+                    onChange={(e) => {
+                      const next = [...segments];
+                      next[i] = { ...next[i], format: e.target.value as SegmentFormat };
+                      setSegments(next);
+                    }}
+                    className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 bg-[var(--surface)]"
+                  >
+                    {SEGMENT_FORMATS.map((f) => (
+                      <option key={f} value={f}>
+                        {GOLF_MODE_LABELS[f]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSegments(segments.filter((_, j) => j !== i))}
+                    className="text-[var(--muted)] hover:text-rose-400 px-1"
+                    aria-label="Remove"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const last = segments[segments.length - 1];
+                const from = last ? Math.min(last.to + 1, holes) : 1;
+                setSegments([...segments, { from, to: holes, format: "stroke" }]);
+              }}
+              className="mt-2 text-sm text-cyan-300 hover:text-cyan-200"
+            >
+              + Add segment
+            </button>
+          </div>
+        )}
       </Card>
 
       <div className="flex justify-end">

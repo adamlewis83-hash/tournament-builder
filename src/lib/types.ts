@@ -40,7 +40,8 @@ export type GolfMode =
   | "scramble"
   | "nassau"
   | "bingo"
-  | "wolf";
+  | "wolf"
+  | "mixed";
 
 export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
   stroke: "Stroke Play",
@@ -50,7 +51,16 @@ export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
   nassau: "Nassau",
   bingo: "Bingo Bango Bongo",
   wolf: "Wolf",
+  mixed: "Build Your Own",
 };
+
+// A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
+export type SegmentFormat = "stroke" | "stableford" | "skins" | "bingo";
+export interface GolfSegment {
+  from: number;
+  to: number;
+  format: SegmentFormat;
+}
 
 // Per-hole award winners for Bingo Bango Bongo (participantId or null).
 export interface BbbData {
@@ -72,6 +82,7 @@ export interface GolfData {
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices
+  segments?: GolfSegment[]; // "Build Your Own": format per hole range
 }
 
 export interface Match {

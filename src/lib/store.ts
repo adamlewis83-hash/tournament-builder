@@ -65,6 +65,7 @@ interface State {
       pars?: number[];
       strokeIndex?: number[];
       courseName?: string;
+      segments?: import("./types").GolfSegment[];
     },
   ) => void;
   setGolfHandicap: (id: string, participantId: string, handicap: number) => void;
@@ -289,6 +290,7 @@ export const useStore = create<State>()(
             if (input.strokeIndex && input.strokeIndex.length === golf.holes)
               golf.strokeIndex = input.strokeIndex;
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
+            if (input.segments?.length) golf.segments = input.segments;
             return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
           }),
         }));
