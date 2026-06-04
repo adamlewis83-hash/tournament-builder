@@ -12,7 +12,100 @@ export function defaultGolf(holes: number, participantIds: string[]): GolfData {
   const strokeIndex = n === 18 ? SI_18 : Array.from({ length: 9 }, (_, i) => i + 1);
   const scores: Record<string, (number | null)[]> = {};
   for (const id of participantIds) scores[id] = Array(n).fill(null);
-  return { holes: n, pars, strokeIndex, scores };
+  return {
+    holes: n,
+    pars,
+    strokeIndex,
+    scores,
+    bbb: { bingo: Array(n).fill(null), bango: Array(n).fill(null), bongo: Array(n).fill(null) },
+    wolf: { partner: Array(n).fill(null) },
+  };
+}
+
+export interface PointRow {
+  participantId: string;
+  name: string;
+  points: number;
+  detail: string; // small breakdown, e.g. award counts
+}
+
+/** Bingo Bango Bongo: 1 point per award (first on, closest, first in). */
+export function computeBbb(t: Tournament): PointRow[] {
+  const g = t.golf;
+  const counts = new Map<string, { points: number; bi: number; ba: number; bo: number }>();
+  t.participants.forEach((p) => counts.set(p.id, { points: 0, bi: 0, ba: 0, bo: 0 }));
+  if (g?.bbb) {
+    const tally = (arr: (string | null)[], key: "bi" | "ba" | "bo") => {
+      for (const id of arr) {
+        if (id && counts.has(id)) {
+          const c = counts.get(id)!;
+          c.points += 1;
+          c[key] += 1;
+        }
+      }
+    };
+    tally(g.bbb.bingo, "bi");
+    tally(g.bbb.bango, "ba");
+    tally(g.bbb.bongo, "bo");
+  }
+  return t.participants
+    .map((p) => {
+      const c = counts.get(p.id)!;
+      return {
+        participantId: p.id,
+        name: p.name,
+        points: c.points,
+        detail: `${c.bi} / ${c.ba} / ${c.bo}`,
+      };
+    })
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}
+
+/** The wolf for a given hole (0-based), by fixed rotation through the field. */
+export function wolfForHole(participantIds: string[], hole: number): string | undefined {
+  if (!participantIds.length) return undefined;
+  return participantIds[hole % participantIds.length];
+}
+
+/**
+ * Wolf scoring from the scorecard + per-hole partner choice.
+ * Partnered win: wolf & partner +1 each. Lone win: wolf +3.
+ * Partnered loss: each opponent +2. Lone loss: each opponent +1. Ties: no points.
+ */
+export function computeWolf(t: Tournament): PointRow[] {
+  const g = t.golf;
+  const ids = t.participants.map((p) => p.id);
+  const pts = new Map<string, number>();
+  ids.forEach((id) => pts.set(id, 0));
+  const add = (id: string, n: number) => pts.set(id, (pts.get(id) ?? 0) + n);
+
+  if (g?.wolf) {
+    for (let h = 0; h < g.holes; h++) {
+      const wolf = wolfForHole(ids, h);
+      const choice = g.wolf.partner[h];
+      if (!wolf || !choice) continue;
+      const score = (id: string) => g.scores[id]?.[h];
+      if (ids.some((id) => score(id) === null || score(id) === undefined)) continue; // need all scores
+
+      if (choice === "lone") {
+        const others = ids.filter((id) => id !== wolf);
+        const wolfScore = score(wolf) as number;
+        const oppBest = Math.min(...others.map((id) => score(id) as number));
+        if (wolfScore < oppBest) add(wolf, 3);
+        else if (wolfScore > oppBest) others.forEach((id) => add(id, 1));
+      } else {
+        const team = [wolf, choice];
+        const opps = ids.filter((id) => id !== wolf && id !== choice);
+        const teamBest = Math.min(...team.map((id) => score(id) as number));
+        const oppBest = Math.min(...opps.map((id) => score(id) as number));
+        if (teamBest < oppBest) team.forEach((id) => add(id, 1));
+        else if (teamBest > oppBest) opps.forEach((id) => add(id, 2));
+      }
+    }
+  }
+  return t.participants
+    .map((p) => ({ participantId: p.id, name: p.name, points: pts.get(p.id) ?? 0, detail: "" }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 }
 
 /** Handicap strokes received on a hole of the given stroke index. */

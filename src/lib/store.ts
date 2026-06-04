@@ -56,6 +56,13 @@ interface State {
   setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
   setGolfPlayers: (id: string, players: { name: string; handicap: number }[], holes: number) => void;
   setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
+  setGolfAward: (
+    id: string,
+    kind: "bingo" | "bango" | "bongo",
+    hole: number,
+    participantId: string | null,
+  ) => void;
+  setGolfWolf: (id: string, hole: number, partner: string | "lone" | null) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -278,6 +285,34 @@ export const useStore = create<State>()(
           }),
         }));
         pushPatch(id, { kind: "golfScore", participantId, hole, strokes });
+      },
+
+      setGolfAward: (id, kind, hole, participantId) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.bbb) return t;
+            const bbb = {
+              bingo: [...t.golf.bbb.bingo],
+              bango: [...t.golf.bbb.bango],
+              bongo: [...t.golf.bbb.bongo],
+            };
+            bbb[kind][hole] = participantId;
+            return { ...t, golf: { ...t.golf, bbb }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfWolf: (id, hole, partner) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.wolf) return t;
+            const partnerArr = [...t.golf.wolf.partner];
+            partnerArr[hole] = partner;
+            return { ...t, golf: { ...t.golf, wolf: { partner: partnerArr } }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
       },
 
       generate: (id) => {

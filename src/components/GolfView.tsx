@@ -5,6 +5,8 @@ import { useStore } from "@/lib/store";
 import { computeGolf, formatToPar } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Card } from "./ui";
+import { BbbView } from "./BbbView";
+import { WolfView } from "./WolfView";
 
 const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins", "nassau"];
 
@@ -13,6 +15,9 @@ export function GolfView({ t }: { t: Tournament }) {
   const setGolfScore = useStore((s) => s.setGolfScore);
   const g = t.golf;
   if (!g) return null;
+
+  if (t.config.golfMode === "bingo") return <BbbView t={t} />;
+  if (t.config.golfMode === "wolf") return <WolfView t={t} />;
 
   const isScramble = t.config.golfMode === "scramble";
   const mode: GolfMode = isScramble
