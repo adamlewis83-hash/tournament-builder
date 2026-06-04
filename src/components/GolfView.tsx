@@ -6,7 +6,7 @@ import { computeGolf, formatToPar } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Card } from "./ui";
 
-const MODES: GolfMode[] = ["stroke", "stableford", "skins"];
+const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins"];
 
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
@@ -14,28 +14,40 @@ export function GolfView({ t }: { t: Tournament }) {
   const g = t.golf;
   if (!g) return null;
 
-  const mode = MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke";
+  const isScramble = t.config.golfMode === "scramble";
+  const mode: GolfMode = isScramble
+    ? "scramble"
+    : SWITCHABLE.includes(t.config.golfMode)
+      ? t.config.golfMode
+      : "stroke";
+  const strokeLike = mode === "stroke" || mode === "scramble";
   const rows = computeGolf(t, mode);
   const holes = Array.from({ length: g.holes }, (_, i) => i);
   const totalPar = g.pars.reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-5">
-      <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
-        {MODES.map((m) => (
-          <button
-            key={m}
-            onClick={() => patch(t.id, { config: { ...t.config, golfMode: m } })}
-            className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
-              mode === m
-                ? "bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-950"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            {GOLF_MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
+      {isScramble ? (
+        <div className="inline-flex rounded-lg border border-[var(--border)] bg-cyan-400/10 px-3.5 py-1.5 text-sm font-semibold text-cyan-300">
+          {GOLF_MODE_LABELS.scramble}
+        </div>
+      ) : (
+        <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+          {SWITCHABLE.map((m) => (
+            <button
+              key={m}
+              onClick={() => patch(t.id, { config: { ...t.config, golfMode: m } })}
+              className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
+                mode === m
+                  ? "bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-950"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {GOLF_MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Leaderboard */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
@@ -48,11 +60,11 @@ export function GolfView({ t }: { t: Tournament }) {
               <th className="px-3 py-2 w-10">#</th>
               <th className="px-3 py-2">Player</th>
               <th className="px-2 py-2 text-center w-14">Thru</th>
-              {mode === "stroke" && <th className="px-2 py-2 text-center w-16">To Par</th>}
+              {strokeLike && <th className="px-2 py-2 text-center w-16">To Par</th>}
               {mode === "stableford" && <th className="px-2 py-2 text-center w-16">Points</th>}
               {mode === "skins" && <th className="px-2 py-2 text-center w-14">Skins</th>}
               <th className="px-2 py-2 text-center w-16">Gross</th>
-              {mode === "stroke" && <th className="px-2 py-2 text-center w-14">Net</th>}
+              {strokeLike && <th className="px-2 py-2 text-center w-14">Net</th>}
             </tr>
           </thead>
           <tbody>
@@ -70,7 +82,7 @@ export function GolfView({ t }: { t: Tournament }) {
                   </span>
                 </td>
                 <td className="px-2 py-2 text-center tabular-nums">{r.thru ? `${r.thru}` : "–"}</td>
-                {mode === "stroke" && (
+                {strokeLike && (
                   <td className="px-2 py-2 text-center tabular-nums font-bold">
                     {r.thru ? formatToPar(r.toPar) : "–"}
                   </td>
@@ -82,7 +94,7 @@ export function GolfView({ t }: { t: Tournament }) {
                   <td className="px-2 py-2 text-center tabular-nums font-bold">{r.skins}</td>
                 )}
                 <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.gross : "–"}</td>
-                {mode === "stroke" && (
+                {strokeLike && (
                   <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.net : "–"}</td>
                 )}
               </tr>

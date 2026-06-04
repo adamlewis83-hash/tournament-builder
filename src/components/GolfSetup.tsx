@@ -5,8 +5,7 @@ import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
 
-// Modes that run off the individual scorecard (Scramble is team-based — separate setup, coming next).
-const MODES: GolfMode[] = ["stroke", "stableford", "skins"];
+const MODES: GolfMode[] = ["stroke", "stableford", "skins", "scramble"];
 
 export function GolfSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
@@ -15,6 +14,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [mode, setMode] = useState<GolfMode>(
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
   );
+  const isScramble = mode === "scramble";
   const [holes, setHoles] = useState<number>(t.golf?.holes ?? 18);
   const [text, setText] = useState(
     t.participants.map((p) => (p.handicap ? `${p.name}, ${p.handicap}` : p.name)).join("\n"),
@@ -36,19 +36,30 @@ export function GolfSetup({ t }: { t: Tournament }) {
   return (
     <div className="grid lg:grid-cols-2 gap-5">
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">Players &amp; handicaps</h2>
+        <h2 className="font-semibold mb-1">{isScramble ? "Teams" : "Players & handicaps"}</h2>
         <p className="text-sm text-[var(--muted)] mb-3">
-          One per line. Add a handicap after a comma for net scoring — e.g.{" "}
-          <span className="font-mono">Adam, 12</span>. No handicap = scratch (0).
+          {isScramble ? (
+            <>
+              One team per line — scramble plays one ball per team. Add a team handicap after a comma,
+              e.g. <span className="font-mono">Team Eagles, 6</span>.
+            </>
+          ) : (
+            <>
+              One per line. Add a handicap after a comma for net scoring — e.g.{" "}
+              <span className="font-mono">Adam, 12</span>. No handicap = scratch (0).
+            </>
+          )}
         </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={10}
-          placeholder={"Adam, 8\nCody, 14\nLogan, 2\nMatt, 20"}
+          placeholder={isScramble ? "Team Eagles, 6\nTeam Birdies, 4\nThe Hackers, 12" : "Adam, 8\nCody, 14\nLogan, 2\nMatt, 20"}
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
         />
-        <p className="text-sm text-[var(--muted)] mt-2">{players.length} players</p>
+        <p className="text-sm text-[var(--muted)] mt-2">
+          {players.length} {isScramble ? "teams" : "players"}
+        </p>
       </Card>
 
       <Card className="p-5 flex flex-col">
