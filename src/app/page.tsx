@@ -10,6 +10,7 @@ import { sportEmoji } from "@/lib/sportEmoji";
 import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
+import { SyncPanel } from "@/components/SyncPanel";
 
 function useSharedImport() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function Home() {
       )}
 
       <JoinByCode />
+      <SyncPanel />
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold">Your tournaments</h2>

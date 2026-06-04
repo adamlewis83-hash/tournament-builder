@@ -20,3 +20,16 @@ model LiveTournament {
 
   @@map("live_tournaments")
 }
+
+// A user's tournament backed up to the cloud under their anonymous library key.
+// Survives browser/storage clearing and lets a library be pulled onto other devices.
+model OwnedTournament {
+  id        String   @id // the tournament id
+  ownerId   String // anonymous library key (per device, shareable to restore)
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("owned_tournaments")
+}

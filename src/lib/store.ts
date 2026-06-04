@@ -54,6 +54,7 @@ interface State {
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
   duplicateTournament: (id: string) => string | null;
+  mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
   setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
@@ -209,6 +210,20 @@ export const useStore = create<State>()(
         });
         return id;
       },
+
+      mergeCloud: (list) =>
+        set((s) => {
+          const byId = new Map(s.tournaments.map((t) => [t.id, t]));
+          for (const remote of list) {
+            const local = byId.get(remote.id);
+            if (!local || (remote.updatedAt ?? 0) > (local.updatedAt ?? 0)) {
+              byId.set(remote.id, remote);
+            }
+          }
+          return {
+            tournaments: [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt),
+          };
+        }),
 
       removeTournament: (id) =>
         set((s) => ({ tournaments: s.tournaments.filter((t) => t.id !== id) })),
