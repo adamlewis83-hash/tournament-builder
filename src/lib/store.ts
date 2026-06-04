@@ -21,6 +21,7 @@ import {
   propagateBracket,
 } from "./bracket";
 import { computeStandings } from "./standings";
+import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
@@ -61,6 +62,11 @@ interface State {
   setScore: (id: string, matchId: string, a: number | null, b: number | null) => void;
   generateFinals: (id: string) => void;
   clearFinals: (id: string) => void;
+  // Live shared scoring
+  publishLive: (id: string) => Promise<string | null>;
+  joinLive: (code: string) => Promise<string | null>;
+  goOffline: (id: string) => void;
+  applyRemote: (id: string, data: Tournament, version: number) => void;
 }
 
 const isFinalsPhase = (m: Match) =>
@@ -121,7 +127,29 @@ function buildMatches(t: Tournament): Match[] {
 
 export const useStore = create<State>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      // Push a mergeable change to the live session (if this tournament is live).
+      const pushPatch = (id: string, patch: LivePatch) => {
+        if (typeof window === "undefined") return;
+        const t = get().tournaments.find((x) => x.id === id);
+        if (!t?.liveCode) return;
+        sendPatch(t.liveCode, patch)
+          .then((res) => {
+            if (res)
+              set((s) => ({
+                tournaments: s.tournaments.map((x) =>
+                  x.id === id ? { ...x, liveVersion: res.version } : x,
+                ),
+              }));
+          })
+          .catch(() => {});
+      };
+      const pushReplace = (id: string) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        if (t?.liveCode) pushPatch(id, { kind: "replace", data: { ...t } });
+      };
+
+      return {
       tournaments: [],
       hydrated: false,
 
@@ -194,7 +222,7 @@ export const useStore = create<State>()(
           }),
         })),
 
-      setRyderTeams: (id, teamA, teamB, teamNames) =>
+      setRyderTeams: (id, teamA, teamB, teamNames) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -212,9 +240,11 @@ export const useStore = create<State>()(
               updatedAt: Date.now(),
             };
           }),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      setGolfPlayers: (id, players, holes) =>
+      setGolfPlayers: (id, players, holes) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -232,9 +262,11 @@ export const useStore = create<State>()(
             );
             return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
           }),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      setGolfScore: (id, participantId, hole, strokes) =>
+      setGolfScore: (id, participantId, hole, strokes) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id || !t.golf) return t;
@@ -244,16 +276,20 @@ export const useStore = create<State>()(
             scores[participantId] = card;
             return { ...t, golf: { ...t.golf, scores }, updatedAt: Date.now() };
           }),
-        })),
+        }));
+        pushPatch(id, { kind: "golfScore", participantId, hole, strokes });
+      },
 
-      generate: (id) =>
+      generate: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id ? { ...t, matches: buildMatches(t), generated: true, updatedAt: Date.now() } : t,
           ),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      generateNextRound: (id) =>
+      generateNextRound: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -283,16 +319,20 @@ export const useStore = create<State>()(
 
             return t;
           }),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      resetToSetup: (id) =>
+      resetToSetup: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id ? { ...t, matches: [], generated: false, updatedAt: Date.now() } : t,
           ),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      setScore: (id, matchId, a, b) =>
+      setScore: (id, matchId, a, b) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -305,9 +345,11 @@ export const useStore = create<State>()(
             }
             return { ...t, matches, updatedAt: Date.now() };
           }),
-        })),
+        }));
+        pushPatch(id, { kind: "matchScore", matchId, a, b });
+      },
 
-      generateFinals: (id) =>
+      generateFinals: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -353,17 +395,77 @@ export const useStore = create<State>()(
             }
             return { ...t, matches: [...baseMatches, ...finals], updatedAt: Date.now() };
           }),
-        })),
+        }));
+        pushReplace(id);
+      },
 
-      clearFinals: (id) =>
+      clearFinals: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
               ? { ...t, matches: t.matches.filter((m) => !isFinalsPhase(m)), updatedAt: Date.now() }
               : t,
           ),
+        }));
+        pushReplace(id);
+      },
+
+      // ---- Live shared scoring ----
+      publishLive: async (id) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        if (!t) return null;
+        try {
+          const res = await apiPublish(t);
+          set((s) => ({
+            tournaments: s.tournaments.map((x) =>
+              x.id === id ? { ...x, liveCode: res.code, liveVersion: res.version } : x,
+            ),
+          }));
+          return res.code;
+        } catch {
+          return null;
+        }
+      },
+
+      joinLive: async (code) => {
+        const upper = code.trim().toUpperCase();
+        const remote = await fetchLive(upper);
+        if (!remote) return null;
+        const data = remote.data as Tournament;
+        const linked: Tournament = {
+          ...data,
+          liveCode: upper,
+          liveVersion: remote.version,
+          updatedAt: Date.now(),
+        };
+        set((s) => {
+          const exists = s.tournaments.some((x) => x.id === linked.id);
+          return {
+            tournaments: exists
+              ? s.tournaments.map((x) => (x.id === linked.id ? linked : x))
+              : [linked, ...s.tournaments],
+          };
+        });
+        return linked.id;
+      },
+
+      goOffline: (id) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((x) =>
+            x.id === id ? { ...x, liveCode: undefined, liveVersion: undefined } : x,
+          ),
         })),
-    }),
+
+      applyRemote: (id, data, version) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((x) =>
+            x.id === id
+              ? { ...data, id: x.id, liveCode: x.liveCode, liveVersion: version }
+              : x,
+          ),
+        })),
+      };
+    },
     {
       name: "tournament-builder-v1",
       storage: createJSONStorage(() => localStorage),

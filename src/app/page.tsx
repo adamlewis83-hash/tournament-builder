@@ -56,6 +56,8 @@ export default function Home() {
         </Card>
       )}
 
+      <JoinByCode />
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold">Your tournaments</h2>
         {!creating && (
@@ -137,6 +139,37 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
         </div>
       </div>
     </div>
+  );
+}
+
+function JoinByCode() {
+  const router = useRouter();
+  const [code, setCode] = useState("");
+  return (
+    <Card className="p-4 mb-6 flex flex-wrap items-center gap-3">
+      <div className="flex-1 min-w-[180px]">
+        <h2 className="font-semibold flex items-center gap-2">📡 Join a live tournament</h2>
+        <p className="text-sm text-[var(--muted)]">Got a code from the host? Hop in to follow &amp; score live.</p>
+      </div>
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (code.trim()) router.push(`/live/${code.trim().toUpperCase()}`);
+        }}
+      >
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="CODE"
+          maxLength={6}
+          className="w-28 rounded-lg border border-[var(--border)] px-3 py-2 text-center text-lg font-bold tracking-[0.2em] uppercase bg-[var(--surface)]"
+        />
+        <Button type="submit" disabled={!code.trim()}>
+          Join
+        </Button>
+      </form>
+    </Card>
   );
 }
 

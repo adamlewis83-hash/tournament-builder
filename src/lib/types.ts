@@ -109,6 +109,8 @@ export interface Tournament {
   createdAt: number;
   updatedAt: number;
   generated: boolean; // schedule/bracket built
+  liveCode?: string; // when set, this tournament is synced to a live session
+  liveVersion?: number; // last server version this device has applied
 }
 
 export const FORMAT_LABELS: Record<Format, string> = {

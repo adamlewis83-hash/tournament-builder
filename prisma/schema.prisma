@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// A published tournament that phones sync to for live scoring.
+// `data` holds the full Tournament JSON; `version` bumps on every change.
+model LiveTournament {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  data      Json
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("live_tournaments")
+}

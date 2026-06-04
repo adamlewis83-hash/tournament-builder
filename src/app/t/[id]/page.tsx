@@ -18,6 +18,8 @@ import { GolfView } from "@/components/GolfView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
+import { LivePanel } from "@/components/LivePanel";
+import { useLiveSync } from "@/hooks/useLiveSync";
 
 export default function TournamentPage() {
   const params = useParams<{ id: string }>();
@@ -33,6 +35,7 @@ function TournamentDetail({ id }: { id: string }) {
   const patch = useStore((s) => s.patchTournament);
   const reset = useStore((s) => s.resetToSetup);
   const [tab, setTab] = useState<"schedule" | "standings">("schedule");
+  useLiveSync(id, t?.liveCode, t?.liveVersion);
 
   if (!t) {
     return (
@@ -89,6 +92,8 @@ function TournamentDetail({ id }: { id: string }) {
           {t.sport} · {t.participants.length} participants
         </p>
       </div>
+
+      {t.generated && <LivePanel t={t} />}
 
       {!t.generated && <SetupPanel t={t} />}
 
