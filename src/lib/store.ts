@@ -80,6 +80,7 @@ interface State {
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
   setScore: (id: string, matchId: string, a: number | null, b: number | null) => void;
+  setMatchSides: (id: string, matchId: string, sideA: string[], sideB: string[]) => void;
   generateFinals: (id: string) => void;
   clearFinals: (id: string) => void;
   // Live shared scoring
@@ -420,6 +421,23 @@ export const useStore = create<State>()(
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b });
+      },
+
+      setMatchSides: (id, matchId, sideA, sideB) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  matches: t.matches.map((m) =>
+                    m.id === matchId ? { ...m, sideA, sideB } : m,
+                  ),
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+        }));
+        pushReplace(id);
       },
 
       generateFinals: (id) => {
