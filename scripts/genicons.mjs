@@ -9,7 +9,7 @@ const jobs = [
 ];
 for (const [out, size] of jobs) {
   let img = sharp(svg).resize(size, size);
-  if (out.includes("apple")) img = img.flatten({ background: "#0b1322" });
+  if (out.includes("apple")) img = img.flatten({ background: "#08140d" });
   await img.png().toFile(out);
   console.log("wrote", out, size);
 }

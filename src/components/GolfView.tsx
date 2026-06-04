@@ -38,14 +38,14 @@ export function GolfView({ t }: { t: Tournament }) {
   const minBack = started.length ? Math.min(...started.map((r) => r.backNet)) : 0;
   const minTotal = started.length ? Math.min(...started.map((r) => r.net)) : 0;
   const seg = (v: number, best: number, on: boolean) =>
-    `px-2 py-2 text-center tabular-nums font-bold ${on && v === best ? "text-lime-400" : ""}`;
+    `px-2 py-2 text-center tabular-nums font-bold ${on && v === best ? "text-[var(--win)]" : ""}`;
   const holes = Array.from({ length: g.holes }, (_, i) => i);
   const totalPar = g.pars.reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-5">
       {isScramble ? (
-        <div className="inline-flex rounded-lg border border-[var(--border)] bg-cyan-400/10 px-3.5 py-1.5 text-sm font-semibold text-cyan-300">
+        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)]">
           {GOLF_MODE_LABELS.scramble}
         </div>
       ) : (
@@ -56,7 +56,7 @@ export function GolfView({ t }: { t: Tournament }) {
               onClick={() => patch(t.id, { config: { ...t.config, golfMode: m } })}
               className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
                 mode === m
-                  ? "bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-950"
+                  ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
             >
@@ -107,7 +107,7 @@ export function GolfView({ t }: { t: Tournament }) {
                 const v = g.scores[p.id]?.[h];
                 const rel = v != null ? v - g.pars[h] : null;
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2">
+                  <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, p.id) }} />
                       <span className="truncate">{p.name}</span>
@@ -117,13 +117,13 @@ export function GolfView({ t }: { t: Tournament }) {
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
                       {rel != null && (
-                        <span className={`text-xs w-8 text-right ${rel < 0 ? "text-lime-400" : rel > 0 ? "text-[var(--muted)]" : ""}`}>
+                        <span className={`text-xs w-8 text-right ${rel < 0 ? "text-[var(--win)]" : rel > 0 ? "text-[var(--muted)]" : ""}`}>
                           {rel === 0 ? "E" : rel > 0 ? `+${rel}` : rel}
                         </span>
                       )}
                       <button
                         onClick={() => adj(p.id, -1)}
-                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-white/5 text-lg font-bold hover:bg-white/10"
+                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]"
                       >
                         −
                       </button>
@@ -133,11 +133,11 @@ export function GolfView({ t }: { t: Tournament }) {
                         value={v ?? ""}
                         onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
                         placeholder="–"
-                        className="w-12 rounded-lg border border-[var(--border)] bg-black/30 px-1 py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-cyan-400/60"
+                        className="w-12 rounded-lg border border-[var(--border)] bg-[var(--input)] px-1 py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                       <button
                         onClick={() => adj(p.id, 1)}
-                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-white/5 text-lg font-bold hover:bg-white/10"
+                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]"
                       >
                         +
                       </button>
@@ -157,7 +157,7 @@ export function GolfView({ t }: { t: Tournament }) {
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-white/[0.03]">
+            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
               <th className="px-3 py-2 w-10">#</th>
               <th className="px-3 py-2">Player</th>
               <th className="px-2 py-2 text-center w-14">Thru</th>
@@ -177,7 +177,7 @@ export function GolfView({ t }: { t: Tournament }) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 ? "bg-lime-400/[0.07]" : ""}`}>
+              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 ? "bg-[var(--win-bg)]" : ""}`}>
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.thru ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2">
@@ -223,7 +223,7 @@ export function GolfView({ t }: { t: Tournament }) {
       {/* Full scorecard (toggle) */}
       <button
         onClick={() => setShowCard((v) => !v)}
-        className="text-sm text-cyan-300 hover:text-cyan-200"
+        className="text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
       >
         {showCard ? "▾ Hide" : "▸ Show"} full scorecard
       </button>
@@ -278,7 +278,7 @@ export function GolfView({ t }: { t: Tournament }) {
                         onChange={(e) =>
                           setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))
                         }
-                        className="w-8 rounded border border-[var(--border)] bg-black/30 px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-cyan-400/60"
+                        className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                     </td>
                   ))}

@@ -27,7 +27,7 @@ export function BbbView({ t }: { t: Tournament }) {
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-white/[0.03]">
+            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
               <th className="px-3 py-2 w-10">#</th>
               <th className="px-3 py-2">Player</th>
               <th className="px-2 py-2 text-center w-28">B / B / B</th>
@@ -36,7 +36,7 @@ export function BbbView({ t }: { t: Tournament }) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-lime-400/[0.07]" : ""}`}>
+              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-[var(--win-bg)]" : ""}`}>
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.points > 0 ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function BbbView({ t }: { t: Tournament }) {
                     <select
                       value={g.bbb![k.key][h] ?? ""}
                       onChange={(e) => setGolfAward(t.id, k.key, h, e.target.value || null)}
-                      className="w-full rounded border border-[var(--border)] bg-black/30 px-1.5 py-1 text-sm outline-none focus:border-cyan-400/60"
+                      className="w-full rounded border border-[var(--border)] bg-[var(--input)] px-1.5 py-1 text-sm outline-none focus:border-[var(--brand)]"
                     >
                       <option value="">—</option>
                       {t.participants.map((p) => (

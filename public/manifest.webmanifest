@@ -1,11 +1,11 @@
 {
-  "name": "Bracket Lab",
-  "short_name": "Bracket Lab",
+  "name": "Seeded",
+  "short_name": "Seeded",
   "description": "Build round robins, brackets, and pool-play tournaments for any sport.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#060a14",
-  "theme_color": "#060a14",
+  "background_color": "#0a0f0d",
+  "theme_color": "#0a0f0d",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },

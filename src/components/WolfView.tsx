@@ -22,7 +22,7 @@ export function WolfView({ t }: { t: Tournament }) {
         <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">Wolf · Points</div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-white/[0.03]">
+            <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
               <th className="px-3 py-2 w-10">#</th>
               <th className="px-3 py-2">Player</th>
               <th className="px-2 py-2 text-center w-16">Points</th>
@@ -30,7 +30,7 @@ export function WolfView({ t }: { t: Tournament }) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-lime-400/[0.07]" : ""}`}>
+              <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-[var(--win-bg)]" : ""}`}>
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.points > 0 ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2">
@@ -80,7 +80,7 @@ export function WolfView({ t }: { t: Tournament }) {
                         inputMode="numeric"
                         value={g.scores[p.id]?.[h] ?? ""}
                         onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
-                        className="w-8 rounded border border-[var(--border)] bg-black/30 px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-cyan-400/60"
+                        className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                     </td>
                   ))}
@@ -91,7 +91,7 @@ export function WolfView({ t }: { t: Tournament }) {
                     <select
                       value={g.wolf!.partner[h] ?? ""}
                       onChange={(e) => setGolfWolf(t.id, h, (e.target.value || null) as string | "lone" | null)}
-                      className="rounded border border-[var(--border)] bg-black/30 px-1.5 py-1 text-sm outline-none focus:border-cyan-400/60"
+                      className="rounded border border-[var(--border)] bg-[var(--input)] px-1.5 py-1 text-sm outline-none focus:border-[var(--brand)]"
                     >
                       <option value="">—</option>
                       <option value="lone">Lone Wolf</option>

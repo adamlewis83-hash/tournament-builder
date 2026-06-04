@@ -58,8 +58,8 @@ function ScoreBox({
       className={`w-12 shrink-0 rounded-md border px-1.5 py-1 text-center text-sm font-bold tabular-nums outline-none transition
         ${
           win
-            ? "bg-lime-400/15 border-lime-400/50 text-lime-300"
-            : "bg-black/30 border-[var(--border)] text-[var(--foreground)] focus:border-cyan-400/60"
+            ? "bg-[var(--win-bg)] border-[var(--win)] text-[var(--win)]"
+            : "bg-[var(--input)] border-[var(--border)] text-[var(--foreground)] focus:border-[var(--brand)]"
         }
         ${disabled ? "opacity-40" : ""}`}
       placeholder="–"
@@ -97,11 +97,11 @@ export function MatchCard({
         </div>
       )}
       <div className="p-2.5 space-y-1.5">
-        <div className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${aWin ? "ring-win bg-lime-400/5" : ""}`}>
+        <div className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${aWin ? "ring-win bg-[var(--win-bg)]" : ""}`}>
           <Side ids={match.sideA} label={match.sideALabel} participants={participants} />
           <ScoreBox value={match.scoreA} onCommit={(v) => commit("A", v)} disabled={!both} win={aWin} />
         </div>
-        <div className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${bWin ? "ring-win bg-lime-400/5" : ""}`}>
+        <div className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${bWin ? "ring-win bg-[var(--win-bg)]" : ""}`}>
           <Side ids={match.sideB} label={match.sideBLabel} participants={participants} />
           <ScoreBox value={match.scoreB} onCommit={(v) => commit("B", v)} disabled={!both} win={bWin} />
         </div>

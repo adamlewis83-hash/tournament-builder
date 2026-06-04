@@ -27,7 +27,7 @@ export function KotcView({ t }: { t: Tournament }) {
       {champ && (
         <>
           <Confetti trigger={champ.name} />
-          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-cyan-400/10 p-6 text-center glow-brand">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
             <div className="text-5xl">👑</div>
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               King of the Court

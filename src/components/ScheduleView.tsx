@@ -22,7 +22,7 @@ export function ScheduleView({
         return (
           <div key={r}>
             <h3 className="font-semibold mb-2 flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 text-slate-950 text-xs font-bold">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] text-xs font-bold">
                 {r}
               </span>
               Round {r}

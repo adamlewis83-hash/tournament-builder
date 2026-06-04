@@ -115,8 +115,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
                   onClick={() => setHoleCount(h)}
                   className={`rounded-lg border px-4 py-2 text-sm transition ${
                     holes === h
-                      ? "border-cyan-400/60 ring-1 ring-cyan-400/50 bg-cyan-400/10"
-                      : "border-[var(--border)] hover:bg-white/5"
+                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                      : "border-[var(--border)] hover:bg-[var(--hover)]"
                   }`}
                 >
                   {h}
@@ -129,7 +129,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         <button
           type="button"
           onClick={() => setShowCourse((v) => !v)}
-          className="mt-3 text-sm text-cyan-300 hover:text-cyan-200"
+          className="mt-3 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
         >
           {showCourse ? "▾ Hide" : "▸ Edit"} pars &amp; stroke index (Par {totalPar})
         </button>
@@ -165,7 +165,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                             next[h] = Number(e.target.value) || 0;
                             row.set(next);
                           }}
-                          className="w-8 rounded border border-[var(--border)] bg-black/30 px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-cyan-400/60"
+                          className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                         />
                       </td>
                     ))}
@@ -229,7 +229,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         <button
           type="button"
           onClick={() => setPlayers([...players, { name: "", handicap: "0" }])}
-          className="mt-3 text-sm text-cyan-300 hover:text-cyan-200"
+          className="mt-3 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
         >
           + Add {isScramble ? "team" : "player"}
         </button>
@@ -246,8 +246,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
               onClick={() => setMode(m)}
               className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 mode === m
-                  ? "border-cyan-400/60 ring-1 ring-cyan-400/50 bg-cyan-400/10"
-                  : "border-[var(--border)] hover:bg-white/5"
+                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border)] hover:bg-[var(--hover)]"
               }`}
             >
               {GOLF_MODE_LABELS[m]}
@@ -328,7 +328,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 const from = last ? Math.min(last.to + 1, holes) : 1;
                 setSegments([...segments, { from, to: holes, format: "stroke" }]);
               }}
-              className="mt-2 text-sm text-cyan-300 hover:text-cyan-200"
+              className="mt-2 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
             >
               + Add segment
             </button>

@@ -19,7 +19,7 @@ export function Champion({
   return (
     <>
       <Confetti trigger={label} />
-      <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-cyan-400/10 p-6 text-center glow-brand">
+      <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-[var(--brand-soft)] p-6 text-center glow-brand">
         <div className="text-5xl drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]">🏆</div>
         <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
           Champion

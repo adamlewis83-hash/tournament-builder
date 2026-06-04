@@ -44,7 +44,7 @@ export function LivePanel({ t }: { t: Tournament }) {
   }
 
   return (
-    <Card className="no-print p-4 border-lime-400/30">
+    <Card className="no-print p-4 border-[var(--win)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 border border-rose-400/40 px-2.5 py-0.5 text-xs font-bold text-rose-300">
@@ -56,7 +56,7 @@ export function LivePanel({ t }: { t: Tournament }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {copied && <span className="text-xs font-medium text-lime-300">{copied}</span>}
+          {copied && <span className="text-xs font-medium text-[var(--win)]">{copied}</span>}
           <Button variant="outline" className="px-2.5 py-1.5" onClick={() => copy(t.liveCode!, "Code copied!")}>
             Copy code
           </Button>

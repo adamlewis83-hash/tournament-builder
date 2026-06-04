@@ -37,7 +37,7 @@ function PairingEditor({
       <select
         value={cur}
         onChange={(e) => setSlot(side, idx, e.target.value)}
-        className="w-full rounded border border-[var(--border)] bg-black/30 px-1.5 py-1 text-sm outline-none focus:border-cyan-400/60"
+        className="w-full rounded border border-[var(--border)] bg-[var(--input)] px-1.5 py-1 text-sm outline-none focus:border-[var(--brand)]"
       >
         <option value="">—</option>
         {options.map((p) => (
@@ -91,7 +91,7 @@ export function RyderView({ t }: { t: Tournament }) {
       {!editing && (winnerName || score.status === "tie") && (
         <>
           {winnerName && <Confetti trigger={winnerName} />}
-          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-cyan-400/10 p-6 text-center glow-brand">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
             <div className="text-5xl">🏆</div>
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               {score.status === "tie" ? "Cup Retained — Tie" : "Cup Winner"}
@@ -107,8 +107,8 @@ export function RyderView({ t }: { t: Tournament }) {
       <Card className="p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-center">
-            <div className="text-sm font-semibold text-cyan-300 truncate flex items-center justify-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+            <div className="text-sm font-semibold text-[var(--brand)] truncate flex items-center justify-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--brand)]" />
               {nameA}
             </div>
             <div className="text-4xl font-extrabold tabular-nums">{fmt(score.a)}</div>
@@ -123,7 +123,7 @@ export function RyderView({ t }: { t: Tournament }) {
           </div>
         </div>
         <div className="mt-3 h-2 rounded-full bg-rose-400/30 overflow-hidden">
-          <div className="h-full bg-cyan-400" style={{ width: `${score.total ? (score.a / score.total) * 100 : 50}%` }} />
+          <div className="h-full bg-[var(--brand)]" style={{ width: `${score.total ? (score.a / score.total) * 100 : 50}%` }} />
         </div>
         <p className="text-center text-xs text-[var(--muted)] mt-2">
           {score.status === "in-progress"

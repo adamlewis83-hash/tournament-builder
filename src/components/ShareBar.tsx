@@ -22,7 +22,7 @@ function resultsText(t: Tournament): string {
       lines.push(`  ${r.rank}. ${r.name}  ${r.wins}-${r.losses}  (${r.diff > 0 ? "+" : ""}${r.diff})`),
     );
   }
-  lines.push("", "Made with Bracket Lab");
+  lines.push("", "Made with Seeded");
   return lines.join("\n");
 }
 
@@ -47,7 +47,7 @@ export function ShareBar({ t }: { t: Tournament }) {
 
   return (
     <div className="no-print flex items-center gap-2">
-      {msg && <span className="text-xs font-medium text-lime-300">{msg}</span>}
+      {msg && <span className="text-xs font-medium text-[var(--win)]">{msg}</span>}
       <Button variant="outline" className="px-2.5 py-1.5" onClick={() => copy(resultsText(t), "Results copied!")}>
         Copy results
       </Button>

@@ -98,7 +98,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
         {FLOATERS.map((f) => (
           <span
             key={f.e + f.cls}
-            className={`absolute animate-float opacity-80 drop-shadow-[0_0_12px_rgba(34,211,238,0.25)] ${f.cls}`}
+            className={`absolute animate-float opacity-80 drop-shadow-[0_0_12px_rgba(52,211,153,0.25)] ${f.cls}`}
             style={{ animationDelay: f.d }}
           >
             {f.e}
@@ -107,12 +107,12 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
       </div>
 
       <div className="relative z-10 max-w-2xl">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-lime-400 pulse-ring" />
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           OFFLINE-FIRST · ANY SPORT
         </span>
         <h1 className="mt-4 text-4xl sm:text-6xl font-extrabold tracking-tight leading-none">
-          <span className="brand-animated">Bracket Lab</span>
+          <span className="brand-animated">Seeded</span>
         </h1>
         <p className="mt-3 text-xl sm:text-2xl font-bold">
           Run any tournament. Crown a champion. 🏆
@@ -188,7 +188,7 @@ function TournamentList() {
         </div>
         <p className="font-semibold">No tournaments yet</p>
         <p className="text-sm text-[var(--muted)]">
-          Hit <span className="text-cyan-300 font-medium">+ New Tournament</span> to build a
+          Hit <span className="text-[var(--brand)] font-medium">+ New Tournament</span> to build a
           schedule, track scores, and crown a champion.
         </p>
       </Card>

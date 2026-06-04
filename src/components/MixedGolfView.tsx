@@ -34,7 +34,7 @@ function SegmentBoard({ t, seg }: { t: Tournament; seg: GolfSegment }) {
       <table className="w-full text-sm">
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 ? "bg-lime-400/[0.06]" : ""}`}>
+            <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 ? "bg-[var(--win-bg)]" : ""}`}>
               <td className="px-3 py-2 font-medium">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, r.participantId) }} />
@@ -91,7 +91,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
       {champ && (
         <>
           <Confetti trigger={champ.name} />
-          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-cyan-400/10 p-6 text-center glow-brand">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
             <div className="text-5xl">🏆</div>
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               Overall Champion
@@ -112,7 +112,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
           <table className="w-full text-sm">
             <tbody>
               {overall.map((r, i) => (
-                <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-lime-400/[0.07]" : ""}`}>
+                <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-[var(--win-bg)]" : ""}`}>
                   <td className="px-3 py-2 font-bold text-[var(--muted)] w-10">{r.points > 0 ? i + 1 : "–"}</td>
                   <td className="px-3 py-2 font-medium">
                     <span className="flex items-center gap-2">
@@ -157,7 +157,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
                 <select
                   value={g.bbb?.[a.key][h] ?? ""}
                   onChange={(e) => setGolfAward(t.id, a.key, h, e.target.value || null)}
-                  className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-2 py-1.5 text-sm outline-none focus:border-cyan-400/60"
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-sm outline-none focus:border-[var(--brand)]"
                 >
                   <option value="">—</option>
                   {t.participants.map((p) => (
@@ -175,7 +175,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
               const v = g.scores[p.id]?.[h];
               const rel = v != null ? v - g.pars[h] : null;
               return (
-                <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2">
+                <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, p.id) }} />
                     <span className="truncate">{p.name}</span>
@@ -183,20 +183,20 @@ export function MixedGolfView({ t }: { t: Tournament }) {
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     {rel != null && (
-                      <span className={`text-xs w-8 text-right ${rel < 0 ? "text-lime-400" : rel > 0 ? "text-[var(--muted)]" : ""}`}>
+                      <span className={`text-xs w-8 text-right ${rel < 0 ? "text-[var(--win)]" : rel > 0 ? "text-[var(--muted)]" : ""}`}>
                         {rel === 0 ? "E" : rel > 0 ? `+${rel}` : rel}
                       </span>
                     )}
-                    <button onClick={() => adj(p.id, -1)} className="h-9 w-9 rounded-lg border border-[var(--border)] bg-white/5 text-lg font-bold hover:bg-white/10">−</button>
+                    <button onClick={() => adj(p.id, -1)} className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]">−</button>
                     <input
                       type="number"
                       inputMode="numeric"
                       value={v ?? ""}
                       onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
                       placeholder="–"
-                      className="w-12 rounded-lg border border-[var(--border)] bg-black/30 px-1 py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-cyan-400/60"
+                      className="w-12 rounded-lg border border-[var(--border)] bg-[var(--input)] px-1 py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-[var(--brand)]"
                     />
-                    <button onClick={() => adj(p.id, 1)} className="h-9 w-9 rounded-lg border border-[var(--border)] bg-white/5 text-lg font-bold hover:bg-white/10">+</button>
+                    <button onClick={() => adj(p.id, 1)} className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]">+</button>
                   </span>
                 </div>
               );

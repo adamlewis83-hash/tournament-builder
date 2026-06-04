@@ -54,14 +54,14 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
       <div className="grid sm:grid-cols-2 gap-5">
         {[
-          { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-cyan-400/40", list: a },
+          { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-[var(--brand)]", list: a },
           { name: nameB, setName: setNameB, text: bText, setText: setBText, ring: "ring-rose-400/40", list: b },
         ].map((team, i) => (
           <Card key={i} className={`p-5 ring-1 ${team.ring}`}>
             <input
               value={team.name}
               onChange={(e) => team.setName(e.target.value)}
-              className="w-full bg-transparent text-lg font-bold mb-3 border-b border-[var(--border)] focus:border-cyan-400 outline-none pb-1"
+              className="w-full bg-transparent text-lg font-bold mb-3 border-b border-[var(--border)] focus:border-[var(--brand)] outline-none pb-1"
             />
             <textarea
               value={team.text}

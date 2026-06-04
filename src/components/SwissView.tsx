@@ -28,7 +28,7 @@ export function SwissView({ t }: { t: Tournament }) {
       {allDone && winner && (
         <>
           <Confetti trigger={winner.name} />
-          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-cyan-400/10 p-6 text-center glow-brand">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
             <div className="text-5xl">🏆</div>
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               Swiss Winner
@@ -60,7 +60,7 @@ export function SwissView({ t }: { t: Tournament }) {
             {curComplete ? `Generate Round ${maxRound + 1} →` : `Finish Round ${maxRound} to continue`}
           </Button>
         )}
-        {allDone && <span className="text-sm font-medium text-lime-300">All rounds played 🎉</span>}
+        {allDone && <span className="text-sm font-medium text-[var(--win)]">All rounds played 🎉</span>}
       </Card>
 
       <StandingsTable

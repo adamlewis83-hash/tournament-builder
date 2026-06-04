@@ -107,7 +107,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
           <button
             type="button"
             onClick={() => setText((isTeams ? SAMPLE_TEAMS : SAMPLE_PLAYERS).join("\n"))}
-            className="text-xs font-medium text-cyan-300 hover:text-cyan-200"
+            className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
           >
             Fill sample
           </button>
@@ -136,7 +136,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
             {names.slice(0, 40).map((n, i) => (
               <span
                 key={`${n}-${i}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white/[0.03] px-2 py-0.5 text-xs"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2 py-0.5 text-xs"
               >
                 <span
                   className="h-2 w-2 rounded-full"
@@ -250,7 +250,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
                 type="checkbox"
                 checked={cfg.thirdPlace ?? false}
                 onChange={(e) => setCfg({ thirdPlace: e.target.checked })}
-                className="h-4 w-4 accent-cyan-400"
+                className="h-4 w-4 accent-[var(--brand)]"
               />
               <span className="text-sm font-medium">
                 Add a 3rd-place game{" "}

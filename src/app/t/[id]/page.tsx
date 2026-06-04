@@ -154,7 +154,7 @@ function TabButton({
       onClick={onClick}
       className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition ${
         active
-          ? "bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-950"
+          ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
           : "text-[var(--muted)] hover:text-[var(--foreground)]"
       }`}
     >
