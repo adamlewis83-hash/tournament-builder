@@ -15,31 +15,49 @@ function makeMatch(p: Partial<Match>): Match {
   };
 }
 
+export interface RyderSessions {
+  foursomes: number;
+  fourball: number;
+  singles: number;
+}
+
 /**
- * Build a Ryder-Cup-style schedule: a Fourball (pairs) session then a Singles
- * session, Team A (team 0) on side A vs Team B (team 1) on side B.
+ * Build a Ryder-Cup-style schedule from the chosen sessions. Foursomes and
+ * Fourball are pairs sessions (2v2); Singles are 1v1. Team A (team 0) on side A
+ * vs Team B (team 1) on side B. Each session is its own round.
  */
-export function genRyder(participants: Participant[]): Match[] {
+export function genRyder(participants: Participant[], sessions: RyderSessions): Match[] {
   const A = participants.filter((p) => p.team === 0).map((p) => p.id);
   const B = participants.filter((p) => p.team === 1).map((p) => p.id);
   const matches: Match[] = [];
+  let round = 0;
 
-  const pairs = Math.min(Math.floor(A.length / 2), Math.floor(B.length / 2));
-  for (let i = 0; i < pairs; i++) {
-    matches.push(
-      makeMatch({
-        round: 1,
-        order: i,
-        label: "Fourball",
-        sideA: [A[2 * i], A[2 * i + 1]],
-        sideB: [B[2 * i], B[2 * i + 1]],
-      }),
-    );
-  }
+  const pairsCount = Math.min(Math.floor(A.length / 2), Math.floor(B.length / 2));
+  const addPairs = (label: string) => {
+    if (pairsCount < 1) return;
+    round++;
+    for (let i = 0; i < pairsCount; i++) {
+      matches.push(
+        makeMatch({
+          round,
+          order: i,
+          label,
+          sideA: [A[2 * i], A[2 * i + 1]],
+          sideB: [B[2 * i], B[2 * i + 1]],
+        }),
+      );
+    }
+  };
 
-  const singles = Math.min(A.length, B.length);
-  for (let i = 0; i < singles; i++) {
-    matches.push(makeMatch({ round: 2, order: i, label: "Singles", sideA: [A[i]], sideB: [B[i]] }));
+  for (let s = 0; s < Math.max(0, sessions.foursomes); s++) addPairs("Foursomes");
+  for (let s = 0; s < Math.max(0, sessions.fourball); s++) addPairs("Fourball");
+
+  const singlesCount = Math.min(A.length, B.length);
+  for (let s = 0; s < Math.max(0, sessions.singles); s++) {
+    round++;
+    for (let i = 0; i < singlesCount; i++) {
+      matches.push(makeMatch({ round, order: i, label: "Singles", sideA: [A[i]], sideB: [B[i]] }));
+    }
   }
   return matches;
 }

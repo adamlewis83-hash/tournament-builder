@@ -109,6 +109,11 @@ export function computeWolf(t: Tournament): PointRow[] {
 }
 
 /** Handicap strokes received on a hole of the given stroke index. */
+export function defaultCourse(holes: number): { pars: number[]; strokeIndex: number[] } {
+  const g = defaultGolf(holes, []);
+  return { pars: g.pars, strokeIndex: g.strokeIndex };
+}
+
 export function holeStrokes(handicap: number, si: number, holes: number): number {
   const h = Math.max(0, Math.round(handicap));
   const base = Math.floor(h / holes);

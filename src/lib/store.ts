@@ -33,6 +33,9 @@ const DEFAULT_CONFIG: TournamentConfig = {
   tiebreaker: "diff",
   thirdPlace: false,
   teamNames: ["Team A", "Team B"],
+  ryderFoursomes: 1,
+  ryderFourball: 1,
+  ryderSingles: 1,
   golfMode: "stroke",
 };
 
@@ -54,7 +57,17 @@ interface State {
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
   setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
-  setGolfPlayers: (id: string, players: { name: string; handicap: number }[], holes: number) => void;
+  setGolfPlayers: (
+    id: string,
+    input: {
+      players: { name: string; handicap: number }[];
+      holes: number;
+      pars?: number[];
+      strokeIndex?: number[];
+      courseName?: string;
+    },
+  ) => void;
+  setGolfHandicap: (id: string, participantId: string, handicap: number) => void;
   setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
   setGolfAward: (
     id: string,
@@ -104,7 +117,11 @@ function buildMatches(t: Tournament): Match[] {
       return genDoubleElim(ids);
 
     case "ryder":
-      return genRyder(t.participants);
+      return genRyder(t.participants, {
+        foursomes: t.config.ryderFoursomes,
+        fourball: t.config.ryderFourball,
+        singles: t.config.ryderSingles,
+      });
 
     case "golf":
       return []; // golf uses the scorecard model, not matches
@@ -251,12 +268,12 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
-      setGolfPlayers: (id, players, holes) => {
+      setGolfPlayers: (id, input) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
             const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
-            const participants: Participant[] = players
+            const participants: Participant[] = input.players
               .filter((p) => p.name.trim())
               .map((p) => ({
                 ...(existing.get(p.name.trim().toLowerCase()) ?? { id: uid(), name: p.name.trim() }),
@@ -264,11 +281,32 @@ export const useStore = create<State>()(
                 handicap: p.handicap,
               }));
             const golf = defaultGolf(
-              holes,
+              input.holes,
               participants.map((p) => p.id),
             );
+            if (input.pars && input.pars.length === golf.holes) golf.pars = input.pars;
+            if (input.strokeIndex && input.strokeIndex.length === golf.holes)
+              golf.strokeIndex = input.strokeIndex;
+            if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
             return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
           }),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfHandicap: (id, participantId, handicap) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  participants: t.participants.map((p) =>
+                    p.id === participantId ? { ...p, handicap } : p,
+                  ),
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
         }));
         pushReplace(id);
       },

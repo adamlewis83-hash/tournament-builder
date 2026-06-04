@@ -8,9 +8,13 @@ import { Button, Card } from "./ui";
 export function RyderSetup({ t }: { t: Tournament }) {
   const setRyderTeams = useStore((s) => s.setRyderTeams);
   const generate = useStore((s) => s.generate);
+  const patch = useStore((s) => s.patchTournament);
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
+  const [foursomes, setFoursomes] = useState(t.config.ryderFoursomes ?? 1);
+  const [fourball, setFourball] = useState(t.config.ryderFourball ?? 1);
+  const [singles, setSingles] = useState(t.config.ryderSingles ?? 1);
   const [aText, setAText] = useState(
     t.participants.filter((p) => p.team === 0).map((p) => p.name).join("\n"),
   );
@@ -25,6 +29,14 @@ export function RyderSetup({ t }: { t: Tournament }) {
   const canGenerate = a.length >= 1 && b.length >= 1;
 
   function handleGenerate() {
+    patch(t.id, {
+      config: {
+        ...t.config,
+        ryderFoursomes: foursomes,
+        ryderFourball: fourball,
+        ryderSingles: singles,
+      },
+    });
     setRyderTeams(t.id, a, b, [nameA.trim() || "Team A", nameB.trim() || "Team B"]);
     generate(t.id);
   }
@@ -62,6 +74,33 @@ export function RyderSetup({ t }: { t: Tournament }) {
           </Card>
         ))}
       </div>
+
+      <Card className="p-5">
+        <h2 className="font-semibold mb-1">Sessions</h2>
+        <p className="text-sm text-[var(--muted)] mb-3">
+          Choose how many rounds of each. Foursomes = alternate shot · Fourball = best ball · Singles
+          = everyone 1v1.
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Foursomes", value: foursomes, set: setFoursomes },
+            { label: "Fourball", value: fourball, set: setFourball },
+            { label: "Singles", value: singles, set: setSingles },
+          ].map((s) => (
+            <label key={s.label} className="block">
+              <span className="text-sm font-medium">{s.label}</span>
+              <input
+                type="number"
+                min={0}
+                max={6}
+                value={s.value}
+                onChange={(e) => s.set(Math.max(0, Math.min(6, Number(e.target.value) || 0)))}
+                className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-center bg-[var(--surface)]"
+              />
+            </label>
+          ))}
+        </div>
+      </Card>
 
       <div className="flex justify-end">
         <Button onClick={handleGenerate} disabled={!canGenerate} className="px-6 py-3">

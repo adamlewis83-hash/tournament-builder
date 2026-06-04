@@ -10,10 +10,7 @@ export function RyderView({ t }: { t: Tournament }) {
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
   const score = ryderScore(t.matches);
   const ryder = t.matches.filter((m) => m.phase === "ryder");
-  const sessions = [
-    { label: "Fourball (Pairs)", round: 1 },
-    { label: "Singles", round: 2 },
-  ];
+  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
 
   const winnerName =
     score.status === "a-wins" ? nameA : score.status === "b-wins" ? nameB : null;
@@ -63,12 +60,13 @@ export function RyderView({ t }: { t: Tournament }) {
         </p>
       </Card>
 
-      {sessions.map((s) => {
-        const ms = ryder.filter((m) => m.round === s.round).sort((a, b) => a.order - b.order);
+      {rounds.map((round) => {
+        const ms = ryder.filter((m) => m.round === round).sort((a, b) => a.order - b.order);
         if (!ms.length) return null;
+        const label = ms[0].label ?? `Round ${round}`;
         return (
-          <div key={s.round}>
-            <h3 className="font-semibold mb-2">{s.label}</h3>
+          <div key={round}>
+            <h3 className="font-semibold mb-2">{label}</h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {ms.map((m) => (
                 <MatchCard key={m.id} tournamentId={t.id} participants={t.participants} match={m} />

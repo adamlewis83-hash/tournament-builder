@@ -66,6 +66,7 @@ export interface WolfData {
 
 export interface GolfData {
   holes: number; // 9 or 18
+  courseName?: string; // name of the course being played
   pars: number[]; // par for each hole
   strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
@@ -117,6 +118,9 @@ export interface TournamentConfig {
   tiebreaker: Tiebreaker; // how to break equal win-loss records
   thirdPlace: boolean; // add a 3rd-place game to single-elimination brackets
   teamNames: [string, string]; // Ryder Cup team names
+  ryderFoursomes: number; // Ryder Cup: # of Foursomes (alternate shot) sessions
+  ryderFourball: number; // Ryder Cup: # of Fourball (best ball) sessions
+  ryderSingles: number; // Ryder Cup: # of Singles sessions
   golfMode: GolfMode; // golf scoring mode
 }
 
