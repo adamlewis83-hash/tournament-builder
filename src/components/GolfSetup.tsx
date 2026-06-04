@@ -5,7 +5,7 @@ import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
 
-const MODES: GolfMode[] = ["stroke", "stableford", "skins", "scramble"];
+const MODES: GolfMode[] = ["stroke", "stableford", "skins", "nassau", "scramble"];
 
 export function GolfSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);

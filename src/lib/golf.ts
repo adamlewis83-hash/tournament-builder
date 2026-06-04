@@ -1,5 +1,7 @@
 import { GolfData, GolfMode, Participant, Tournament } from "./types";
 
+export const isSideGame = (m: GolfMode) => m === "bingo" || m === "wolf";
+
 // Standard par-72 layout + a spread stroke index (front nine odd, back nine even).
 const PAR_18 = [4, 4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 5];
 const SI_18 = [1, 3, 5, 7, 9, 11, 13, 15, 17, 2, 4, 6, 8, 10, 12, 14, 16, 18];
@@ -31,6 +33,8 @@ export interface GolfRow {
   toPar: number; // gross vs par of holes played
   stableford: number;
   skins: number;
+  frontNet: number; // Nassau front 9 (net)
+  backNet: number; // Nassau back 9 (net)
 }
 
 export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[] {
@@ -65,6 +69,8 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[]
     let parPlayed = 0;
     let thru = 0;
     let stableford = 0;
+    let frontNet = 0;
+    let backNet = 0;
     for (let h = 0; h < g.holes; h++) {
       const s = card[h];
       if (s === null || s === undefined) continue;
@@ -75,6 +81,8 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[]
       const netHole = s - received;
       net += netHole;
       stableford += Math.max(0, g.pars[h] - netHole + 2);
+      if (h < 9) frontNet += netHole;
+      else backNet += netHole;
     }
     return {
       participantId: p.id,
@@ -86,6 +94,8 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke"): GolfRow[]
       toPar: gross - parPlayed,
       stableford,
       skins: skinsMap.get(p.id) ?? 0,
+      frontNet,
+      backNet,
     };
   });
 

@@ -33,20 +33,44 @@ export interface Participant {
   handicap?: number; // golf handicap (for net scoring)
 }
 
-export type GolfMode = "stroke" | "stableford" | "skins" | "scramble";
+export type GolfMode =
+  | "stroke"
+  | "stableford"
+  | "skins"
+  | "scramble"
+  | "nassau"
+  | "bingo"
+  | "wolf";
 
 export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
   stroke: "Stroke Play",
   stableford: "Stableford",
   skins: "Skins",
   scramble: "Scramble (teams)",
+  nassau: "Nassau",
+  bingo: "Bingo Bango Bongo",
+  wolf: "Wolf",
 };
+
+// Per-hole award winners for Bingo Bango Bongo (participantId or null).
+export interface BbbData {
+  bingo: (string | null)[]; // first on the green
+  bango: (string | null)[]; // closest once all are on
+  bongo: (string | null)[]; // first in the hole
+}
+
+// Per-hole Wolf choice: the wolf's partner id, "lone", or null (undecided).
+export interface WolfData {
+  partner: (string | "lone" | null)[];
+}
 
 export interface GolfData {
   holes: number; // 9 or 18
   pars: number[]; // par for each hole
   strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
+  bbb?: BbbData; // Bingo Bango Bongo awards
+  wolf?: WolfData; // Wolf partner choices
 }
 
 export interface Match {

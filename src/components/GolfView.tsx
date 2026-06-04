@@ -6,7 +6,7 @@ import { computeGolf, formatToPar } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Card } from "./ui";
 
-const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins"];
+const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins", "nassau"];
 
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
@@ -21,7 +21,14 @@ export function GolfView({ t }: { t: Tournament }) {
       ? t.config.golfMode
       : "stroke";
   const strokeLike = mode === "stroke" || mode === "scramble";
+  const isNassau = mode === "nassau";
   const rows = computeGolf(t, mode);
+  const started = rows.filter((r) => r.thru > 0);
+  const minFront = started.length ? Math.min(...started.map((r) => r.frontNet)) : 0;
+  const minBack = started.length ? Math.min(...started.map((r) => r.backNet)) : 0;
+  const minTotal = started.length ? Math.min(...started.map((r) => r.net)) : 0;
+  const seg = (v: number, best: number, on: boolean) =>
+    `px-2 py-2 text-center tabular-nums font-bold ${on && v === best ? "text-lime-400" : ""}`;
   const holes = Array.from({ length: g.holes }, (_, i) => i);
   const totalPar = g.pars.reduce((a, b) => a + b, 0);
 
@@ -63,7 +70,14 @@ export function GolfView({ t }: { t: Tournament }) {
               {strokeLike && <th className="px-2 py-2 text-center w-16">To Par</th>}
               {mode === "stableford" && <th className="px-2 py-2 text-center w-16">Points</th>}
               {mode === "skins" && <th className="px-2 py-2 text-center w-14">Skins</th>}
-              <th className="px-2 py-2 text-center w-16">Gross</th>
+              {isNassau && (
+                <>
+                  <th className="px-2 py-2 text-center w-14">Front</th>
+                  <th className="px-2 py-2 text-center w-14">Back</th>
+                  <th className="px-2 py-2 text-center w-14">Total</th>
+                </>
+              )}
+              {!isNassau && <th className="px-2 py-2 text-center w-16">Gross</th>}
               {strokeLike && <th className="px-2 py-2 text-center w-14">Net</th>}
             </tr>
           </thead>
@@ -93,7 +107,16 @@ export function GolfView({ t }: { t: Tournament }) {
                 {mode === "skins" && (
                   <td className="px-2 py-2 text-center tabular-nums font-bold">{r.skins}</td>
                 )}
-                <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.gross : "–"}</td>
+                {isNassau && (
+                  <>
+                    <td className={seg(r.frontNet, minFront, r.thru > 0)}>{r.thru ? r.frontNet : "–"}</td>
+                    <td className={seg(r.backNet, minBack, r.thru > 9)}>{r.thru > 9 ? r.backNet : "–"}</td>
+                    <td className={seg(r.net, minTotal, r.thru > 0)}>{r.thru ? r.net : "–"}</td>
+                  </>
+                )}
+                {!isNassau && (
+                  <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.gross : "–"}</td>
+                )}
                 {strokeLike && (
                   <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.net : "–"}</td>
                 )}
