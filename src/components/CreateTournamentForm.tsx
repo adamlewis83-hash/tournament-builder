@@ -1,28 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
+  ALL_FORMATS,
   Format,
   FORMAT_BLURBS,
   FORMAT_LABELS,
+  formatsForSport,
   PlayStyle,
   PLAYSTYLE_LABELS,
   SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
 
-const FORMATS: Format[] = [
-  "round-robin",
-  "swiss",
-  "kotc",
-  "single-elim",
-  "double-elim",
-  "pool-bracket",
-  "ryder",
-  "golf",
-];
 const STYLES: PlayStyle[] = ["singles", "doubles", "teams"];
 const OTHER = "__other__";
 
@@ -37,6 +29,13 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
 
   const sport =
     sportChoice === OTHER ? customSport.trim() || "Custom Tournament" : sportChoice;
+  const available = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
+
+  // Keep the selected format valid for the chosen sport.
+  useEffect(() => {
+    const avail = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
+    if (!avail.includes(format)) setFormat(avail[0]);
+  }, [sportChoice, sport, format]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +86,7 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
       <div>
         <span className="text-sm font-medium">Format</span>
         <div className="mt-2 grid sm:grid-cols-2 gap-2">
-          {FORMATS.map((f) => (
+          {available.map((f) => (
             <button
               key={f}
               type="button"

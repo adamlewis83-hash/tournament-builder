@@ -205,6 +205,24 @@ export const SPORTS: string[] = [
   "Board Games",
 ];
 
+export const ALL_FORMATS: Format[] = [
+  "round-robin",
+  "swiss",
+  "kotc",
+  "single-elim",
+  "double-elim",
+  "pool-bracket",
+  "ryder",
+  "golf",
+];
+
+// Which formats make sense for a given sport. Golf-type sports get the golf
+// formats; everything else gets the court/bracket formats.
+export function formatsForSport(sport: string): Format[] {
+  if (/golf/i.test(sport)) return ["golf", "ryder"];
+  return ["round-robin", "swiss", "kotc", "single-elim", "double-elim", "pool-bracket"];
+}
+
 export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {
   singles: "Singles (1v1)",
   doubles: "Doubles — rotating partners",
