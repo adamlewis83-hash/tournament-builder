@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { GOLF_MODE_LABELS, GolfSegment, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeBbb, computeGolf, formatToPar, segmentForHole } from "@/lib/golf";
+import {
+  computeBbb,
+  computeGolf,
+  computeMixedOverall,
+  formatToPar,
+  mixedComplete,
+  segmentForHole,
+} from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
+import { Confetti } from "./Confetti";
 
 const AWARDS: { key: "bingo" | "bango" | "bongo"; label: string }[] = [
   { key: "bingo", label: "Bingo" },
@@ -72,8 +80,56 @@ export function MixedGolfView({ t }: { t: Tournament }) {
     setGolfScore(t.id, pid, h, next);
   };
 
+  const overall = computeMixedOverall(t, segments);
+  const anyPoints = overall.some((r) => r.points > 0);
+  const complete = mixedComplete(t, segments);
+  const champ = complete && overall[0]?.points > 0 ? overall[0] : null;
+  const fmtPts = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
+
   return (
     <div className="space-y-5">
+      {champ && (
+        <>
+          <Confetti trigger={champ.name} />
+          <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-cyan-400/10 p-6 text-center glow-brand">
+            <div className="text-5xl">🏆</div>
+            <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
+              Overall Champion
+            </div>
+            <div className="mt-1 text-2xl font-extrabold">
+              {champ.name} · {fmtPts(champ.points)} pts
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Overall segment points */}
+      {anyPoints && (
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
+          <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">
+            Overall · Segments won {complete ? "" : "(so far)"}
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {overall.map((r, i) => (
+                <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-lime-400/[0.07]" : ""}`}>
+                  <td className="px-3 py-2 font-bold text-[var(--muted)] w-10">{r.points > 0 ? i + 1 : "–"}</td>
+                  <td className="px-3 py-2 font-medium">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, r.participantId) }} />
+                      {r.name}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold">{fmtPts(r.points)} pts</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-4 py-2 text-xs text-[var(--muted)] border-t border-[var(--border)]">
+            1 point per segment won · ties split the point
+          </div>
+        </div>
+      )}
       {/* Hole entry */}
       <Card className="p-4">
         <div className="flex items-center justify-between">

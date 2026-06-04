@@ -224,6 +224,81 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke", range?: Ho
   return rows;
 }
 
+export interface OverallRow {
+  participantId: string;
+  name: string;
+  points: number; // segment points (1 per segment won; split on ties)
+  segmentsLed: number;
+}
+
+/** Overall standing for Build Your Own: each played segment awards 1 point to its
+ *  leader (split on ties), summed across segments. */
+export function computeMixedOverall(t: Tournament, segments: GolfSegment[]): OverallRow[] {
+  const points = new Map<string, number>();
+  const led = new Map<string, number>();
+  t.participants.forEach((p) => {
+    points.set(p.id, 0);
+    led.set(p.id, 0);
+  });
+
+  for (const seg of segments) {
+    const range = { from: seg.from, to: seg.to };
+    let winners: string[] = [];
+
+    if (seg.format === "bingo") {
+      const rows = computeBbb(t, range);
+      const best = Math.max(0, ...rows.map((r) => r.points));
+      if (best <= 0) continue;
+      winners = rows.filter((r) => r.points === best).map((r) => r.participantId);
+    } else {
+      const rows = computeGolf(t, seg.format, range).filter((r) => r.thru > 0);
+      if (!rows.length) continue;
+      if (seg.format === "stroke") {
+        const best = Math.min(...rows.map((r) => r.net));
+        winners = rows.filter((r) => r.net === best).map((r) => r.participantId);
+      } else if (seg.format === "stableford") {
+        const best = Math.max(...rows.map((r) => r.stableford));
+        winners = rows.filter((r) => r.stableford === best).map((r) => r.participantId);
+      } else {
+        // skins
+        const best = Math.max(...rows.map((r) => r.skins));
+        if (best <= 0) continue;
+        winners = rows.filter((r) => r.skins === best).map((r) => r.participantId);
+      }
+    }
+    const share = 1 / winners.length;
+    for (const id of winners) {
+      points.set(id, (points.get(id) ?? 0) + share);
+      led.set(id, (led.get(id) ?? 0) + 1);
+    }
+  }
+
+  return t.participants
+    .map((p) => ({
+      participantId: p.id,
+      name: p.name,
+      points: points.get(p.id) ?? 0,
+      segmentsLed: led.get(p.id) ?? 0,
+    }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}
+
+/** True once every non-bingo segment hole is filled for all players. */
+export function mixedComplete(t: Tournament, segments: GolfSegment[]): boolean {
+  const g = t.golf;
+  if (!g) return false;
+  const strokeSegs = segments.filter((s) => s.format !== "bingo");
+  if (!strokeSegs.length) return false;
+  for (const seg of strokeSegs) {
+    for (let h = seg.from - 1; h <= seg.to - 1; h++) {
+      for (const p of t.participants) {
+        if (g.scores[p.id]?.[h] == null) return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function formatToPar(toPar: number): string {
   if (toPar === 0) return "E";
   return toPar > 0 ? `+${toPar}` : `${toPar}`;
