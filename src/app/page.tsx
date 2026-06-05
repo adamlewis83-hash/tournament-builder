@@ -73,14 +73,7 @@ export default function Home() {
   );
 }
 
-const FLOATERS = [
-  { e: "🏓", cls: "top-6 right-10 text-5xl", d: "0s" },
-  { e: "🎾", cls: "top-24 right-40 text-3xl", d: ".5s" },
-  { e: "🏀", cls: "bottom-8 right-20 text-4xl", d: "1s" },
-  { e: "⛳", cls: "top-10 right-64 text-2xl", d: ".8s" },
-  { e: "🎯", cls: "bottom-16 right-52 text-3xl", d: "1.3s" },
-  { e: "🥏", cls: "top-32 right-12 text-2xl", d: ".3s" },
-];
+const SPORT_EMOJIS = ["🏓", "🎾", "🏀", "⛳", "🏐", "🎯", "🎳", "🥏", "♟️", "🎮", "🏸", "🥎"];
 
 const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
   { f: "round-robin", c: "blue" },
@@ -96,18 +89,6 @@ const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
     <div className="relative overflow-hidden rounded-3xl glass p-7 sm:p-10 mb-6">
-      <div aria-hidden className="pointer-events-none absolute inset-0 hidden sm:block">
-        {FLOATERS.map((f) => (
-          <span
-            key={f.e + f.cls}
-            className={`absolute animate-float opacity-80 drop-shadow-[0_0_12px_rgba(52,211,153,0.25)] ${f.cls}`}
-            style={{ animationDelay: f.d }}
-          >
-            {f.e}
-          </span>
-        ))}
-      </div>
-
       <div className="relative z-10 max-w-2xl">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
@@ -120,9 +101,8 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           Run any tournament. Crown a champion. 🏆
         </p>
         <p className="mt-2 text-[var(--muted)] max-w-xl">
-          Round robins, single &amp; double elimination, and pool play — for pickleball, ping
-          pong, foosball, or whatever you dream up. Tracks wins, losses &amp; point differential
-          automatically.
+          Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
+          scorecards — for any sport. Score it live together on everyone&apos;s phone.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -139,6 +119,14 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="relative z-10 mt-7 hidden sm:flex items-center gap-4 text-2xl opacity-60">
+        {SPORT_EMOJIS.map((e, i) => (
+          <span key={i} className="animate-float" style={{ animationDelay: `${(i % 6) * 0.25}s` }}>
+            {e}
+          </span>
+        ))}
       </div>
     </div>
   );
