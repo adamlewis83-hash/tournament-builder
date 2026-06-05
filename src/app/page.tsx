@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { decodeTournament } from "@/lib/share";
 import { sportEmoji } from "@/lib/sportEmoji";
+import { getResult } from "@/lib/result";
 import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -167,6 +168,7 @@ function TournamentList() {
   const tournaments = useStore((s) => s.tournaments);
   const remove = useStore((s) => s.removeTournament);
   const duplicate = useStore((s) => s.duplicateTournament);
+  const [filter, setFilter] = useState<"all" | "active" | "done">("all");
 
   if (tournaments.length === 0) {
     return (
@@ -185,54 +187,97 @@ function TournamentList() {
     );
   }
 
+  const withResult = tournaments.map((t) => ({ t, res: getResult(t) }));
+  const shown = withResult.filter(({ res }) =>
+    filter === "all" ? true : filter === "done" ? res.complete : !res.complete,
+  );
+  const doneCount = withResult.filter(({ res }) => res.complete).length;
+
+  const TABS: { k: typeof filter; label: string }[] = [
+    { k: "all", label: `All ${tournaments.length}` },
+    { k: "active", label: `Active ${tournaments.length - doneCount}` },
+    { k: "done", label: `Completed ${doneCount}` },
+  ];
+
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {tournaments.map((t) => {
-        const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
-        return (
-          <Card key={t.id} className="p-4 flex flex-col">
-            <Link href={`/t/${t.id}`} className="flex-1 block group">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
-                {!t.generated && <Badge color="slate">Setup</Badge>}
-              </div>
-              <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
-                <span className="text-xl">{sportEmoji(t.sport)}</span>
-                {t.name}
-              </h3>
-              <p className="text-sm text-[var(--muted)]">
-                {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
-              </p>
-              <p className="text-xs text-[var(--muted)] mt-2">
-                {t.participants.length} participants
-                {t.matches.length > 0 && ` · ${played}/${t.matches.length} games played`}
-              </p>
-            </Link>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t">
-              <Link
-                href={`/t/${t.id}`}
-                className="text-sm font-medium text-[var(--brand)] hover:underline"
-              >
-                Open →
-              </Link>
-              <div className="flex gap-1">
-                <Button variant="ghost" className="px-2 py-1" onClick={() => duplicate(t.id)}>
-                  Duplicate
-                </Button>
-                <Button
-                  variant="danger"
-                  className="px-2 py-1"
-                  onClick={() => {
-                    if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+    <>
+      <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 mb-4">
+        {TABS.map((tab) => (
+          <button
+            key={tab.k}
+            onClick={() => setFilter(tab.k)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              filter === tab.k
+                ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-[var(--muted)]">
+          No {filter === "done" ? "completed" : "active"} tournaments.
+        </Card>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {shown.map(({ t, res }) => {
+            const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
+            return (
+              <Card key={t.id} className="p-4 flex flex-col">
+                <Link href={`/t/${t.id}`} className="flex-1 block group">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
+                    {!t.generated && <Badge color="slate">Setup</Badge>}
+                    {res.complete && <Badge color="green">✓ Complete</Badge>}
+                  </div>
+                  <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
+                    <span className="text-xl">{sportEmoji(t.sport)}</span>
+                    {t.name}
+                  </h3>
+                  <p className="text-sm text-[var(--muted)]">
+                    {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
+                  </p>
+                  {res.winner ? (
+                    <p className="text-sm mt-2 font-semibold text-amber-500 flex items-center gap-1">
+                      🏆 {res.winner}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[var(--muted)] mt-2">
+                      {t.participants.length} participants
+                      {t.matches.length > 0 && ` · ${played}/${t.matches.length} games played`}
+                    </p>
+                  )}
+                </Link>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border)]">
+                  <Link
+                    href={`/t/${t.id}`}
+                    className="text-sm font-medium text-[var(--brand)] hover:underline"
+                  >
+                    Open →
+                  </Link>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" className="px-2 py-1" onClick={() => duplicate(t.id)}>
+                      Duplicate
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="px-2 py-1"
+                      onClick={() => {
+                        if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
