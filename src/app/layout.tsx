@@ -46,8 +46,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </span>
               <span className="brand-text">SEEDED</span>
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               <ThemeToggle />
+              <Link
+                href="/records"
+                className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
+              >
+                🏆 Records
+              </Link>
               <Link
                 href="/"
                 className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
