@@ -12,6 +12,7 @@ import {
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
+import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Button, Card } from "./ui";
 
 const MODES: GolfMode[] = [
@@ -59,6 +60,10 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
   const [showCourse, setShowCourse] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CourseSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [notConfigured, setNotConfigured] = useState(false);
   const [segments, setSegments] = useState<GolfSegment[]>(
     t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18),
   );
@@ -87,6 +92,32 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setPars(c.pars);
     setSi(c.strokeIndex);
     setSegments(defaultSegments(c.holes));
+  }
+
+  function applyCourse(c: ImportedCourse) {
+    setCourseName(c.name);
+    setHoles(c.holes);
+    setPars(c.pars);
+    setSi(c.strokeIndex);
+    setSegments(defaultSegments(c.holes));
+  }
+
+  async function runSearch() {
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    const r = await searchCourses(query.trim());
+    setNotConfigured(!!r.notConfigured);
+    setResults(r.courses);
+    setSearching(false);
+  }
+
+  async function pickResult(id: number) {
+    const c = await importCourse(id);
+    if (c) {
+      applyCourse(c);
+      setResults([]);
+      setQuery("");
+    }
   }
 
   function saveCurrentCourse() {
@@ -127,6 +158,52 @@ export function GolfSetup({ t }: { t: Tournament }) {
           <Link href="/courses" className="text-xs text-[var(--brand)] hover:underline">
             Manage courses
           </Link>
+        </div>
+
+        <div className="mb-3">
+          <span className="text-xs font-medium text-[var(--muted)]">Search real courses</span>
+          <div className="mt-1 flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runSearch();
+                }
+              }}
+              placeholder="e.g. Pinehurst No. 2"
+              className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+            />
+            <Button
+              variant="outline"
+              className="px-3 py-2"
+              onClick={runSearch}
+              disabled={searching || query.trim().length < 2}
+            >
+              {searching ? "…" : "Search"}
+            </Button>
+          </div>
+          {notConfigured && (
+            <p className="text-xs text-amber-400 mt-1">
+              Course search isn&apos;t set up yet (no API key configured).
+            </p>
+          )}
+          {results.length > 0 && (
+            <div className="mt-2 rounded-lg border border-[var(--border)] divide-y divide-[var(--border)] max-h-56 overflow-auto">
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => pickResult(r.id)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--hover)]"
+                >
+                  <div className="font-medium">{r.name}</div>
+                  {r.location && <div className="text-xs text-[var(--muted)]">{r.location}</div>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {courses.length > 0 && (
