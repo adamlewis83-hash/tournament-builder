@@ -21,8 +21,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       cache: "no-store",
     });
     if (!r.ok) return NextResponse.json({ error: "upstream" }, { status: r.status });
-    const data = await r.json();
-    const tee = pickTee(data.tees);
+    const json = await r.json();
+    const course = json.course ?? json; // /courses/{id} wraps in { course: {...} }
+    const tee = pickTee(course.tees);
     if (!tee) return NextResponse.json({ error: "no-hole-data" }, { status: 404 });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,11 +31,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     const pars = holes.map((h) => Number(h.par) || 4);
     const strokeIndex = holes.map((h, i) => Number(h.handicap) || i + 1);
     const name =
-      data.course_name && data.course_name !== data.club_name
-        ? `${data.club_name} — ${data.course_name}`
-        : data.club_name;
+      course.course_name && course.course_name !== course.club_name
+        ? `${course.club_name} — ${course.course_name}`
+        : course.club_name;
 
-    return NextResponse.json({ id: data.id, name, holes: holes.length, pars, strokeIndex });
+    return NextResponse.json({ id: course.id, name, holes: holes.length, pars, strokeIndex });
   } catch {
     return NextResponse.json({ error: "fetch-failed" }, { status: 502 });
   }
