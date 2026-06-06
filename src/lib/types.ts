@@ -120,6 +120,17 @@ export interface Match {
   loserNextSlot?: "A" | "B";
 }
 
+// Ryder Cup played on a course: per-hole gross scores per match, with handicaps.
+export interface RyderGolf {
+  holes: number;
+  pars: number[];
+  strokeIndex: number[];
+  courseName?: string;
+  // matchId -> entityKey -> per-hole gross. entityKey is a participantId (singles/fourball)
+  // or "A"/"B" for a Foursomes team ball.
+  scores: Record<string, Record<string, (number | null)[]>>;
+}
+
 export type Tiebreaker = "diff" | "headToHead" | "pointsFor";
 
 export const TIEBREAKER_LABELS: Record<Tiebreaker, string> = {
@@ -153,6 +164,7 @@ export interface Tournament {
   participants: Participant[];
   matches: Match[];
   golf?: GolfData;
+  ryderGolf?: RyderGolf;
   config: TournamentConfig;
   createdAt: number;
   updatedAt: number;

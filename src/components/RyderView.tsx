@@ -3,10 +3,138 @@
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
 import { ryderScore } from "@/lib/ryder";
+import { entitiesForMatch, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
-import { MatchCard } from "./MatchCard";
 import { Confetti } from "./Confetti";
+
+function RyderMatchCard({
+  t,
+  m,
+  teamNames,
+}: {
+  t: Tournament;
+  m: Match;
+  teamNames: [string, string];
+}) {
+  const setScore = useStore((s) => s.setRyderHoleScore);
+  const [open, setOpen] = useState(false);
+  const g = t.ryderGolf;
+  if (!g) return null;
+
+  const ents = entitiesForMatch(m);
+  const st = matchStatus(t, m);
+  const sc = g.scores[m.id] ?? {};
+  const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "?";
+  const sideNames = (ids: string[]) => ids.map(nameOf).join(" / ");
+  const colLabel = (key: string) =>
+    key === "A" ? teamNames[0] : key === "B" ? teamNames[1] : nameOf(key).split(" ")[0];
+  const holes = Array.from({ length: g.holes }, (_, i) => i);
+  const statusColor =
+    st.upA > st.upB ? "text-[var(--brand)]" : st.upB > st.upA ? "text-rose-300" : "text-[var(--muted)]";
+
+  return (
+    <Card className="p-0 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[var(--hover)]"
+      >
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+            {m.label}
+          </div>
+          <div className="font-semibold truncate">
+            <span className="text-[var(--brand)]">{sideNames(m.sideA)}</span>
+            <span className="text-[var(--muted)]"> vs </span>
+            <span className="text-rose-300">{sideNames(m.sideB)}</span>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className={`text-sm font-bold ${statusColor}`}>{matchText(st)}</div>
+          <div className="text-[10px] text-[var(--muted)]">{open ? "Hide ▴" : "Score ▾"}</div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3 overflow-x-auto border-t border-[var(--border)]">
+          <table className="text-sm border-separate border-spacing-0 mt-2">
+            <thead>
+              <tr className="text-xs text-[var(--muted)]">
+                <th className="px-2 py-1 text-left sticky left-0 bg-[var(--surface)]">Hole</th>
+                <th className="px-1 py-1">Par</th>
+                {ents.map((e) => (
+                  <th
+                    key={e.key}
+                    className={`px-1 py-1 ${e.side === "A" ? "text-[var(--brand)]" : "text-rose-300"}`}
+                  >
+                    {colLabel(e.key)}
+                  </th>
+                ))}
+                <th className="px-1 py-1"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {holes.map((h) => {
+                const nets = holeNets(t, m, h);
+                const res = nets
+                  ? nets.netA < nets.netB
+                    ? "A"
+                    : nets.netB < nets.netA
+                      ? "B"
+                      : "–"
+                  : "";
+                return (
+                  <tr key={h}>
+                    <td className="px-2 py-1 sticky left-0 bg-[var(--surface)] border-t border-[var(--border)] font-medium">
+                      {h + 1}
+                    </td>
+                    <td className="px-1 py-1 text-center text-[var(--muted)] border-t border-[var(--border)]">
+                      {g.pars[h]}
+                    </td>
+                    {ents.map((e) => (
+                      <td key={e.key} className="px-0.5 py-1 border-t border-[var(--border)]">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={sc[e.key]?.[h] ?? ""}
+                          onChange={(ev) =>
+                            setScore(
+                              t.id,
+                              m.id,
+                              e.key,
+                              h,
+                              ev.target.value === "" ? null : Number(ev.target.value),
+                            )
+                          }
+                          className="w-9 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                        />
+                      </td>
+                    ))}
+                    <td
+                      className={`px-1 py-1 text-center border-t border-[var(--border)] font-bold ${
+                        res === "A" ? "text-[var(--brand)]" : res === "B" ? "text-rose-300" : "text-[var(--muted)]"
+                      }`}
+                    >
+                      {res === "A" ? "▲" : res === "B" ? "▼" : res}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-[var(--muted)] mt-1.5">
+            Net result per hole · handicap strokes by stroke index
+            {m.label === "Foursomes"
+              ? " · one ball per team (alternate shot)"
+              : m.label === "Fourball"
+                ? " · best net of the pair"
+                : ""}
+          </p>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function PairingEditor({
   t,
@@ -74,7 +202,7 @@ function PairingEditor({
 export function RyderView({ t }: { t: Tournament }) {
   // Default into captain's-picks mode until scoring has started.
   const [editing, setEditing] = useState(
-    () => !t.matches.some((m) => m.phase === "ryder" && m.scoreA !== null),
+    () => !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
   );
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
   const score = ryderScore(t.matches);
@@ -150,15 +278,19 @@ export function RyderView({ t }: { t: Tournament }) {
         return (
           <div key={round}>
             <h3 className="font-semibold mb-2">{label}</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ms.map((m) =>
-                editing ? (
+            {editing ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {ms.map((m) => (
                   <PairingEditor key={m.id} t={t} match={m} teamA={teamA} teamB={teamB} />
-                ) : (
-                  <MatchCard key={m.id} tournamentId={t.id} participants={t.participants} match={m} />
-                ),
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {ms.map((m) => (
+                  <RyderMatchCard key={m.id} t={t} m={m} teamNames={[nameA, nameB]} />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

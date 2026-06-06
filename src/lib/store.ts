@@ -14,6 +14,7 @@ import {
 import { uid } from "./id";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext } from "./schedule";
 import { genRyder } from "./ryder";
+import { matchStatus } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
   genDoubleElim,
@@ -61,7 +62,20 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
-  setRyderTeams: (id: string, teamA: string[], teamB: string[], teamNames: [string, string]) => void;
+  setRyderTeams: (
+    id: string,
+    teamA: { name: string; handicap: number }[],
+    teamB: { name: string; handicap: number }[],
+    teamNames: [string, string],
+    course: { holes: number; pars: number[]; strokeIndex: number[]; courseName?: string },
+  ) => void;
+  setRyderHoleScore: (
+    id: string,
+    matchId: string,
+    key: string,
+    hole: number,
+    value: number | null,
+  ) => void;
   setGolfPlayers: (
     id: string,
     input: {
@@ -291,23 +305,64 @@ export const useStore = create<State>()(
           }),
         })),
 
-      setRyderTeams: (id, teamA, teamB, teamNames) => {
+      setRyderTeams: (id, teamA, teamB, teamNames, course) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
             const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
-            const build = (names: string[], team: 0 | 1): Participant[] =>
-              names
-                .map((n) => n.trim())
-                .filter(Boolean)
-                .map((n) => ({ ...(existing.get(n.toLowerCase()) ?? { id: uid(), name: n }), team }));
+            const build = (rows: { name: string; handicap: number }[], team: 0 | 1): Participant[] =>
+              rows
+                .filter((r) => r.name.trim())
+                .map((r) => ({
+                  ...(existing.get(r.name.trim().toLowerCase()) ?? {
+                    id: uid(),
+                    name: r.name.trim(),
+                  }),
+                  name: r.name.trim(),
+                  team,
+                  handicap: r.handicap,
+                }));
             const participants = [...build(teamA, 0), ...build(teamB, 1)];
+            const ryderGolf = {
+              holes: course.holes,
+              pars: course.pars,
+              strokeIndex: course.strokeIndex,
+              courseName: course.courseName,
+              scores: {},
+            };
             return {
               ...t,
               participants,
+              ryderGolf,
               config: { ...t.config, teamNames },
               updatedAt: Date.now(),
             };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setRyderHoleScore: (id, matchId, key, hole, value) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.ryderGolf) return t;
+            const g = t.ryderGolf;
+            const matchScores = { ...(g.scores[matchId] ?? {}) };
+            const arr = [...(matchScores[key] ?? Array(g.holes).fill(null))];
+            arr[hole] = value;
+            matchScores[key] = arr;
+            const tWith = { ...t, ryderGolf: { ...g, scores: { ...g.scores, [matchId]: matchScores } } };
+            const m = tWith.matches.find((x) => x.id === matchId);
+            let matches = tWith.matches;
+            if (m) {
+              const st = matchStatus(tWith, m);
+              const scoreA = st.decided ? st.upA : null;
+              const scoreB = st.decided ? st.upB : null;
+              matches = tWith.matches.map((x) =>
+                x.id === matchId ? { ...x, scoreA, scoreB } : x,
+              );
+            }
+            return { ...tWith, matches, updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);

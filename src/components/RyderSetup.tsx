@@ -3,30 +3,87 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { defaultCourse } from "@/lib/golf";
+import { CourseSearchResult, importCourse, searchCourses } from "@/lib/courseApi";
 import { Button, Card } from "./ui";
+
+interface CourseState {
+  holes: number;
+  pars: number[];
+  strokeIndex: number[];
+  courseName?: string;
+}
 
 export function RyderSetup({ t }: { t: Tournament }) {
   const setRyderTeams = useStore((s) => s.setRyderTeams);
   const generate = useStore((s) => s.generate);
   const patch = useStore((s) => s.patchTournament);
+  const savedCourses = useStore((s) => s.courses);
+  const saveCourse = useStore((s) => s.saveCourse);
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
   const [foursomes, setFoursomes] = useState(t.config.ryderFoursomes ?? 1);
   const [fourball, setFourball] = useState(t.config.ryderFourball ?? 1);
   const [singles, setSingles] = useState(t.config.ryderSingles ?? 1);
-  const [aText, setAText] = useState(
-    t.participants.filter((p) => p.team === 0).map((p) => p.name).join("\n"),
-  );
-  const [bText, setBText] = useState(
-    t.participants.filter((p) => p.team === 1).map((p) => p.name).join("\n"),
+
+  const toText = (team: 0 | 1) =>
+    t.participants
+      .filter((p) => p.team === team)
+      .map((p) => (p.handicap ? `${p.name}, ${p.handicap}` : p.name))
+      .join("\n");
+  const [aText, setAText] = useState(toText(0));
+  const [bText, setBText] = useState(toText(1));
+
+  const d = defaultCourse(18);
+  const [course, setCourse] = useState<CourseState>(
+    t.ryderGolf
+      ? {
+          holes: t.ryderGolf.holes,
+          pars: t.ryderGolf.pars,
+          strokeIndex: t.ryderGolf.strokeIndex,
+          courseName: t.ryderGolf.courseName,
+        }
+      : { holes: 18, pars: d.pars, strokeIndex: d.strokeIndex },
   );
 
-  const split = (s: string) =>
-    s.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
-  const a = split(aText);
-  const b = split(bText);
-  const canGenerate = a.length >= 1 && b.length >= 1;
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CourseSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [notConfigured, setNotConfigured] = useState(false);
+
+  const parseRows = (s: string) =>
+    s
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [name, hcp] = l.split(",").map((x) => x.trim());
+        return { name, handicap: Number(hcp) || 0 };
+      });
+
+  const aRows = parseRows(aText);
+  const bRows = parseRows(bText);
+  const totalPar = course.pars.slice(0, course.holes).reduce((x, y) => x + y, 0);
+  const canGenerate = aRows.length >= 1 && bRows.length >= 1 && course.pars.length >= course.holes;
+
+  async function runSearch() {
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    const r = await searchCourses(query.trim());
+    setNotConfigured(!!r.notConfigured);
+    setResults(r.courses);
+    setSearching(false);
+  }
+
+  async function pickResult(id: number) {
+    const c = await importCourse(id);
+    if (c) {
+      setCourse({ holes: c.holes, pars: c.pars, strokeIndex: c.strokeIndex, courseName: c.name });
+      setResults([]);
+      setQuery("");
+    }
+  }
 
   function handleGenerate() {
     patch(t.id, {
@@ -37,25 +94,141 @@ export function RyderSetup({ t }: { t: Tournament }) {
         ryderSingles: singles,
       },
     });
-    setRyderTeams(t.id, a, b, [nameA.trim() || "Team A", nameB.trim() || "Team B"]);
+    setRyderTeams(
+      t.id,
+      aRows,
+      bRows,
+      [nameA.trim() || "Team A", nameB.trim() || "Team B"],
+      {
+        holes: course.holes,
+        pars: course.pars.slice(0, course.holes),
+        strokeIndex: course.strokeIndex.slice(0, course.holes),
+        courseName: course.courseName,
+      },
+    );
     generate(t.id);
   }
 
   return (
     <div className="space-y-5">
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">Two teams, head to head</h2>
+        <h2 className="font-semibold mb-1">Two teams, on the course</h2>
         <p className="text-sm text-[var(--muted)]">
-          Enter each team&apos;s players (one per line). The app builds a Fourball (pairs) session
-          and a Singles session — each match is worth a point, ½ for a tie. First team past half the
-          points wins the cup. 🏌️
+          Pick a course, enter each team&apos;s players with handicaps, and choose your sessions.
+          Every match is played <b>hole-by-hole as net match play</b> — the app tracks who&apos;s up
+          and awards the point (½ for a halve). First team past half the points wins the cup. 🏌️
         </p>
       </Card>
 
+      {/* Course */}
+      <Card className="p-5">
+        <h2 className="font-semibold mb-3">Course</h2>
+        <div className="mb-3">
+          <span className="text-xs font-medium text-[var(--muted)]">Search real courses</span>
+          <div className="mt-1 flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runSearch();
+                }
+              }}
+              placeholder="e.g. Pebble Beach"
+              className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+            />
+            <Button
+              variant="outline"
+              className="px-3 py-2"
+              onClick={runSearch}
+              disabled={searching || query.trim().length < 2}
+            >
+              {searching ? "…" : "Search"}
+            </Button>
+          </div>
+          {notConfigured && (
+            <p className="text-xs text-amber-400 mt-1">Course search isn&apos;t set up yet.</p>
+          )}
+          {results.length > 0 && (
+            <div className="mt-2 rounded-lg border border-[var(--border)] divide-y divide-[var(--border)] max-h-56 overflow-auto">
+              {results.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => pickResult(r.id)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--hover)]"
+                >
+                  <div className="font-medium">{r.name}</div>
+                  {r.location && <div className="text-xs text-[var(--muted)]">{r.location}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {savedCourses.length > 0 && (
+          <label className="block mb-3">
+            <span className="text-xs font-medium text-[var(--muted)]">Or load a saved course</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const c = savedCourses.find((x) => x.id === e.target.value);
+                if (c)
+                  setCourse({
+                    holes: c.holes,
+                    pars: c.pars,
+                    strokeIndex: c.strokeIndex,
+                    courseName: c.name,
+                  });
+              }}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+            >
+              <option value="">— Pick a saved course —</option>
+              {savedCourses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.holes} holes)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div className="flex items-center justify-between rounded-lg bg-[var(--subtle)] px-3 py-2 text-sm">
+          <span>
+            <span className="font-semibold">{course.courseName ?? "Default course"}</span>{" "}
+            <span className="text-[var(--muted)]">
+              · {course.holes} holes · Par {totalPar}
+            </span>
+          </span>
+          {course.courseName && (
+            <Button
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              onClick={() =>
+                saveCourse({
+                  name: course.courseName!,
+                  holes: course.holes,
+                  pars: course.pars.slice(0, course.holes),
+                  strokeIndex: course.strokeIndex.slice(0, course.holes),
+                })
+              }
+            >
+              💾 Save
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-[var(--muted)] mt-2">
+          Handicap strokes are allocated by the course&apos;s stroke index, so each match is scored
+          net per hole.
+        </p>
+      </Card>
+
+      {/* Teams */}
       <div className="grid sm:grid-cols-2 gap-5">
         {[
-          { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-[var(--brand)]", list: a },
-          { name: nameB, setName: setNameB, text: bText, setText: setBText, ring: "ring-rose-400/40", list: b },
+          { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-[var(--brand)]", rows: aRows },
+          { name: nameB, setName: setNameB, text: bText, setText: setBText, ring: "ring-rose-400/40", rows: bRows },
         ].map((team, i) => (
           <Card key={i} className={`p-5 ring-1 ${team.ring}`}>
             <input
@@ -66,11 +239,13 @@ export function RyderSetup({ t }: { t: Tournament }) {
             <textarea
               value={team.text}
               onChange={(e) => team.setText(e.target.value)}
-              rows={8}
-              placeholder={"Player 1\nPlayer 2\nPlayer 3\nPlayer 4"}
+              rows={6}
+              placeholder={"Adam, 8\nTom, 14\nDad, 20\nJosh, 5"}
               className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
             />
-            <p className="text-sm text-[var(--muted)] mt-2">{team.list.length} players</p>
+            <p className="text-sm text-[var(--muted)] mt-2">
+              {team.rows.length} players · one per line as <b>Name, handicap</b>
+            </p>
           </Card>
         ))}
       </div>
