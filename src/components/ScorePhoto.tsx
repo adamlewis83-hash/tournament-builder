@@ -83,8 +83,8 @@ export function ScorePhoto({ t }: { t: Tournament }) {
         ))}
       </div>
 
-      <div className="mt-4 text-center text-[10px]" style={{ color: "#6b8275" }}>
-        Played on Seeded · seeded
+      <div className="mt-4 text-center text-[11px] font-medium" style={{ color: "#6b8275" }}>
+        🌱 Made with Seeded
       </div>
     </div>
   );
