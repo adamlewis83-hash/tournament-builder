@@ -1,8 +1,59 @@
 import { Tournament } from "./types";
 import { computeStandings } from "./standings";
-import { computeBbb, computeGolf, computeMixedOverall } from "./golf";
+import { computeBbb, computeGolf, computeMixedOverall, formatToPar } from "./golf";
 import { ryderScore } from "./ryder";
 import { getResult } from "./result";
+
+export interface FinalRow {
+  name: string;
+  stat: string;
+}
+
+const fmtNum = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
+
+/** Final standings rows with a short stat per player/team, for the scorephoto. */
+export function getFinalRows(t: Tournament): FinalRow[] {
+  if (t.format === "golf") {
+    const g = t.golf;
+    if (!g) return [];
+    const mode = t.config.golfMode;
+    if (mode === "mixed")
+      return computeMixedOverall(t, g.segments ?? []).map((r) => ({ name: r.name, stat: `${fmtNum(r.points)} pt` }));
+    if (mode === "bingo") return computeBbb(t).map((r) => ({ name: r.name, stat: `${r.points} pt` }));
+    return computeGolf(t, mode).map((r) => ({
+      name: r.name,
+      stat:
+        mode === "stableford"
+          ? `${r.stableford} pt`
+          : mode === "skins"
+            ? `${r.skins} skins`
+            : r.thru
+              ? formatToPar(r.toPar)
+              : "—",
+    }));
+  }
+
+  if (t.format === "ryder") {
+    const sc = ryderScore(t.matches);
+    const [a, b] = t.config.teamNames ?? ["Team A", "Team B"];
+    return [
+      { name: a, stat: fmtNum(sc.a) },
+      { name: b, stat: fmtNum(sc.b) },
+    ].sort((x, y) => parseFloat(y.stat) - parseFloat(x.stat));
+  }
+
+  const s = computeStandings(
+    t.participants,
+    t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
+    t.config.tiebreaker,
+  );
+  let rows = s.map((r) => ({ name: r.name, stat: `${r.wins}–${r.losses}` }));
+  const champ = getResult(t).winner;
+  if (champ && rows.some((r) => r.name === champ)) {
+    rows = [rows.find((r) => r.name === champ)!, ...rows.filter((r) => r.name !== champ)];
+  }
+  return rows;
+}
 
 function golfNames(t: Tournament): string[] {
   const g = t.golf;

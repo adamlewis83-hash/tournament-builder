@@ -6,6 +6,7 @@ import { encodeTournament } from "@/lib/share";
 import { computeStandings } from "@/lib/standings";
 import { bracketChampion } from "@/lib/bracket";
 import { Button } from "./ui";
+import { ScorePhotoButton } from "./ScorePhotoButton";
 
 function resultsText(t: Tournament): string {
   const lines: string[] = [`🏆 ${t.name} — ${t.sport}`, ""];
@@ -48,6 +49,7 @@ export function ShareBar({ t }: { t: Tournament }) {
   return (
     <div className="no-print flex items-center gap-2">
       {msg && <span className="text-xs font-medium text-[var(--win)]">{msg}</span>}
+      <ScorePhotoButton t={t} />
       <Button variant="outline" className="px-2.5 py-1.5" onClick={() => copy(resultsText(t), "Results copied!")}>
         Copy results
       </Button>
