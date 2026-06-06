@@ -33,3 +33,24 @@ model OwnedTournament {
   @@index([ownerId])
   @@map("owned_tournaments")
 }
+
+// Links an email to a library key so a user can recover their library on a new
+// device by entering their email + a one-time code (no password / account).
+model EmailLink {
+  email      String   @id
+  libraryKey String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("email_links")
+}
+
+// A short-lived one-time code emailed to verify ownership of an address.
+model LoginCode {
+  email     String   @id
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("login_codes")
+}

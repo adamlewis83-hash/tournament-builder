@@ -47,6 +47,42 @@ export async function putTournament(owner: string, tournament: Tournament): Prom
   }
 }
 
+/** Email a one-time code. notConfigured=true if email backup isn't set up. */
+export async function sendRecoveryCode(
+  email: string,
+): Promise<{ ok: boolean; notConfigured?: boolean }> {
+  try {
+    const res = await fetch("/api/recovery/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (res.status === 503) return { ok: false, notConfigured: true };
+    return { ok: res.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Verify a code. Links this device's key (first time) or returns the recovered key. */
+export async function verifyRecoveryCode(
+  email: string,
+  code: string,
+  libraryKey: string,
+): Promise<{ libraryKey: string; recovered: boolean } | null> {
+  try {
+    const res = await fetch("/api/recovery/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code, libraryKey }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteTournamentRemote(owner: string, id: string): Promise<void> {
   try {
     await fetch(`/api/library/${id}?owner=${encodeURIComponent(owner)}`, { method: "DELETE" });
