@@ -74,6 +74,15 @@ export interface WolfData {
   partner: (string | "lone" | null)[];
 }
 
+// A reusable course saved to the library (pars + stroke index per hole).
+export interface Course {
+  id: string;
+  name: string;
+  holes: number;
+  pars: number[];
+  strokeIndex: number[];
+}
+
 export interface GolfData {
   holes: number; // 9 or 18
   courseName?: string; // name of the course being played

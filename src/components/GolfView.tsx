@@ -17,7 +17,7 @@ export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfScore = useStore((s) => s.setGolfScore);
   const [hole, setHole] = useState(0);
-  const [showCard, setShowCard] = useState(false);
+  const [showCard, setShowCard] = useState(true);
   const g = t.golf;
   if (!g) return null;
 

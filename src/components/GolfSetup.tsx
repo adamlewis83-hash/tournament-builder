@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { GOLF_MODE_LABELS, GolfMode, GolfSegment, SegmentFormat, Tournament } from "@/lib/types";
+import Link from "next/link";
+import {
+  Course,
+  GOLF_MODE_LABELS,
+  GolfMode,
+  GolfSegment,
+  SegmentFormat,
+  Tournament,
+} from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
 import { Button, Card } from "./ui";
@@ -39,6 +47,8 @@ interface PlayerRow {
 export function GolfSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfPlayers = useStore((s) => s.setGolfPlayers);
+  const courses = useStore((s) => s.courses);
+  const saveCourse = useStore((s) => s.saveCourse);
 
   const [mode, setMode] = useState<GolfMode>(
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
@@ -71,6 +81,24 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setSegments(defaultSegments(n));
   }
 
+  function loadCourse(c: Course) {
+    setCourseName(c.name);
+    setHoles(c.holes);
+    setPars(c.pars);
+    setSi(c.strokeIndex);
+    setSegments(defaultSegments(c.holes));
+  }
+
+  function saveCurrentCourse() {
+    if (!courseName.trim()) return;
+    saveCourse({
+      name: courseName,
+      holes,
+      pars: pars.slice(0, holes),
+      strokeIndex: si.slice(0, holes),
+    });
+  }
+
   const valid = players.filter((p) => p.name.trim()).length >= 1;
   const totalPar = pars.slice(0, holes).reduce((a, b) => a + b, 0);
 
@@ -94,7 +122,34 @@ export function GolfSetup({ t }: { t: Tournament }) {
     <div className="space-y-5">
       {/* Course */}
       <Card className="p-5">
-        <h2 className="font-semibold mb-3">Course</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Course</h2>
+          <Link href="/courses" className="text-xs text-[var(--brand)] hover:underline">
+            Manage courses
+          </Link>
+        </div>
+
+        {courses.length > 0 && (
+          <label className="block mb-3">
+            <span className="text-xs font-medium text-[var(--muted)]">Load a saved course</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const c = courses.find((x) => x.id === e.target.value);
+                if (c) loadCourse(c);
+              }}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+            >
+              <option value="">— Pick a saved course —</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.holes} holes)
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="text-sm font-medium">Course name</span>
@@ -179,6 +234,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
             </p>
           </div>
         )}
+
+        <div className="mt-4 pt-3 border-t border-[var(--border)] flex items-center gap-3">
+          <Button variant="outline" className="px-3 py-1.5" onClick={saveCurrentCourse} disabled={!courseName.trim()}>
+            💾 Save course
+          </Button>
+          <span className="text-xs text-[var(--muted)]">Reuse its pars &amp; stroke index next time.</span>
+        </div>
       </Card>
 
       {/* Players + handicaps */}

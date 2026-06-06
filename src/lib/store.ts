@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
+  Course,
   Format,
   Match,
   Participant,
@@ -49,7 +50,10 @@ export interface CreateInput {
 
 interface State {
   tournaments: Tournament[];
+  courses: Course[];
   hydrated: boolean;
+  saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
+  removeCourse: (id: string) => void;
   createTournament: (input: CreateInput) => string;
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
@@ -178,7 +182,31 @@ export const useStore = create<State>()(
 
       return {
       tournaments: [],
+      courses: [],
       hydrated: false,
+
+      saveCourse: (input) => {
+        let id = input.id ?? "";
+        set((s) => {
+          const match = input.id
+            ? s.courses.find((c) => c.id === input.id)
+            : s.courses.find((c) => c.name.trim().toLowerCase() === input.name.trim().toLowerCase());
+          const course: Course = {
+            id: match?.id ?? uid(),
+            name: input.name.trim(),
+            holes: input.holes,
+            pars: input.pars,
+            strokeIndex: input.strokeIndex,
+          };
+          id = course.id;
+          return match
+            ? { courses: s.courses.map((c) => (c.id === match.id ? course : c)) }
+            : { courses: [course, ...s.courses] };
+        });
+        return id;
+      },
+
+      removeCourse: (id) => set((s) => ({ courses: s.courses.filter((c) => c.id !== id) })),
 
       createTournament: (input) => {
         const id = uid();
@@ -577,7 +605,7 @@ export const useStore = create<State>()(
     {
       name: "tournament-builder-v1",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ tournaments: s.tournaments }),
+      partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },
