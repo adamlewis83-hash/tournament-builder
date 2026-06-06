@@ -74,8 +74,6 @@ export default function Home() {
   );
 }
 
-const SPORT_EMOJIS = ["🏓", "🎾", "🏀", "⛳", "🏐", "🎯", "🎳", "🥏", "♟️", "🎮", "🏸", "🥎"];
-
 const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
   { f: "round-robin", c: "blue" },
   { f: "swiss", c: "slate" },
@@ -120,14 +118,6 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="relative z-10 mt-7 hidden sm:flex items-center gap-4 text-2xl opacity-60">
-        {SPORT_EMOJIS.map((e, i) => (
-          <span key={i} className="animate-float" style={{ animationDelay: `${(i % 6) * 0.25}s` }}>
-            {e}
-          </span>
-        ))}
       </div>
     </div>
   );
