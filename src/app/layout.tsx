@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CloudSync } from "@/components/CloudSync";
+import { BottomNav } from "@/components/BottomNav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
@@ -63,10 +64,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </div>
           </div>
         </header>
-        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
-        <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 text-center text-xs text-[var(--muted)]">
+        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24 sm:pb-6">
+          {children}
+        </main>
+        <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 sm:pb-4 text-center text-xs text-[var(--muted)]">
           Seeded · plays offline · saved on your device
         </footer>
+        <BottomNav />
       </body>
     </html>
   );

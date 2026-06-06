@@ -47,6 +47,9 @@ const FORMAT_COLOR: Record<string, string> = {
 export default function Home() {
   const [creating, setCreating] = useState(false);
   useSharedImport();
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new")) setCreating(true);
+  }, []);
   return (
     <HydrationGate>
       <Hero creating={creating} onCreate={() => setCreating(true)} />

@@ -3,6 +3,7 @@
 import { Match, Participant, Tiebreaker, TIEBREAKER_LABELS } from "@/lib/types";
 import { computeStandings } from "@/lib/standings";
 import { colorFor } from "@/lib/colors";
+import { Avatar } from "./Avatar";
 
 export function StandingsTable({
   participants,
@@ -53,11 +54,8 @@ export function StandingsTable({
                   {advancing ? <span className="text-[var(--win)]">{r.rank}</span> : r.rank}
                 </td>
                 <td className="px-3 py-2 font-medium">
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0"
-                      style={{ background: colorFor(participants, r.participantId) }}
-                    />
+                  <span className="flex items-center gap-2.5">
+                    <Avatar name={r.name} color={colorFor(participants, r.participantId)} />
                     {r.name}
                   </span>
                 </td>

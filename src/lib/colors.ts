@@ -28,3 +28,10 @@ export function colorFor(participants: Participant[], id: string): string {
   const i = participants.findIndex((p) => p.id === id);
   return colorForIndex(i < 0 ? 0 : i);
 }
+
+/** Stable color from a name (for cross-event records where ids differ). */
+export function colorForName(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return colorForIndex(h % PALETTE.length);
+}

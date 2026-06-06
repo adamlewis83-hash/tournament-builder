@@ -4,6 +4,7 @@ import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeWolf, wolfForHole } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
+import { Avatar } from "./Avatar";
 import { Card } from "./ui";
 
 export function WolfView({ t }: { t: Tournament }) {
@@ -34,7 +35,7 @@ export function WolfView({ t }: { t: Tournament }) {
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.points > 0 ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, r.participantId) }} />
+                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
                     {r.name}
                   </span>
                 </td>

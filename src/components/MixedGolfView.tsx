@@ -12,6 +12,7 @@ import {
   segmentForHole,
 } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
+import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
 import { Confetti } from "./Confetti";
 
@@ -37,7 +38,7 @@ function SegmentBoard({ t, seg }: { t: Tournament; seg: GolfSegment }) {
             <tr key={r.participantId} className={`border-b border-[var(--border)] last:border-0 ${i === 0 ? "bg-[var(--win-bg)]" : ""}`}>
               <td className="px-3 py-2 font-medium">
                 <span className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, r.participantId) }} />
+                  <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
                   {r.name}
                 </span>
               </td>
@@ -116,7 +117,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
                   <td className="px-3 py-2 font-bold text-[var(--muted)] w-10">{r.points > 0 ? i + 1 : "–"}</td>
                   <td className="px-3 py-2 font-medium">
                     <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, r.participantId) }} />
+                      <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
                       {r.name}
                     </span>
                   </td>
@@ -177,7 +178,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
                   <span className="flex items-center gap-2 min-w-0">
-                    <span className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40 shrink-0" style={{ background: colorFor(t.participants, p.id) }} />
+                    <Avatar name={p.name} color={colorFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
                     <span className="truncate">{p.name}</span>
                     {(p.handicap ?? 0) > 0 && <span className="text-xs text-[var(--muted)]">({p.handicap})</span>}
                   </span>
