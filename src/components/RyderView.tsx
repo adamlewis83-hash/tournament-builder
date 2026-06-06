@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
 import { ryderScore } from "@/lib/ryder";
-import { entitiesForMatch, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
+import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
 import { Confetti } from "./Confetti";
@@ -91,25 +91,33 @@ function RyderMatchCard({
                     <td className="px-1 py-1 text-center text-[var(--muted)] border-t border-[var(--border)]">
                       {g.pars[h]}
                     </td>
-                    {ents.map((e) => (
-                      <td key={e.key} className="px-0.5 py-1 border-t border-[var(--border)]">
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          value={sc[e.key]?.[h] ?? ""}
-                          onChange={(ev) =>
-                            setScore(
-                              t.id,
-                              m.id,
-                              e.key,
-                              h,
-                              ev.target.value === "" ? null : Number(ev.target.value),
-                            )
-                          }
-                          className="w-9 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
-                        />
-                      </td>
-                    ))}
+                    {ents.map((e) => {
+                      const strokes = entityStrokes(t, m, e.key, h);
+                      return (
+                        <td key={e.key} className="px-0.5 py-1 border-t border-[var(--border)] align-bottom">
+                          <div className="flex justify-center items-center gap-0.5 h-1.5 mb-0.5">
+                            {Array.from({ length: strokes }).map((_, i) => (
+                              <span key={i} className="h-1 w-1 rounded-full bg-amber-400" />
+                            ))}
+                          </div>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            value={sc[e.key]?.[h] ?? ""}
+                            onChange={(ev) =>
+                              setScore(
+                                t.id,
+                                m.id,
+                                e.key,
+                                h,
+                                ev.target.value === "" ? null : Number(ev.target.value),
+                              )
+                            }
+                            className="w-9 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                          />
+                        </td>
+                      );
+                    })}
                     <td
                       className={`px-1 py-1 text-center border-t border-[var(--border)] font-bold ${
                         res === "A" ? "text-[var(--brand)]" : res === "B" ? "text-rose-300" : "text-[var(--muted)]"
@@ -123,7 +131,8 @@ function RyderMatchCard({
             </tbody>
           </table>
           <p className="text-[10px] text-[var(--muted)] mt-1.5">
-            Net result per hole · handicap strokes by stroke index
+            <span className="inline-block h-1 w-1 rounded-full bg-amber-400 align-middle" /> = a handicap
+            stroke on that hole · net result per hole
             {m.label === "Foursomes"
               ? " · one ball per team (alternate shot)"
               : m.label === "Fourball"

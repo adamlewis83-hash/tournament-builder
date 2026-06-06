@@ -25,6 +25,18 @@ const hcpOf = (p: Participant[], id: string) => p.find((x) => x.id === id)?.hand
 const teamHcp = (p: Participant[], ids: string[]) =>
   ids.length ? Math.round(ids.reduce((s, id) => s + hcpOf(p, id), 0) / ids.length) : 0;
 
+/** How many handicap strokes an entity (player, or a Foursomes team ball) gets on a hole. */
+export function entityStrokes(t: Tournament, m: Match, key: string, h: number): number {
+  const g = t.ryderGolf;
+  if (!g) return 0;
+  const si = g.strokeIndex[h];
+  if (m.label === "Foursomes") {
+    const ids = key === "A" ? m.sideA : m.sideB;
+    return holeStrokes(teamHcp(t.participants, ids), si, g.holes);
+  }
+  return holeStrokes(hcpOf(t.participants, key), si, g.holes);
+}
+
 /** Net score for each side on a single hole, or null if not fully entered yet. */
 export function holeNets(t: Tournament, m: Match, h: number): { netA: number; netB: number } | null {
   const g = t.ryderGolf;
