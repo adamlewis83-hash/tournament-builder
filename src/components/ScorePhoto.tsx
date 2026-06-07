@@ -1,6 +1,6 @@
 "use client";
 
-import { Tournament, FORMAT_LABELS } from "@/lib/types";
+import { Tournament, FORMAT_LABELS, GOLF_MODE_LABELS } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { getFinalRows } from "@/lib/records";
 import { colorForName } from "@/lib/colors";
@@ -57,7 +57,8 @@ export function ScorePhoto({ t }: { t: Tournament }) {
         <div className="mt-5">
           <div className="text-2xl font-extrabold leading-tight truncate">{t.name}</div>
           <div className="text-xs font-medium" style={{ color: "#64748b" }}>
-            {t.sport} · {FORMAT_LABELS[t.format]}
+            {t.sport} ·{" "}
+            {t.format === "golf" ? GOLF_MODE_LABELS[t.config.golfMode] : FORMAT_LABELS[t.format]}
           </div>
         </div>
 
