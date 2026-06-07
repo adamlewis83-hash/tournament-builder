@@ -23,17 +23,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0a0f0d" },
-    { media: "(prefers-color-scheme: light)", color: "#eef4f0" },
-  ],
+  themeColor: "#eef4f0",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
 
 // Set the theme before paint to avoid a flash.
-const themeScript = `(function(){try{var t=localStorage.getItem('seeded-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem('seeded-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
