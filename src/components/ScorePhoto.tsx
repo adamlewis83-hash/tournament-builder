@@ -1,6 +1,5 @@
 "use client";
 
-import { Medal } from "@phosphor-icons/react";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { getFinalRows } from "@/lib/records";
@@ -8,7 +7,13 @@ import { colorForName } from "@/lib/colors";
 import { Sprout, Trophy } from "./icons";
 import { Avatar } from "./Avatar";
 
-const MEDAL_COLORS = ["#f59e0b", "#94a3b8", "#c2773f"]; // gold / silver / bronze
+// Gradient rank badge: gold / silver / bronze for the podium, soft gray otherwise.
+function rankStyle(i: number): { background: string; color: string } {
+  if (i === 0) return { background: "linear-gradient(135deg,#fde68a,#f59e0b)", color: "#5c3b09" };
+  if (i === 1) return { background: "linear-gradient(135deg,#f1f5f9,#94a3b8)", color: "#1f2937" };
+  if (i === 2) return { background: "linear-gradient(135deg,#f0c089,#c2773f)", color: "#4a2912" };
+  return { background: "#eef2f6", color: "#64748b" };
+}
 
 export function ScorePhoto({ t }: { t: Tournament }) {
   const res = getResult(t);
@@ -79,14 +84,11 @@ export function ScorePhoto({ t }: { t: Tournament }) {
               className="flex items-center gap-2.5 rounded-xl px-3 py-2"
               style={{ background: i === 0 ? "#ecfdf5" : "#f6f8fa" }}
             >
-              <span className="w-6 flex justify-center">
-                {i < 3 ? (
-                  <Medal weight="fill" size={18} color={MEDAL_COLORS[i]} />
-                ) : (
-                  <span className="text-sm font-semibold" style={{ color: "#94a3b8" }}>
-                    {i + 1}
-                  </span>
-                )}
+              <span
+                style={rankStyle(i)}
+                className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold tabular-nums"
+              >
+                {i + 1}
               </span>
               <Avatar name={r.name} color={colorForName(r.name)} className="h-7 w-7 text-[11px]" />
               <span className="flex-1 font-semibold truncate">{r.name}</span>
