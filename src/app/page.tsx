@@ -123,7 +123,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           WORKS OFFLINE · ANY SPORT
         </span>
         <h1 className="mt-3 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
-          Where competition takes root.
+          Seed. Set. Go.
         </h1>
         <p className="mt-3 text-xl sm:text-2xl font-display font-semibold text-white/90">
           Run any tournament. Crown a champion.
