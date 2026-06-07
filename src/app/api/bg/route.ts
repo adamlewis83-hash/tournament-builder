@@ -8,9 +8,13 @@ const QUERIES = [
   "golf course green",
   "tennis court",
   "pickleball court",
-  "cornhole bean bag game",
-  "ping pong table tennis",
+  "cornhole bean bag toss",
   "volleyball court",
+  "basketball court",
+  "soccer stadium pitch",
+  "running track stadium",
+  "table tennis paddle",
+  "disc golf basket",
 ];
 
 interface BgPhoto {
