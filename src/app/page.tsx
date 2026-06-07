@@ -13,6 +13,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
 import { Emoji } from "@/components/Emoji";
+import { SportBackdrop } from "@/components/SportBackdrop";
 import { SyncPanel } from "@/components/SyncPanel";
 
 function useSharedImport() {
@@ -107,10 +108,14 @@ function RotatingFormats() {
 
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
-    <div className="relative overflow-hidden px-1 sm:px-2 pt-2 pb-4 mb-6">
-      <div className="pointer-events-none absolute -inset-x-8 -top-16 bottom-0 bg-gradient-to-b from-black/55 via-black/30 to-transparent" />
+    <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-8 overflow-hidden">
+      {/* full-bleed cycling photo banner */}
+      <SportBackdrop />
+      {/* darken for white text, and fade the bottom into the white page */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/20" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[var(--background)]" />
       <div
-        className="relative z-10 max-w-2xl text-white"
+        className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-16 sm:pt-14 sm:pb-20 text-white"
         style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
       >
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
@@ -141,7 +146,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           <RotatingFormats />
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -240,7 +245,7 @@ function TournamentList() {
           {shown.map(({ t, res }) => {
             const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
             return (
-              <Card key={t.id} bare className="p-4 flex flex-col bg-[var(--surface)]/45 hover:bg-[var(--surface)]/70 transition rounded-2xl">
+              <Card key={t.id} bare className="p-4 flex flex-col rounded-2xl hover:bg-[var(--surface)]/70 transition">
                 <Link href={`/t/${t.id}`} className="flex-1 block group">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
