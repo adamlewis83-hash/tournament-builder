@@ -5,6 +5,7 @@ import { Tournament } from "@/lib/types";
 import { encodeTournament } from "@/lib/share";
 import { computeStandings } from "@/lib/standings";
 import { bracketChampion } from "@/lib/bracket";
+import { Copy, Share2, Printer } from "lucide-react";
 import { Button } from "./ui";
 import { ScorePhotoButton } from "./ScorePhotoButton";
 
@@ -50,14 +51,26 @@ export function ShareBar({ t }: { t: Tournament }) {
     <div className="no-print flex items-center gap-2">
       {msg && <span className="text-xs font-medium text-[var(--win)]">{msg}</span>}
       <ScorePhotoButton t={t} />
-      <Button variant="outline" className="px-2.5 py-1.5" onClick={() => copy(resultsText(t), "Results copied!")}>
-        Copy results
+      <Button
+        variant="outline"
+        className="px-2.5 py-1.5 inline-flex items-center gap-1.5"
+        onClick={() => copy(resultsText(t), "Results copied!")}
+      >
+        <Copy className="h-4 w-4" /> Copy results
       </Button>
-      <Button variant="outline" className="px-2.5 py-1.5" onClick={shareLink}>
-        Share link
+      <Button
+        variant="outline"
+        className="px-2.5 py-1.5 inline-flex items-center gap-1.5"
+        onClick={shareLink}
+      >
+        <Share2 className="h-4 w-4" /> Share link
       </Button>
-      <Button variant="outline" className="px-2.5 py-1.5" onClick={() => window.print()}>
-        Print
+      <Button
+        variant="outline"
+        className="px-2.5 py-1.5 inline-flex items-center gap-1.5"
+        onClick={() => window.print()}
+      >
+        <Printer className="h-4 w-4" /> Print
       </Button>
     </div>
   );

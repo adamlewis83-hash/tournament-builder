@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import { Image as ImageIcon } from "lucide-react";
 import { Tournament } from "@/lib/types";
 import { ScorePhoto } from "./ScorePhoto";
 import { Button } from "./ui";
@@ -44,8 +45,12 @@ export function ScorePhotoButton({ t }: { t: Tournament }) {
 
   return (
     <>
-      <Button variant="outline" className="px-2.5 py-1.5" onClick={() => setOpen(true)}>
-        📸 Scorephoto
+      <Button
+        variant="outline"
+        className="px-2.5 py-1.5 inline-flex items-center gap-1.5"
+        onClick={() => setOpen(true)}
+      >
+        <ImageIcon className="h-4 w-4" /> Scorephoto
       </Button>
       {open && (
         <div

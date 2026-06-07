@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
+import { Sprout, Trophy } from "lucide-react";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
 
 export const metadata: Metadata = {
   title: "Seeded — Run & score any tournament",
@@ -35,25 +37,29 @@ const themeScript = `(function(){try{var t=localStorage.getItem('seeded-theme');
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${display.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col font-sans">
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <CloudSync />
         <header className="no-print sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/70 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5 font-extrabold text-xl tracking-tight">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] text-lg shadow-[0_0_20px_-4px_var(--glow)]">
-                🌱
+            <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight">
+              <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
+                <Sprout className="h-5 w-5" strokeWidth={2.5} />
               </span>
-              <span className="brand-text">SEEDED</span>
+              <span className="brand-text">Seeded</span>
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
               <ThemeToggle />
               <Link
                 href="/records"
-                className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                className="flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
               >
-                🏆 Records
+                <Trophy className="h-4 w-4" /> Records
               </Link>
               <Link
                 href="/"

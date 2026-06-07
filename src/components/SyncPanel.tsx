@@ -9,6 +9,7 @@ import {
   setLibraryKey,
   verifyRecoveryCode,
 } from "@/lib/library";
+import { Cloud, Mail } from "lucide-react";
 import { Button, Card } from "./ui";
 
 function EmailBackup({ onRecovered }: { onRecovered: (key: string) => void }) {
@@ -46,7 +47,9 @@ function EmailBackup({ onRecovered }: { onRecovered: (key: string) => void }) {
 
   return (
     <div className="rounded-lg border border-[var(--border)] p-3">
-      <div className="text-sm font-semibold flex items-center gap-2">📧 Back up / restore by email</div>
+      <div className="text-sm font-semibold flex items-center gap-2">
+        <Mail className="h-4 w-4 text-[var(--brand)]" /> Back up / restore by email
+      </div>
       <p className="text-xs text-[var(--muted)] mt-0.5 mb-2">
         No password. Enter your email here to back up, or on a new device to restore — we email a
         one-time code.
@@ -123,7 +126,9 @@ export function SyncPanel() {
   return (
     <Card className="p-4 mb-6">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-left">
-        <span className="font-semibold flex items-center gap-2">☁️ Back up &amp; sync</span>
+        <span className="font-semibold flex items-center gap-2">
+          <Cloud className="h-4 w-4 text-[var(--brand)]" /> Back up &amp; sync
+        </span>
         <span className="text-xs text-[var(--muted)]">
           {open ? "Hide" : "Auto-saved to the cloud · move to a new device"}
         </span>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Plus, Trophy } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { decodeTournament } from "@/lib/share";
@@ -96,11 +97,12 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           OFFLINE-FIRST · ANY SPORT
         </span>
-        <h1 className="mt-4 text-4xl sm:text-6xl font-extrabold tracking-tight leading-none">
+        <h1 className="mt-4 text-5xl sm:text-7xl font-display font-bold tracking-tight leading-none">
           <span className="brand-animated">Seeded</span>
         </h1>
-        <p className="mt-3 text-xl sm:text-2xl font-bold">
-          Run any tournament. Crown a champion. 🏆
+        <p className="mt-3 flex items-center gap-2 text-xl sm:text-2xl font-display font-bold">
+          Run any tournament. Crown a champion.
+          <Trophy className="h-6 w-6 text-amber-400 shrink-0" />
         </p>
         <p className="mt-2 text-[var(--muted)] max-w-xl">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
@@ -109,8 +111,8 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {!creating && (
-            <Button onClick={onCreate} className="text-base px-6 py-3">
-              + New Tournament
+            <Button onClick={onCreate} className="text-base px-6 py-3 inline-flex items-center gap-2">
+              <Plus className="h-5 w-5" strokeWidth={2.5} /> New Tournament
             </Button>
           )}
           <div className="flex flex-wrap gap-1.5">
