@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Sport scenes to cycle through (each → one Unsplash photo).
-const QUERIES = [
+// Sport scenes to cycle through. A string = top search result; { id } = a
+// specific hand-picked Unsplash photo.
+const QUERIES: (string | { id: string })[] = [
   "golf course green",
   "tennis court",
   "pickleball court",
@@ -13,7 +14,7 @@ const QUERIES = [
   "basketball court",
   "soccer stadium pitch",
   "running track stadium",
-  "table tennis paddle",
+  { id: "SlHYzF_YQX8" }, // table tennis — hand-picked action shot
   "disc golf basket",
 ];
 
@@ -33,15 +34,18 @@ export async function GET() {
 
   try {
     const photos: BgPhoto[] = [];
+    const headers = { Authorization: `Client-ID ${key}` };
     for (const q of QUERIES) {
-      const r = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=landscape&per_page=1&content_filter=high`,
-        { headers: { Authorization: `Client-ID ${key}` }, cache: "no-store" },
-      );
+      const url =
+        typeof q === "object"
+          ? `https://api.unsplash.com/photos/${q.id}`
+          : `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=landscape&per_page=1&content_filter=high`;
+      const r = await fetch(url, { headers, cache: "no-store" });
       if (!r.ok) continue;
       const d = await r.json();
+      // photos/{id} returns the photo directly; search returns { results: [...] }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const p = d.results?.[0] as any;
+      const p = (typeof q === "object" ? d : d.results?.[0]) as any;
       if (p?.urls?.raw) {
         photos.push({
           url: `${p.urls.raw}&w=1920&q=80&auto=format&fit=crop`,
