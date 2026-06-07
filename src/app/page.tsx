@@ -108,14 +108,14 @@ function RotatingFormats() {
 
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
-    <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-8 overflow-hidden">
+    <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-6 overflow-hidden">
       {/* full-bleed cycling photo banner */}
       <SportBackdrop />
       {/* darken for white text, and fade the bottom into the white page */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/20" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[var(--background)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
       <div
-        className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-16 sm:pt-14 sm:pb-20 text-white"
+        className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-9 sm:pt-12 sm:pb-10 text-white"
         style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
       >
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
