@@ -87,7 +87,6 @@ const ROTATING_FORMATS: { label: string; color: string }[] = [
   { label: "Double Elimination", color: "text-violet-500" },
   { label: "Pool Play → Bracket", color: "text-orange-500" },
   { label: "Ryder Cup", color: "text-rose-500" },
-  { label: "Golf", color: "text-green-600" },
 ];
 
 function RotatingFormats() {
