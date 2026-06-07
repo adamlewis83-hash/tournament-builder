@@ -79,16 +79,32 @@ export default function Home() {
   );
 }
 
-const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
-  { f: "round-robin", c: "blue" },
-  { f: "swiss", c: "slate" },
-  { f: "kotc", c: "amber" },
-  { f: "single-elim", c: "green" },
-  { f: "double-elim", c: "purple" },
-  { f: "pool-bracket", c: "amber" },
-  { f: "ryder", c: "rose" },
-  { f: "golf", c: "green" },
+const ROTATING_FORMATS: { label: string; color: string }[] = [
+  { label: "Round Robin", color: "text-sky-500" },
+  { label: "Swiss", color: "text-slate-500" },
+  { label: "King of the Court", color: "text-amber-500" },
+  { label: "Single Elimination", color: "text-emerald-500" },
+  { label: "Double Elimination", color: "text-violet-500" },
+  { label: "Pool Play → Bracket", color: "text-orange-500" },
+  { label: "Ryder Cup", color: "text-rose-500" },
+  { label: "Golf", color: "text-green-600" },
 ];
+
+function RotatingFormats() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((v) => (v + 1) % ROTATING_FORMATS.length), 2000);
+    return () => clearInterval(id);
+  }, []);
+  const f = ROTATING_FORMATS[i];
+  return (
+    <span className="inline-block min-h-[1.6em]">
+      <span key={i} className={`animate-pop inline-block font-display font-bold text-2xl sm:text-3xl ${f.color}`}>
+        {f.label}
+      </span>
+    </span>
+  );
+}
 
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
@@ -110,19 +126,19 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           scorecards — for any sport. Score it live together on everyone&apos;s phone.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="mt-6">
           {!creating && (
             <Button onClick={onCreate} className="text-base px-6 py-3 inline-flex items-center gap-2">
               <Plus className="h-5 w-5" weight="bold" /> New Tournament
             </Button>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            {FORMAT_LIST.map(({ f, c }) => (
-              <Badge key={f} color={c}>
-                {FORMAT_LABELS[f]}
-              </Badge>
-            ))}
-          </div>
+        </div>
+
+        <div className="mt-6">
+          <span className="block text-[11px] uppercase tracking-[0.2em] text-[var(--muted)] font-semibold mb-0.5">
+            Formats
+          </span>
+          <RotatingFormats />
         </div>
       </div>
     </div>

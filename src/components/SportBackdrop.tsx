@@ -23,7 +23,7 @@ export function SportBackdrop() {
 
   useEffect(() => {
     if (photos.length < 2) return;
-    const id = setInterval(() => setI((v) => (v + 1) % photos.length), 7000);
+    const id = setInterval(() => setI((v) => (v + 1) % photos.length), 5000);
     return () => clearInterval(id);
   }, [photos.length]);
 
@@ -44,7 +44,7 @@ export function SportBackdrop() {
         ))}
         {/* Light gradient scrim — photo stays vivid up top (behind the frosted hero),
             fades to a calmer wash lower down where denser content sits. */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--background)]/25 via-[var(--background)]/45 to-[var(--background)]/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--background)]/10 via-[var(--background)]/30 to-[var(--background)]/60" />
       </div>
 
       {/* Unsplash attribution (required). Hidden on mobile to avoid the bottom nav. */}

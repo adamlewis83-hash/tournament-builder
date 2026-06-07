@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 // Sport scenes to cycle through (each → one Unsplash photo).
 const QUERIES = [
   "golf course green",
-  "tennis court aerial",
-  "basketball court",
-  "soccer stadium pitch",
-  "running track stadium",
+  "tennis court",
   "pickleball court",
+  "cornhole bean bag game",
+  "ping pong table tennis",
+  "volleyball court",
 ];
 
 interface BgPhoto {
