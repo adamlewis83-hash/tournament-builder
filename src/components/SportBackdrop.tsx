@@ -65,12 +65,12 @@ export function SportBackdrop() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand-soft)] via-transparent to-[var(--brand-soft)] opacity-60" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand-soft)] via-transparent to-[var(--brand-soft)]" />
       {MOTIFS.map((motif, idx) => (
         <div
           key={idx}
           className={`absolute inset-0 text-[var(--brand)] transition-opacity duration-[1500ms] ${
-            idx === i ? "opacity-[0.06]" : "opacity-0"
+            idx === i ? "opacity-[0.22]" : "opacity-0"
           }`}
         >
           {motif}
