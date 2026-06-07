@@ -4,8 +4,8 @@
   "description": "Build round robins, brackets, and pool-play tournaments for any sport.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef4f0",
-  "theme_color": "#eef4f0",
+  "background_color": "#f5f6f8",
+  "theme_color": "#f5f6f8",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
