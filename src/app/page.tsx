@@ -12,6 +12,7 @@ import { getResult } from "@/lib/result";
 import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
+import { HeroBackdrop } from "@/components/HeroBackdrop";
 import { SyncPanel } from "@/components/SyncPanel";
 
 function useSharedImport() {
@@ -92,6 +93,7 @@ const FORMAT_LIST: { f: keyof typeof FORMAT_LABELS; c: string }[] = [
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
     <div className="relative overflow-hidden rounded-3xl glass p-7 sm:p-10 mb-6">
+      <HeroBackdrop />
       <div className="relative z-10 max-w-2xl">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1 text-xs font-semibold text-[var(--brand)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
