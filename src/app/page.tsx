@@ -80,13 +80,13 @@ export default function Home() {
 }
 
 const ROTATING_FORMATS: { label: string; color: string }[] = [
-  { label: "Round Robin", color: "text-sky-500" },
-  { label: "Swiss", color: "text-slate-500" },
-  { label: "King of the Court", color: "text-amber-500" },
-  { label: "Single Elimination", color: "text-emerald-500" },
-  { label: "Double Elimination", color: "text-violet-500" },
-  { label: "Pool Play → Bracket", color: "text-orange-500" },
-  { label: "Ryder Cup", color: "text-rose-500" },
+  { label: "Round Robin", color: "text-sky-300" },
+  { label: "Swiss", color: "text-slate-200" },
+  { label: "King of the Court", color: "text-amber-300" },
+  { label: "Single Elimination", color: "text-emerald-300" },
+  { label: "Double Elimination", color: "text-violet-300" },
+  { label: "Pool Play → Bracket", color: "text-orange-300" },
+  { label: "Ryder Cup", color: "text-rose-300" },
 ];
 
 function RotatingFormats() {
@@ -108,11 +108,12 @@ function RotatingFormats() {
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
     <div className="relative overflow-hidden px-1 sm:px-2 pt-2 pb-4 mb-6">
+      <div className="pointer-events-none absolute -inset-x-8 -top-16 bottom-0 bg-gradient-to-b from-black/55 via-black/30 to-transparent" />
       <div
-        className="relative z-10 max-w-2xl"
-        style={{ textShadow: "0 1px 22px var(--background), 0 1px 4px var(--background)" }}
+        className="relative z-10 max-w-2xl text-white"
+        style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
       >
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-[var(--brand)]">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           OFFLINE-FIRST · ANY SPORT
         </span>
@@ -120,7 +121,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           Run any tournament. Crown a champion.
           <Trophy className="h-8 w-8 text-amber-400 shrink-0 mt-1" />
         </h1>
-        <p className="mt-2 text-[var(--foreground)]/80 max-w-md">
+        <p className="mt-2 text-white/85 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
           scorecards — for any sport. Score it live together on everyone&apos;s phone.
         </p>
@@ -134,7 +135,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
         </div>
 
         <div className="mt-6">
-          <span className="block text-[11px] uppercase tracking-[0.2em] text-[var(--muted)] font-semibold mb-0.5">
+          <span className="block text-[11px] uppercase tracking-[0.2em] text-white/65 font-semibold mb-0.5">
             Formats
           </span>
           <RotatingFormats />
