@@ -64,6 +64,7 @@ function NumberField({
 
 export function SetupPanel({ t }: { t: Tournament }) {
   const setParticipants = useStore((s) => s.setParticipants);
+  const setTeamsStore = useStore((s) => s.setTeams);
   const patch = useStore((s) => s.patchTournament);
   const generate = useStore((s) => s.generate);
 
@@ -79,21 +80,82 @@ export function SetupPanel({ t }: { t: Tournament }) {
     patch(t.id, { config: { ...cfg, ...patchCfg } });
 
   const isDoubles = t.playStyle === "doubles";
+  const isFixed = t.playStyle === "doubles-fixed";
   const isTeams = t.playStyle === "teams";
-  const minNeeded = t.format === "round-robin" && isDoubles ? 4 : t.format === "kotc" ? 3 : 2;
+  const teamMode = isFixed || isTeams;
+
+  const emptyTeam = () => ({ name: "", members: isFixed ? ["", ""] : [""] });
+  const [teams, setLocalTeams] = useState<{ name: string; members: string[] }[]>(() => {
+    if (!teamMode) return [];
+    if (t.participants.length)
+      return t.participants.map((p) => ({
+        name: p.name,
+        members: p.members?.length ? [...p.members] : isFixed ? ["", ""] : [""],
+      }));
+    return [emptyTeam(), emptyTeam()];
+  });
+  const build = (list: { name: string; members: string[] }[]) =>
+    list
+      .map((tm) => ({
+        name: isFixed
+          ? tm.members.map((m) => m.trim()).filter(Boolean).join(" & ")
+          : tm.name.trim(),
+        members: tm.members.map((m) => m.trim()).filter(Boolean),
+      }))
+      .filter((tm) => tm.name);
+  const teamCount = build(teams).length;
+  const update = (next: { name: string; members: string[] }[]) => {
+    setLocalTeams(next);
+    setTeamsStore(t.id, build(next));
+  };
+  const setTeamName = (ti: number, v: string) =>
+    update(teams.map((tm, i) => (i === ti ? { ...tm, name: v } : tm)));
+  const setMember = (ti: number, mi: number, v: string) =>
+    update(
+      teams.map((tm, i) =>
+        i === ti ? { ...tm, members: tm.members.map((m, j) => (j === mi ? v : m)) } : tm,
+      ),
+    );
+  const addMember = (ti: number) =>
+    update(teams.map((tm, i) => (i === ti ? { ...tm, members: [...tm.members, ""] } : tm)));
+  const removeMember = (ti: number, mi: number) =>
+    update(
+      teams.map((tm, i) =>
+        i === ti ? { ...tm, members: tm.members.filter((_, j) => j !== mi) } : tm,
+      ),
+    );
+  const addTeam = () => update([...teams, emptyTeam()]);
+  const removeTeam = (ti: number) => update(teams.filter((_, i) => i !== ti));
+  const fillSampleTeams = () => {
+    let next: { name: string; members: string[] }[];
+    if (isFixed) {
+      next = [];
+      for (let i = 0; i + 1 < SAMPLE_PLAYERS.length && next.length < 4; i += 2)
+        next.push({ name: "", members: [SAMPLE_PLAYERS[i], SAMPLE_PLAYERS[i + 1]] });
+    } else {
+      next = SAMPLE_TEAMS.slice(0, 4).map((n, i) => ({
+        name: n,
+        members: [SAMPLE_PLAYERS[i * 2] ?? "", SAMPLE_PLAYERS[i * 2 + 1] ?? ""],
+      }));
+    }
+    update(next);
+  };
+
+  const minNeeded = teamMode ? 2 : t.format === "round-robin" && isDoubles ? 4 : t.format === "kotc" ? 3 : 2;
   const showThirdPlace =
     t.format === "single-elim" ||
     (t.format === "pool-bracket" && cfg.bracketType === "single") ||
     (t.format === "round-robin" && !isDoubles);
-  const canGenerate = count >= minNeeded;
+  const canGenerate = teamMode ? teamCount >= 2 : count >= minNeeded;
 
   function commitNames() {
     setParticipants(t.id, names);
   }
 
   function handleGenerate() {
-    setParticipants(t.id, names); // commits synchronously
-    generate(t.id); // reads the just-updated participants
+    if (teamMode) setTeamsStore(t.id, build(teams));
+    else setParticipants(t.id, names);
+    generate(t.id);
   }
 
   if (t.format === "ryder") return <RyderSetup t={t} />;
@@ -101,17 +163,110 @@ export function SetupPanel({ t }: { t: Tournament }) {
 
   return (
     <div className="grid lg:grid-cols-2 gap-5">
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="font-semibold">{isTeams ? "Teams" : "Participants"}</h2>
+      {teamMode ? (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold">{isFixed ? "Pairs" : "Teams"}</h2>
+            <button
+              type="button"
+              onClick={fillSampleTeams}
+              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Fill sample
+            </button>
+          </div>
+          <p className="text-sm text-[var(--muted)] mb-3">
+            {isFixed
+              ? "Two players per pair — partners stay together all event."
+              : "Name each team, then add its players (2+ each)."}
+          </p>
+          <div className="space-y-3">
+            {teams.map((tm, ti) => (
+              <div key={ti} className="rounded-xl border border-[var(--border)] p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ background: colorForIndex(ti) }}
+                  />
+                  {isFixed ? (
+                    <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      Pair {ti + 1}
+                    </span>
+                  ) : (
+                    <input
+                      value={tm.name}
+                      onChange={(e) => setTeamName(ti, e.target.value)}
+                      placeholder={`Team ${ti + 1} name`}
+                      className="flex-1 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-sm font-semibold bg-[var(--surface)]"
+                    />
+                  )}
+                  {teams.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeTeam(ti)}
+                      className="px-1 text-lg leading-none text-[var(--muted)] hover:text-[var(--danger)]"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5 pl-1">
+                  {tm.members.map((m, mi) => (
+                    <div key={mi} className="flex items-center gap-2">
+                      <input
+                        value={m}
+                        onChange={(e) => setMember(ti, mi, e.target.value)}
+                        placeholder={`Player ${mi + 1}`}
+                        className="flex-1 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-sm bg-[var(--surface)]"
+                      />
+                      {isTeams && tm.members.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMember(ti, mi)}
+                          className="px-1 text-lg leading-none text-[var(--muted)] hover:text-[var(--danger)]"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {isTeams && (
+                    <button
+                      type="button"
+                      onClick={() => addMember(ti)}
+                      className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+                    >
+                      + Add player
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => setText((isTeams ? SAMPLE_TEAMS : SAMPLE_PLAYERS).join("\n"))}
-            className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            onClick={addTeam}
+            className="mt-3 text-sm font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
           >
-            Fill sample
+            + Add {isFixed ? "pair" : "team"}
           </button>
-        </div>
+          <p className="text-sm text-[var(--muted)] mt-2">
+            {teamCount} {isFixed ? "pairs" : "teams"}
+          </p>
+        </Card>
+      ) : (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold">Participants</h2>
+            <button
+              type="button"
+              onClick={() => setText(SAMPLE_PLAYERS.join("\n"))}
+              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Fill sample
+            </button>
+          </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           One per line.{" "}
           {t.format === "single-elim" || t.format === "double-elim"
@@ -147,7 +302,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
             ))}
           </div>
         )}
-      </Card>
+        </Card>
+      )}
 
       <Card className="p-5 flex flex-col">
         <h2 className="font-semibold mb-3">Settings</h2>

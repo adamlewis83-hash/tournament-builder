@@ -15,7 +15,13 @@ import {
 } from "@/lib/types";
 import { Button } from "./ui";
 
-const STYLES: PlayStyle[] = ["singles", "doubles", "teams"];
+const STYLES: PlayStyle[] = ["singles", "doubles", "doubles-fixed", "teams"];
+
+const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
+  doubles: "Individuals enter; partners rotate each round and standings track per person — great for pickleball/tennis socials.",
+  "doubles-fixed": "Set pairs that stay together all event (e.g. Cody & Adam). Each pair competes as one.",
+  teams: "Build teams with 2+ players each (e.g. volleyball). Each team competes as one unit.",
+};
 const OTHER = "__other__";
 
 export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
@@ -122,11 +128,8 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
             </button>
           ))}
         </div>
-        {playStyle === "doubles" && (
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            Doubles rotates partners each round and tracks standings per person — great for
-            pickleball/tennis socials.
-          </p>
+        {STYLE_HINTS[playStyle] && (
+          <p className="mt-2 text-xs text-[var(--muted)]">{STYLE_HINTS[playStyle]}</p>
         )}
       </div>
 

@@ -13,7 +13,7 @@ export type Format =
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
 // teams: each participant IS a team (e.g. a fixed doubles pair "Cody / Adam")
-export type PlayStyle = "singles" | "doubles" | "teams";
+export type PlayStyle = "singles" | "doubles" | "doubles-fixed" | "teams";
 
 export type Phase =
   | "rr"
@@ -31,6 +31,7 @@ export interface Participant {
   seed?: number; // optional manual seed override
   team?: 0 | 1; // Ryder Cup team assignment
   handicap?: number; // golf handicap (for net scoring)
+  members?: string[]; // roster for fixed-doubles pairs & teams (the unit still competes as one)
 }
 
 export type GolfMode =
@@ -247,5 +248,6 @@ export function formatsForSport(sport: string): Format[] {
 export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {
   singles: "Singles (1v1)",
   doubles: "Doubles — rotating partners",
-  teams: "Teams / fixed pairs",
+  "doubles-fixed": "Doubles — fixed partners",
+  teams: "Teams",
 };

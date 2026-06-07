@@ -62,6 +62,7 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
+  setTeams: (id: string, teams: { name: string; members: string[] }[]) => void;
   setRyderTeams: (
     id: string,
     teamA: { name: string; handicap: number }[],
@@ -301,6 +302,25 @@ export const useStore = create<State>()(
               .map((n) => n.trim())
               .filter(Boolean)
               .map((n) => existing.get(n.toLowerCase()) ?? { id: uid(), name: n });
+            return { ...t, participants, updatedAt: Date.now() };
+          }),
+        })),
+
+      setTeams: (id, teams) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
+            const participants: Participant[] = teams
+              .filter((tm) => tm.name.trim())
+              .map((tm) => {
+                const prev = existing.get(tm.name.trim().toLowerCase());
+                return {
+                  ...(prev ?? { id: uid() }),
+                  name: tm.name.trim(),
+                  members: tm.members.map((m) => m.trim()).filter(Boolean),
+                };
+              });
             return { ...t, participants, updatedAt: Date.now() };
           }),
         })),
