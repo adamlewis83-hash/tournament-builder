@@ -56,21 +56,21 @@ const MOTIFS = [
   </svg>,
 ];
 
-export function HeroBackdrop() {
+export function SportBackdrop() {
   const [i, setI] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setI((v) => (v + 1) % MOTIFS.length), 6000);
+    const id = setInterval(() => setI((v) => (v + 1) % MOTIFS.length), 7000);
     return () => clearInterval(id);
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-soft)] via-transparent to-transparent" />
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+      <div className="absolute inset-0 bg-gradient-to-b from-[var(--brand-soft)] via-transparent to-[var(--brand-soft)] opacity-60" />
       {MOTIFS.map((motif, idx) => (
         <div
           key={idx}
-          className={`absolute inset-0 text-[var(--brand)] transition-opacity duration-1000 ${
-            idx === i ? "opacity-[0.15]" : "opacity-0"
+          className={`absolute inset-0 text-[var(--brand)] transition-opacity duration-[1500ms] ${
+            idx === i ? "opacity-[0.06]" : "opacity-0"
           }`}
         >
           {motif}
