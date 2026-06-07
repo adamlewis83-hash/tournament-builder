@@ -107,9 +107,11 @@ function RotatingFormats() {
 
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
-    <div className="relative overflow-hidden p-6 sm:p-10 pt-2 mb-6">
-      <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)] via-[var(--background)]/70 to-transparent" />
-      <div className="relative z-10 max-w-2xl">
+    <div className="relative overflow-hidden px-1 sm:px-2 pt-2 pb-4 mb-6">
+      <div
+        className="relative z-10 max-w-2xl"
+        style={{ textShadow: "0 1px 22px var(--background), 0 1px 4px var(--background)" }}
+      >
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-[var(--brand)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           OFFLINE-FIRST · ANY SPORT
