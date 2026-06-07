@@ -29,8 +29,20 @@ export function Button({
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`glass rounded-2xl shadow-xl shadow-black/20 ${className}`}>{children}</div>;
+export function Card({
+  children,
+  className = "",
+  bare = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  bare?: boolean;
+}) {
+  return (
+    <div className={`${bare ? "rounded-2xl" : "glass rounded-2xl shadow-xl shadow-black/20"} ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 export function Badge({ children, color = "slate" }: { children: ReactNode; color?: string }) {

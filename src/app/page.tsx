@@ -114,13 +114,10 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           OFFLINE-FIRST · ANY SPORT
         </span>
-        <h1 className="mt-4 text-5xl sm:text-7xl font-display font-bold tracking-tight leading-none">
-          <span className="brand-animated">Seeded</span>
-        </h1>
-        <p className="mt-3 flex items-center gap-2 text-xl sm:text-2xl font-display font-bold">
+        <h1 className="mt-3 flex items-start gap-2 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
           Run any tournament. Crown a champion.
-          <Trophy className="h-6 w-6 text-amber-400 shrink-0" />
-        </p>
+          <Trophy className="h-8 w-8 text-amber-400 shrink-0 mt-1" />
+        </h1>
         <p className="mt-2 text-[var(--foreground)]/80 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
           scorecards — for any sport. Score it live together on everyone&apos;s phone.
@@ -149,7 +146,7 @@ function JoinByCode() {
   const router = useRouter();
   const [code, setCode] = useState("");
   return (
-    <Card className="p-4 mb-6 flex flex-wrap items-center gap-3">
+    <Card bare className="px-1 mb-6 flex flex-wrap items-center gap-3">
       <div className="flex-1 min-w-[180px]">
         <h2 className="font-semibold flex items-center gap-2">
           <Radio className="h-4 w-4 text-[var(--brand)]" /> Join a live tournament
@@ -186,7 +183,7 @@ function TournamentList() {
 
   if (tournaments.length === 0) {
     return (
-      <Card className="p-10 text-center">
+      <Card bare className="p-10 text-center">
         <div className="mb-3 flex justify-center">
           <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
             <Trophy className="h-7 w-7" />
@@ -215,7 +212,7 @@ function TournamentList() {
 
   return (
     <>
-      <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 mb-4">
+      <div className="inline-flex rounded-lg p-1 mb-4">
         {TABS.map((tab) => (
           <button
             key={tab.k}
@@ -232,7 +229,7 @@ function TournamentList() {
       </div>
 
       {shown.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-[var(--muted)]">
+        <Card bare className="p-8 text-center text-sm text-[var(--muted)]">
           No {filter === "done" ? "completed" : "active"} tournaments.
         </Card>
       ) : (
@@ -240,7 +237,7 @@ function TournamentList() {
           {shown.map(({ t, res }) => {
             const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
             return (
-              <Card key={t.id} className="p-4 flex flex-col">
+              <Card key={t.id} bare className="p-4 flex flex-col bg-[var(--surface)]/45 hover:bg-[var(--surface)]/70 transition rounded-2xl">
                 <Link href={`/t/${t.id}`} className="flex-1 block group">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>

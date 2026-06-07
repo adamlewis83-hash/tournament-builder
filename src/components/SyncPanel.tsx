@@ -124,7 +124,7 @@ export function SyncPanel() {
   }
 
   return (
-    <Card className="p-4 mb-6">
+    <Card bare className="px-1 mb-6">
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between text-left">
         <span className="font-semibold flex items-center gap-2">
           <Cloud className="h-4 w-4 text-[var(--brand)]" /> Back up &amp; sync
