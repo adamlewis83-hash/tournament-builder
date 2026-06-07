@@ -122,9 +122,8 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
           WORKS OFFLINE · ANY SPORT
         </span>
-        <h1 className="mt-3 flex items-start gap-2 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
+        <h1 className="mt-3 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
           Run any tournament. Crown a champion.
-          <Trophy className="h-8 w-8 text-amber-400 shrink-0 mt-1" />
         </h1>
         <p className="mt-2 text-white/85 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
