@@ -1,5 +1,6 @@
 "use client";
 
+import { Trophy } from "lucide-react";
 import { Match, Participant } from "@/lib/types";
 import { bracketChampion } from "@/lib/bracket";
 import { colorFor } from "@/lib/colors";
@@ -20,7 +21,7 @@ export function Champion({
     <>
       <Confetti trigger={label} />
       <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-yellow-400/10 to-[var(--brand-soft)] p-6 text-center glow-brand">
-        <div className="text-5xl drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]">🏆</div>
+        <Trophy className="h-12 w-12 mx-auto text-amber-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]" />
         <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
           Champion
         </div>

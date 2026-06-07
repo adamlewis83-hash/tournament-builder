@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Flag } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -23,7 +24,9 @@ function Courses() {
         <Link href="/" className="text-sm text-[var(--muted)] hover:underline">
           ← All tournaments
         </Link>
-        <h1 className="text-2xl font-bold mt-2 flex items-center gap-2">⛳ Course Library</h1>
+        <h1 className="text-2xl font-bold mt-2 flex items-center gap-2">
+          <Flag className="h-6 w-6 text-[var(--brand)]" /> Course Library
+        </h1>
         <p className="text-sm text-[var(--muted)]">
           Saved courses load their pars &amp; stroke index so net scoring adjusts per hole and player.
         </p>
@@ -31,7 +34,7 @@ function Courses() {
 
       {courses.length === 0 ? (
         <Card className="p-10 text-center">
-          <div className="text-4xl mb-2">⛳</div>
+          <Flag className="h-10 w-10 mx-auto mb-2 text-[var(--brand)]" />
           <p className="font-medium">No saved courses yet</p>
           <p className="text-sm text-[var(--muted)]">
             Start a <span className="text-[var(--brand)] font-medium">Golf</span> tournament, set the

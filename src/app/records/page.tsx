@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
 import { aggregateRecords, getRanking } from "@/lib/records";
 import { getResult } from "@/lib/result";
+import { Crown, Trophy } from "lucide-react";
 import { sportEmoji } from "@/lib/sportEmoji";
 import { colorForName } from "@/lib/colors";
 import { Card } from "@/components/ui";
@@ -33,7 +34,9 @@ function RecordBook() {
         <Link href="/" className="text-sm text-[var(--muted)] hover:underline">
           ← All tournaments
         </Link>
-        <h1 className="text-2xl font-bold mt-2 flex items-center gap-2">🏆 Record Book</h1>
+        <h1 className="text-2xl font-bold mt-2 flex items-center gap-2">
+          <Trophy className="h-6 w-6 text-amber-500" /> Record Book
+        </h1>
         <p className="text-sm text-[var(--muted)]">
           Hall of fame across {completed.length} completed {completed.length === 1 ? "event" : "events"}.
         </p>
@@ -73,7 +76,7 @@ function RecordBook() {
                       <span className="flex items-center gap-2.5">
                         <Avatar name={r.name} color={colorForName(r.name)} />
                         {r.name}
-                        {i === 0 && r.firsts > 0 && <span>👑</span>}
+                        {i === 0 && r.firsts > 0 && <Crown className="h-4 w-4 text-amber-500" />}
                       </span>
                     </td>
                     <td className="px-2 py-2 text-center tabular-nums font-bold text-amber-500">{r.firsts || ""}</td>
@@ -117,8 +120,8 @@ function EventRow({ t }: { t: Tournament }) {
             <span>{sportEmoji(t.sport)}</span>
             <span className="truncate">{t.name}</span>
           </Link>
-          <span className="text-sm text-amber-500 font-medium flex items-center gap-1 mt-0.5">
-            🏆 {res.winner}
+          <span className="text-sm text-amber-500 font-medium flex items-center gap-1.5 mt-0.5">
+            <Trophy className="h-3.5 w-3.5" /> {res.winner}
           </span>
         </span>
         <span className="text-xs text-[var(--muted)] shrink-0">

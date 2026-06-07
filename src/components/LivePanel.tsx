@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Radio } from "lucide-react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
@@ -30,7 +31,9 @@ export function LivePanel({ t }: { t: Tournament }) {
     return (
       <Card className="no-print p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold flex items-center gap-2">📡 Go live</h3>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Radio className="h-4 w-4 text-[var(--brand)]" /> Go live
+          </h3>
           <p className="text-sm text-[var(--muted)]">
             Share a join code so everyone can follow &amp; enter scores from their phones — updates in
             real time.

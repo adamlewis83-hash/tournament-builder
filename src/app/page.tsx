@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trophy } from "lucide-react";
+import { Plus, Radio, Trophy } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { decodeTournament } from "@/lib/share";
@@ -134,7 +134,9 @@ function JoinByCode() {
   return (
     <Card className="p-4 mb-6 flex flex-wrap items-center gap-3">
       <div className="flex-1 min-w-[180px]">
-        <h2 className="font-semibold flex items-center gap-2">📡 Join a live tournament</h2>
+        <h2 className="font-semibold flex items-center gap-2">
+          <Radio className="h-4 w-4 text-[var(--brand)]" /> Join a live tournament
+        </h2>
         <p className="text-sm text-[var(--muted)]">Got a code from the host? Hop in to follow &amp; score live.</p>
       </div>
       <form
@@ -168,10 +170,10 @@ function TournamentList() {
   if (tournaments.length === 0) {
     return (
       <Card className="p-10 text-center">
-        <div className="text-4xl mb-3 flex justify-center gap-2">
-          <span className="animate-float" style={{ animationDelay: "0s" }}>🏓</span>
-          <span className="animate-float" style={{ animationDelay: ".4s" }}>🏀</span>
-          <span className="animate-float" style={{ animationDelay: ".8s" }}>🎯</span>
+        <div className="mb-3 flex justify-center">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
+            <Trophy className="h-7 w-7" />
+          </span>
         </div>
         <p className="font-semibold">No tournaments yet</p>
         <p className="text-sm text-[var(--muted)]">
@@ -236,8 +238,8 @@ function TournamentList() {
                     {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
                   </p>
                   {res.winner ? (
-                    <p className="text-sm mt-2 font-semibold text-amber-500 flex items-center gap-1">
-                      🏆 {res.winner}
+                    <p className="text-sm mt-2 font-semibold text-amber-500 flex items-center gap-1.5">
+                      <Trophy className="h-4 w-4" /> {res.winner}
                     </p>
                   ) : (
                     <p className="text-xs text-[var(--muted)] mt-2">

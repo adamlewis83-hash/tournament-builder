@@ -1,5 +1,6 @@
 "use client";
 
+import { Trophy } from "lucide-react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeStandings } from "@/lib/standings";
@@ -29,7 +30,7 @@ export function SwissView({ t }: { t: Tournament }) {
         <>
           <Confetti trigger={winner.name} />
           <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
-            <div className="text-5xl">🏆</div>
+            <Trophy className="h-12 w-12 mx-auto text-amber-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)]" />
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               Swiss Winner
             </div>

@@ -5,6 +5,7 @@ import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, importCourse, searchCourses } from "@/lib/courseApi";
+import { Save } from "lucide-react";
 import { Button, Card } from "./ui";
 
 interface CourseState {
@@ -204,7 +205,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
           {course.courseName && (
             <Button
               variant="outline"
-              className="px-2 py-1 text-xs"
+              className="px-2 py-1 text-xs inline-flex items-center gap-1.5"
               onClick={() =>
                 saveCourse({
                   name: course.courseName!,
@@ -214,7 +215,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
                 })
               }
             >
-              💾 Save
+              <Save className="h-3.5 w-3.5" /> Save
             </Button>
           )}
         </div>

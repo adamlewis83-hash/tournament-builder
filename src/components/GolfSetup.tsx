@@ -13,6 +13,7 @@ import {
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
+import { Save } from "lucide-react";
 import { Button, Card } from "./ui";
 
 const MODES: GolfMode[] = [
@@ -313,8 +314,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
         )}
 
         <div className="mt-4 pt-3 border-t border-[var(--border)] flex items-center gap-3">
-          <Button variant="outline" className="px-3 py-1.5" onClick={saveCurrentCourse} disabled={!courseName.trim()}>
-            💾 Save course
+          <Button
+            variant="outline"
+            className="px-3 py-1.5 inline-flex items-center gap-1.5"
+            onClick={saveCurrentCourse}
+            disabled={!courseName.trim()}
+          >
+            <Save className="h-4 w-4" /> Save course
           </Button>
           <span className="text-xs text-[var(--muted)]">Reuse its pars &amp; stroke index next time.</span>
         </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
 import { ryderScore } from "@/lib/ryder";
+import { Trophy } from "lucide-react";
 import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";
@@ -229,7 +230,7 @@ export function RyderView({ t }: { t: Tournament }) {
         <>
           {winnerName && <Confetti trigger={winnerName} />}
           <div className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 to-[var(--brand-soft)] p-6 text-center glow-brand">
-            <div className="text-5xl">🏆</div>
+            <Trophy className="h-12 w-12 mx-auto text-amber-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)]" />
             <div className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-300 font-bold">
               {score.status === "tie" ? "Cup Retained — Tie" : "Cup Winner"}
             </div>
