@@ -18,6 +18,8 @@ function rankStyle(i: number): { background: string; color: string } {
 export function ScorePhoto({ t }: { t: Tournament }) {
   const res = getResult(t);
   const rows = getFinalRows(t).slice(0, 8);
+  const membersOf = (name: string) =>
+    t.participants.find((p) => p.name === name)?.members ?? [];
   const date = new Date(t.updatedAt).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -92,7 +94,14 @@ export function ScorePhoto({ t }: { t: Tournament }) {
                 {i + 1}
               </span>
               <Avatar name={r.name} color={colorForName(r.name)} className="h-7 w-7 text-[11px]" />
-              <span className="flex-1 font-semibold truncate">{r.name}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-semibold truncate">{r.name}</span>
+                {membersOf(r.name).length > 0 && (
+                  <span className="block text-[10px] truncate" style={{ color: "#94a3b8" }}>
+                    {membersOf(r.name).join(" · ")}
+                  </span>
+                )}
+              </span>
               <span className="tabular-nums font-bold" style={{ color: "#475569" }}>
                 {r.stat}
               </span>

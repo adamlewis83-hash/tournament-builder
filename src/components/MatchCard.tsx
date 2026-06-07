@@ -16,6 +16,8 @@ function Side({
   if (!ids.length) {
     return <span className="text-sm text-[var(--muted)] italic truncate">{label || "TBD"}</span>;
   }
+  const ps = ids.map((id) => participants.find((p) => p.id === id)).filter(Boolean) as Participant[];
+  const members = ps.flatMap((p) => p.members ?? []);
   return (
     <span className="flex items-center gap-1.5 min-w-0">
       <span className="flex -space-x-1 shrink-0">
@@ -27,8 +29,13 @@ function Side({
           />
         ))}
       </span>
-      <span className="text-sm truncate">
-        {ids.map((id) => participants.find((p) => p.id === id)?.name ?? "?").join(" / ")}
+      <span className="min-w-0">
+        <span className="block text-sm truncate">{ps.map((p) => p.name).join(" / ")}</span>
+        {members.length > 0 && (
+          <span className="block text-[11px] text-[var(--muted)] truncate">
+            {members.join(" · ")}
+          </span>
+        )}
       </span>
     </span>
   );
