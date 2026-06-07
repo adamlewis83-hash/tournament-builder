@@ -123,9 +123,12 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           WORKS OFFLINE · ANY SPORT
         </span>
         <h1 className="mt-3 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
-          Run any tournament. Crown a champion.
+          Every champion starts as a seed.
         </h1>
-        <p className="mt-2 text-white/85 max-w-md">
+        <p className="mt-3 text-xl sm:text-2xl font-display font-semibold text-white/90">
+          Run any tournament. Crown a champion.
+        </p>
+        <p className="mt-2 text-white/80 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
           scorecards — for any sport. Score it live together on everyone&apos;s phone.
         </p>
