@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
 import { ryderScore } from "@/lib/ryder";
-import { Trophy } from "lucide-react";
+import { Trophy } from "@/components/icons";
 import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";

@@ -5,7 +5,7 @@ import { Tournament } from "@/lib/types";
 import { encodeTournament } from "@/lib/share";
 import { computeStandings } from "@/lib/standings";
 import { bracketChampion } from "@/lib/bracket";
-import { Copy, Share2, Printer } from "lucide-react";
+import { Copy, Share2, Printer } from "@/components/icons";
 import { Button } from "./ui";
 import { ScorePhotoButton } from "./ScorePhotoButton";
 

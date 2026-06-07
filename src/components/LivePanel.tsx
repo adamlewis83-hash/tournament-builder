@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Radio } from "lucide-react";
+import { Radio } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "./ui";

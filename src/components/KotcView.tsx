@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown } from "lucide-react";
+import { Crown } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeStandings } from "@/lib/standings";

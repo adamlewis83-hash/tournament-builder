@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy } from "lucide-react";
+import { Trophy } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeStandings } from "@/lib/standings";

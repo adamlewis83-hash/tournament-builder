@@ -6,7 +6,8 @@ import { useStore } from "@/lib/store";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
 import { aggregateRecords, getRanking } from "@/lib/records";
 import { getResult } from "@/lib/result";
-import { Crown, Trophy } from "lucide-react";
+import { Crown, Trophy } from "@/components/icons";
+import { Emoji } from "@/components/Emoji";
 import { sportEmoji } from "@/lib/sportEmoji";
 import { colorForName } from "@/lib/colors";
 import { Card } from "@/components/ui";
@@ -62,9 +63,15 @@ function RecordBook() {
                 <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
                   <th className="px-3 py-2 w-10">#</th>
                   <th className="px-3 py-2">Player</th>
-                  <th className="px-2 py-2 text-center w-12" title="Championships">🥇</th>
-                  <th className="px-2 py-2 text-center w-12">🥈</th>
-                  <th className="px-2 py-2 text-center w-12">🥉</th>
+                  <th className="px-2 py-2 w-12" title="Championships">
+                    <Emoji e="🥇" className="h-4 w-4 mx-auto" />
+                  </th>
+                  <th className="px-2 py-2 w-12">
+                    <Emoji e="🥈" className="h-4 w-4 mx-auto" />
+                  </th>
+                  <th className="px-2 py-2 w-12">
+                    <Emoji e="🥉" className="h-4 w-4 mx-auto" />
+                  </th>
                   <th className="px-2 py-2 text-center w-16">Events</th>
                 </tr>
               </thead>
@@ -117,7 +124,7 @@ function EventRow({ t }: { t: Tournament }) {
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-3 text-left">
         <span className="min-w-0">
           <Link href={`/t/${t.id}`} className="font-semibold hover:text-[var(--brand)] flex items-center gap-2">
-            <span>{sportEmoji(t.sport)}</span>
+            <Emoji e={sportEmoji(t.sport)} className="h-4 w-4" />
             <span className="truncate">{t.name}</span>
           </Link>
           <span className="text-sm text-amber-500 font-medium flex items-center gap-1.5 mt-0.5">
@@ -133,7 +140,9 @@ function EventRow({ t }: { t: Tournament }) {
         <ol className="mt-3 border-t border-[var(--border)] pt-3 space-y-1 text-sm">
           {ranking.map((n, i) => (
             <li key={`${n}-${i}`} className="flex items-center gap-2.5">
-              <span className="w-6 text-center">{MEDAL[i] ?? `${i + 1}.`}</span>
+              <span className="w-6 flex justify-center">
+                {MEDAL[i] ? <Emoji e={MEDAL[i]} className="h-4 w-4" /> : `${i + 1}.`}
+              </span>
               <Avatar name={n} color={colorForName(n)} className="h-6 w-6 text-[10px]" />
               <span className={i === 0 ? "font-semibold" : ""}>{n}</span>
             </li>

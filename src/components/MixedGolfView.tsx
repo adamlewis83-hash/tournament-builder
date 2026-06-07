@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy } from "@/components/icons";
 import { GOLF_MODE_LABELS, GolfSegment, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {

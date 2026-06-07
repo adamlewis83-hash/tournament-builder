@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy } from "lucide-react";
+import { Trophy } from "@/components/icons";
 import { Match, Participant } from "@/lib/types";
 import { bracketChampion } from "@/lib/bracket";
 import { colorFor } from "@/lib/colors";

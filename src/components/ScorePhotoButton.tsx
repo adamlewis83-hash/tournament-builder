@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { ScorePhoto } from "./ScorePhoto";
 import { Button } from "./ui";

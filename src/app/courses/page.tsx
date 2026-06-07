@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Flag } from "lucide-react";
+import { Flag } from "@/components/icons";
 import { useStore } from "@/lib/store";
 import { Button, Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";

@@ -9,7 +9,7 @@ import {
   setLibraryKey,
   verifyRecoveryCode,
 } from "@/lib/library";
-import { Cloud, Mail } from "lucide-react";
+import { Cloud, Mail } from "@/components/icons";
 import { Button, Card } from "./ui";
 
 function EmailBackup({ onRecovered }: { onRecovered: (key: string) => void }) {

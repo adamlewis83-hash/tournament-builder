@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Plus, Trophy } from "lucide-react";
+import { Home, Plus, Trophy } from "@/components/icons";
 
 const items = [
   { href: "/", label: "Home", Icon: Home, match: (p: string) => p === "/" },
@@ -25,7 +25,7 @@ export function BottomNav() {
                 active ? "text-[var(--brand)]" : "text-[var(--muted)]"
               }`}
             >
-              <Icon className="h-5 w-5" strokeWidth={2.2} />
+              <Icon className="h-5 w-5" weight={active ? "fill" : "duotone"} />
               {label}
             </Link>
           );

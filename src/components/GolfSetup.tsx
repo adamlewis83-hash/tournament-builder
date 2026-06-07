@@ -13,7 +13,7 @@ import {
 import { useStore } from "@/lib/store";
 import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
-import { Save } from "lucide-react";
+import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
 
 const MODES: GolfMode[] = [

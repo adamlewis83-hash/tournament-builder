@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Radio, Trophy } from "lucide-react";
+import { Plus, Radio, Trophy } from "@/components/icons";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { decodeTournament } from "@/lib/share";
@@ -12,6 +12,7 @@ import { getResult } from "@/lib/result";
 import { Badge, Button, Card } from "@/components/ui";
 import { CreateTournamentForm } from "@/components/CreateTournamentForm";
 import { HydrationGate } from "@/components/HydrationGate";
+import { Emoji } from "@/components/Emoji";
 import { SyncPanel } from "@/components/SyncPanel";
 
 function useSharedImport() {
@@ -112,7 +113,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {!creating && (
             <Button onClick={onCreate} className="text-base px-6 py-3 inline-flex items-center gap-2">
-              <Plus className="h-5 w-5" strokeWidth={2.5} /> New Tournament
+              <Plus className="h-5 w-5" weight="bold" /> New Tournament
             </Button>
           )}
           <div className="flex flex-wrap gap-1.5">
@@ -231,7 +232,7 @@ function TournamentList() {
                     {res.complete && <Badge color="green">✓ Complete</Badge>}
                   </div>
                   <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
-                    <span className="text-xl">{sportEmoji(t.sport)}</span>
+                    <Emoji e={sportEmoji(t.sport)} className="h-5 w-5" />
                     {t.name}
                   </h3>
                   <p className="text-sm text-[var(--muted)]">
