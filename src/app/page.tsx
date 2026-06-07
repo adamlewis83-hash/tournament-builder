@@ -120,7 +120,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
       >
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
-          OFFLINE-FIRST · ANY SPORT
+          WORKS OFFLINE · ANY SPORT
         </span>
         <h1 className="mt-3 flex items-start gap-2 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
           Run any tournament. Crown a champion.
