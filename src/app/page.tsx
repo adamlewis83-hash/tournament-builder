@@ -108,7 +108,7 @@ function RotatingFormats() {
 function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void }) {
   return (
     <div className="relative overflow-hidden p-6 sm:p-10 pt-2 mb-6">
-      <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)]/90 via-[var(--background)]/45 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)] via-[var(--background)]/70 to-transparent" />
       <div className="relative z-10 max-w-2xl">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-[var(--brand)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
@@ -121,7 +121,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           Run any tournament. Crown a champion.
           <Trophy className="h-6 w-6 text-amber-400 shrink-0" />
         </p>
-        <p className="mt-2 text-[var(--muted)] max-w-xl">
+        <p className="mt-2 text-[var(--foreground)]/80 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
           scorecards — for any sport. Score it live together on everyone&apos;s phone.
         </p>
