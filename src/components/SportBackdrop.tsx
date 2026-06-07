@@ -42,9 +42,9 @@ export function SportBackdrop() {
             style={{ backgroundImage: `url(${p.url})` }}
           />
         ))}
-        {/* Readability scrim — lets the photo show through the page gutters & frosted hero
-            while keeping text crisp on top. */}
-        <div className="absolute inset-0 bg-[var(--background)]/72" />
+        {/* Light gradient scrim — photo stays vivid up top (behind the frosted hero),
+            fades to a calmer wash lower down where denser content sits. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--background)]/25 via-[var(--background)]/45 to-[var(--background)]/70" />
       </div>
 
       {/* Unsplash attribution (required). Hidden on mobile to avoid the bottom nav. */}
