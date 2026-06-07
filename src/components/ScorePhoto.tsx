@@ -1,13 +1,14 @@
 "use client";
 
+import { Medal } from "@phosphor-icons/react";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { getFinalRows } from "@/lib/records";
-import { sportEmoji } from "@/lib/sportEmoji";
 import { colorForName } from "@/lib/colors";
+import { Sprout, Trophy } from "./icons";
 import { Avatar } from "./Avatar";
 
-const MEDAL = ["🥇", "🥈", "🥉"];
+const MEDAL_COLORS = ["#fbbf24", "#cbd5e1", "#d28b4e"]; // gold / silver / bronze
 
 export function ScorePhoto({ t }: { t: Tournament }) {
   const res = getResult(t);
@@ -31,10 +32,10 @@ export function ScorePhoto({ t }: { t: Tournament }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-extrabold tracking-tight">
           <span
-            style={{ background: "linear-gradient(135deg,#34d399,#10b981)" }}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-sm"
+            style={{ background: "linear-gradient(135deg,#34d399,#10b981)", color: "#06281c" }}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-lg"
           >
-            🌱
+            <Sprout className="h-4 w-4" />
           </span>
           <span style={{ color: "#34d399" }}>SEEDED</span>
         </div>
@@ -43,13 +44,10 @@ export function ScorePhoto({ t }: { t: Tournament }) {
         </span>
       </div>
 
-      <div className="mt-5 flex items-center gap-2">
-        <span className="text-3xl">{sportEmoji(t.sport)}</span>
-        <div className="min-w-0">
-          <div className="text-xl font-extrabold leading-tight truncate">{t.name}</div>
-          <div className="text-xs" style={{ color: "#8ba596" }}>
-            {t.sport} · {FORMAT_LABELS[t.format]}
-          </div>
+      <div className="mt-5">
+        <div className="text-2xl font-extrabold leading-tight truncate">{t.name}</div>
+        <div className="text-xs" style={{ color: "#8ba596" }}>
+          {t.sport} · {FORMAT_LABELS[t.format]}
         </div>
       </div>
 
@@ -58,7 +56,7 @@ export function ScorePhoto({ t }: { t: Tournament }) {
           className="mt-4 rounded-2xl px-4 py-3 text-center"
           style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(16,185,129,0.12))", border: "1px solid rgba(251,191,36,0.4)" }}
         >
-          <div className="text-3xl">🏆</div>
+          <Trophy className="h-8 w-8 mx-auto" style={{ color: "#fbbf24" }} />
           <div className="text-[10px] font-bold tracking-[0.3em] mt-0.5" style={{ color: "#fbbf24" }}>
             CHAMPION
           </div>
@@ -73,7 +71,13 @@ export function ScorePhoto({ t }: { t: Tournament }) {
             className="flex items-center gap-2.5 rounded-xl px-3 py-2"
             style={{ background: i === 0 ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)" }}
           >
-            <span className="w-6 text-center text-sm">{MEDAL[i] ?? `${i + 1}`}</span>
+            <span className="w-6 flex justify-center">
+              {i < 3 ? (
+                <Medal weight="fill" size={18} color={MEDAL_COLORS[i]} />
+              ) : (
+                <span className="text-sm" style={{ color: "#8ba596" }}>{i + 1}</span>
+              )}
+            </span>
             <Avatar name={r.name} color={colorForName(r.name)} className="h-7 w-7 text-[11px]" />
             <span className="flex-1 font-semibold truncate">{r.name}</span>
             <span className="tabular-nums font-bold" style={{ color: "#8ba596" }}>
@@ -83,8 +87,8 @@ export function ScorePhoto({ t }: { t: Tournament }) {
         ))}
       </div>
 
-      <div className="mt-4 text-center text-[11px] font-medium" style={{ color: "#6b8275" }}>
-        🌱 Made with Seeded
+      <div className="mt-4 flex items-center justify-center gap-1 text-[11px] font-medium" style={{ color: "#6b8275" }}>
+        <Sprout className="h-3.5 w-3.5" /> Made with Seeded
       </div>
     </div>
   );
