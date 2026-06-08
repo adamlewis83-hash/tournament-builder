@@ -23,6 +23,13 @@ const AWARDS: { key: "bingo" | "bango" | "bongo"; label: string }[] = [
   { key: "bongo", label: "Bongo" },
 ];
 
+const SEG_COLORS: Record<string, string> = {
+  stroke: "#16a34a",
+  stableford: "#0ea5e9",
+  skins: "#f59e0b",
+  bingo: "#a855f7",
+};
+
 function SegmentBoard({ t, seg }: { t: Tournament; seg: GolfSegment }) {
   const range = { from: seg.from, to: seg.to };
   const isBingo = seg.format === "bingo";
@@ -75,6 +82,9 @@ export function MixedGolfView({ t }: { t: Tournament }) {
   const h = Math.min(hole, g.holes - 1);
   const seg = segmentForHole(segments, h) ?? segments[0];
   const isBingo = seg?.format === "bingo";
+  const holes = Array.from({ length: g.holes }, (_, i) => i);
+  const totalPar = g.pars.slice(0, g.holes).reduce((a, b) => a + b, 0);
+  const usedFormats = [...new Set(segments.map((s) => s.format))];
 
   const adj = (pid: string, delta: number) => {
     const cur = g.scores[pid]?.[h];
@@ -210,6 +220,98 @@ export function MixedGolfView({ t }: { t: Tournament }) {
             })}
           </div>
         )}
+      </Card>
+
+      {/* Full scorecard — the colored strip shows which game each hole belongs to */}
+      <Card className="p-3 overflow-x-auto">
+        <div className="font-bold text-sm mb-2 px-1">Scorecard</div>
+        <table className="text-sm border-separate border-spacing-0">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1.5 text-left text-xs text-[var(--muted)]">
+                Hole
+              </th>
+              {holes.map((hh) => (
+                <th key={hh} className="px-1 py-1.5 text-center w-9 text-xs text-[var(--muted)]">
+                  {hh + 1}
+                </th>
+              ))}
+              <th className="px-2 py-1.5 text-center text-xs text-[var(--muted)]">Tot</th>
+            </tr>
+            <tr>
+              <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-0.5 text-left text-[10px] font-normal text-[var(--muted)]">
+                Game
+              </th>
+              {holes.map((hh) => {
+                const f = (segmentForHole(segments, hh) ?? seg).format;
+                return (
+                  <th key={hh} className="px-0.5 py-0.5">
+                    <span
+                      className="block h-1.5 rounded-sm"
+                      style={{ background: SEG_COLORS[f] }}
+                      title={GOLF_MODE_LABELS[f]}
+                    />
+                  </th>
+                );
+              })}
+              <th />
+            </tr>
+            <tr>
+              <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 text-left text-xs font-normal text-[var(--muted)]">
+                Par
+              </th>
+              {holes.map((hh) => (
+                <th key={hh} className="px-1 py-1 text-center text-xs font-normal text-[var(--muted)]">
+                  {g.pars[hh]}
+                </th>
+              ))}
+              <th className="px-2 py-1 text-center text-xs font-normal text-[var(--muted)]">{totalPar}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.participants.map((p) => {
+              const card = g.scores[p.id] ?? [];
+              const tot = card.reduce<number>((a, s) => a + (s ?? 0), 0);
+              return (
+                <tr key={p.id}>
+                  <td className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 font-medium whitespace-nowrap border-t border-[var(--border)]">
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full shrink-0"
+                        style={{ background: colorFor(t.participants, p.id) }}
+                      />
+                      {p.name}
+                    </span>
+                  </td>
+                  {holes.map((hh) => (
+                    <td key={hh} className="px-0.5 py-1 text-center border-t border-[var(--border)]">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={card[hh] ?? ""}
+                        onChange={(e) =>
+                          setGolfScore(t.id, p.id, hh, e.target.value === "" ? null : Number(e.target.value))
+                        }
+                        className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-1 text-center font-bold tabular-nums border-t border-[var(--border)]">
+                    {tot || "–"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="flex flex-wrap gap-3 mt-2 px-1 text-[11px] text-[var(--muted)]">
+          {usedFormats.map((f) => (
+            <span key={f} className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: SEG_COLORS[f] }} />
+              {GOLF_MODE_LABELS[f]}
+            </span>
+          ))}
+        </div>
       </Card>
 
       {/* Per-segment leaderboards */}
