@@ -11,11 +11,11 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
 
 export const metadata: Metadata = {
-  title: "Seeded — Run & score any tournament",
+  title: "Sporos — Run & score any tournament",
   description:
     "Run round robins, brackets, pool play, golf and more — with live shared scoring on every phone.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Seeded" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Sporos" },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/apple-touch-icon.png" }],
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
                 <Sprout className="h-5 w-5" />
               </span>
-              <span className="brand-text">Seeded</span>
+              <span className="brand-text">Sporos</span>
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
               <ThemeToggle />
@@ -71,7 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
         </main>
         <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 sm:pb-4 text-center text-xs text-[var(--muted)]">
-          Seeded · plays offline · saved on your device
+          Sporos · plays offline · saved on your device
         </footer>
         <BottomNav />
       </body>

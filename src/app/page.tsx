@@ -129,7 +129,7 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
           <span className="text-amber-300">Crown.</span>
         </h1>
         <p className="mt-3 text-xl sm:text-2xl font-display font-semibold text-white/90">
-          Run any tournament. Crown a champion.
+          Where competition takes root.
         </p>
         <p className="mt-2 text-white/80 max-w-md">
           Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
