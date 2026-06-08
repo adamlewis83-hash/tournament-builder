@@ -17,6 +17,7 @@ import { SportBackdrop } from "@/components/SportBackdrop";
 import { SyncPanel } from "@/components/SyncPanel";
 import { SporosMark } from "@/components/SporosMark";
 import { DeviceShowcase } from "@/components/DeviceShowcase";
+import { RecoveryNudge } from "@/components/RecoveryNudge";
 
 function useSharedImport() {
   const router = useRouter();
@@ -71,6 +72,8 @@ export default function Home() {
           <CreateTournamentForm onDone={() => setCreating(false)} />
         </Card>
       )}
+
+      <RecoveryNudge />
 
       <h2 className="text-lg font-bold mb-4 text-center">Your tournaments</h2>
       <TournamentList />
