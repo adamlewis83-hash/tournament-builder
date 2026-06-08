@@ -155,13 +155,19 @@ export function computeGolf(t: Tournament, mode: GolfMode = "stroke", range?: Ho
   const lo = range ? range.from - 1 : 0;
   const hi = range ? range.to - 1 : g.holes - 1;
 
-  // Skins (gross) with carryover — resolved only over consecutive completed holes.
+  // Skins (net, handicap-adjusted) with carryover — resolved over consecutive completed holes.
   const skinsMap = new Map<string, number>();
   players.forEach((p) => skinsMap.set(p.id, 0));
   {
     let pot = 1;
     for (let h = lo; h <= hi; h++) {
-      const entries = players.map((p) => ({ id: p.id, v: g.scores[p.id]?.[h] ?? null }));
+      const entries = players.map((p) => {
+        const s = g.scores[p.id]?.[h];
+        return {
+          id: p.id,
+          v: s == null ? null : s - holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes),
+        };
+      });
       if (entries.some((e) => e.v === null)) break; // can't resolve this/later holes yet
       const min = Math.min(...entries.map((e) => e.v as number));
       const winners = entries.filter((e) => e.v === min);
