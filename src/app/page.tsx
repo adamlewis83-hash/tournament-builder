@@ -15,6 +15,7 @@ import { HydrationGate } from "@/components/HydrationGate";
 import { Emoji } from "@/components/Emoji";
 import { SportBackdrop } from "@/components/SportBackdrop";
 import { SyncPanel } from "@/components/SyncPanel";
+import { SporosMark } from "@/components/SporosMark";
 
 function useSharedImport() {
   const router = useRouter();
@@ -55,6 +56,12 @@ export default function Home() {
   }, []);
   return (
     <HydrationGate>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+      >
+        <SporosMark className="h-[85vmin] w-[85vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
+      </div>
       <Hero creating={creating} onCreate={() => setCreating(true)} />
 
       {creating && (
