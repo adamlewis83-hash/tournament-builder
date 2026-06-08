@@ -48,7 +48,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
                 <Sprout className="h-5 w-5" />
               </span>
-              <span className="brand-text">Seeded</span>
+              <span className="bg-gradient-to-r from-[var(--brand)] via-emerald-500 to-amber-500 bg-clip-text text-transparent">
+                Seeded
+              </span>
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
               <ThemeToggle />
