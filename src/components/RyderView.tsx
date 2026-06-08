@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
-import { ryderScore } from "@/lib/ryder";
+import { ryderScore, RyderSessionType } from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
 import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
@@ -214,6 +214,9 @@ export function RyderView({ t }: { t: Tournament }) {
   const [editing, setEditing] = useState(
     () => !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
   );
+  const [shuffle, setShuffle] = useState(false);
+  const addRyderSession = useStore((s) => s.addRyderSession);
+  const removeRyderRound = useStore((s) => s.removeRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
   const score = ryderScore(t.matches);
   const ryder = t.matches.filter((m) => m.phase === "ryder");
@@ -270,16 +273,58 @@ export function RyderView({ t }: { t: Tournament }) {
         </p>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-[var(--muted)]">
-          {editing
-            ? `Set partners & matchups — ${nameA} on top, ${nameB} on bottom.`
-            : "Captain's picks: edit who partners whom and the matchups."}
-        </p>
-        <Button variant={editing ? "primary" : "outline"} className="px-3 py-1.5" onClick={() => setEditing((v) => !v)}>
-          {editing ? "Done" : "Set pairings"}
-        </Button>
-      </div>
+      {!t.spectator && (
+        <Card className="no-print p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <span className="font-semibold">Add a session</span>
+              <span className="text-[var(--muted)]"> — build the next round as the cup unfolds.</span>
+            </div>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--muted)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={shuffle}
+                onChange={(e) => setShuffle(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--brand)]"
+              />
+              🎲 Randomize pairings
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(["Foursomes", "Fourball", "Singles"] as RyderSessionType[]).map((ty) => (
+              <Button
+                key={ty}
+                variant="outline"
+                className="px-3 py-1.5"
+                onClick={() => addRyderSession(t.id, ty, shuffle)}
+              >
+                + {ty}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Pairings start in lineup order — tap <b>Set pairings</b> below to arrange them yourself,
+            or tick Randomize to auto-shuffle.
+          </p>
+        </Card>
+      )}
+
+      {!t.spectator && rounds.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-[var(--muted)]">
+            {editing
+              ? `Set partners & matchups — ${nameA} on top, ${nameB} on bottom.`
+              : "Captain's picks: edit who partners whom and the matchups."}
+          </p>
+          <Button
+            variant={editing ? "primary" : "outline"}
+            className="px-3 py-1.5"
+            onClick={() => setEditing((v) => !v)}
+          >
+            {editing ? "Done" : "Set pairings"}
+          </Button>
+        </div>
+      )}
 
       {rounds.map((round) => {
         const ms = ryder.filter((m) => m.round === round).sort((a, b) => a.order - b.order);
@@ -287,7 +332,19 @@ export function RyderView({ t }: { t: Tournament }) {
         const label = ms[0].label ?? `Round ${round}`;
         return (
           <div key={round}>
-            <h3 className="font-semibold mb-2">{label}</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">{label}</h3>
+              {editing && !t.spectator && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Remove this ${label} session?`)) removeRyderRound(t.id, round);
+                  }}
+                  className="text-xs text-[var(--muted)] hover:text-rose-400"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
             {editing ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ms.map((m) => (

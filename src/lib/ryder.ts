@@ -62,6 +62,56 @@ export function genRyder(participants: Participant[], sessions: RyderSessions): 
   return matches;
 }
 
+export type RyderSessionType = "Foursomes" | "Fourball" | "Singles";
+
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Build ONE Ryder session as a round, captain-style. In-order pairings by
+ * default (then adjust with the pairing editor); `shuffle` randomizes them.
+ */
+export function genRyderSession(
+  participants: Participant[],
+  type: RyderSessionType,
+  round: number,
+  shuffle = false,
+): Match[] {
+  let A = participants.filter((p) => p.team === 0).map((p) => p.id);
+  let B = participants.filter((p) => p.team === 1).map((p) => p.id);
+  if (shuffle) {
+    A = shuffled(A);
+    B = shuffled(B);
+  }
+  const matches: Match[] = [];
+  if (type === "Singles") {
+    const n = Math.min(A.length, B.length);
+    for (let i = 0; i < n; i++) {
+      matches.push(makeMatch({ round, order: i, label: "Singles", sideA: [A[i]], sideB: [B[i]] }));
+    }
+  } else {
+    const pairs = Math.min(Math.floor(A.length / 2), Math.floor(B.length / 2));
+    for (let i = 0; i < pairs; i++) {
+      matches.push(
+        makeMatch({
+          round,
+          order: i,
+          label: type,
+          sideA: [A[2 * i], A[2 * i + 1]],
+          sideB: [B[2 * i], B[2 * i + 1]],
+        }),
+      );
+    }
+  }
+  return matches;
+}
+
 export interface RyderScore {
   a: number;
   b: number;

@@ -24,9 +24,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
-  const [foursomes, setFoursomes] = useState(t.config.ryderFoursomes ?? 1);
-  const [fourball, setFourball] = useState(t.config.ryderFourball ?? 1);
-  const [singles, setSingles] = useState(t.config.ryderSingles ?? 1);
+  const [foursomes, setFoursomes] = useState(t.config.ryderFoursomes ?? 0);
+  const [fourball, setFourball] = useState(t.config.ryderFourball ?? 0);
+  const [singles, setSingles] = useState(t.config.ryderSingles ?? 0);
 
   const toText = (team: 0 | 1) =>
     t.participants
@@ -252,10 +252,13 @@ export function RyderSetup({ t }: { t: Tournament }) {
       </div>
 
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">Sessions</h2>
+        <h2 className="font-semibold mb-1">
+          Sessions <span className="text-[var(--muted)] font-normal text-sm">(optional)</span>
+        </h2>
         <p className="text-sm text-[var(--muted)] mb-3">
-          Choose how many rounds of each. Foursomes = alternate shot · Fourball = best ball · Singles
-          = everyone 1v1.
+          Leave these at 0 to build each round <b>as the cup unfolds</b> — add Foursomes, Fourball, or
+          Singles from the match view and set the pairings yourself (or randomize). Or pre-load some
+          here. Foursomes = alternate shot · Fourball = best ball · Singles = 1v1.
         </p>
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -280,7 +283,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
       <div className="flex justify-end">
         <Button onClick={handleGenerate} disabled={!canGenerate} className="px-6 py-3">
-          Generate matches →
+          {foursomes + fourball + singles === 0 ? "Start the cup →" : "Generate matches →"}
         </Button>
       </div>
     </div>

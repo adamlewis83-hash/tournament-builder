@@ -13,7 +13,7 @@ import {
 } from "./types";
 import { uid } from "./id";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
-import { genRyder } from "./ryder";
+import { genRyder, genRyderSession, RyderSessionType } from "./ryder";
 import { matchStatus } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
@@ -77,6 +77,8 @@ interface State {
     hole: number,
     value: number | null,
   ) => void;
+  addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
+  removeRyderRound: (id: string, round: number) => void;
   setGolfPlayers: (
     id: string,
     input: {
@@ -396,6 +398,32 @@ export const useStore = create<State>()(
             }
             return { ...tWith, matches, updatedAt: Date.now() };
           }),
+        }));
+        pushReplace(id);
+      },
+
+      addRyderSession: (id, type, shuffle) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const maxRound = t.matches.reduce((mx, m) => Math.max(mx, m.round), 0);
+            const next = genRyderSession(t.participants, type, maxRound + 1, shuffle);
+            if (!next.length) return t;
+            return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      removeRyderRound: (id, round) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? { ...t, matches: t.matches.filter((m) => m.round !== round), updatedAt: Date.now() }
+              : t,
+          ),
         }));
         pushReplace(id);
       },
