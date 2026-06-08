@@ -139,11 +139,16 @@ export function MixedGolfView({ t }: { t: Tournament }) {
             ‹ Prev
           </Button>
           <div className="text-center">
-            <div className="text-xs text-[var(--muted)]">
-              {g.courseName ? `${g.courseName} · ` : ""}Hole {h + 1} of {g.holes}
+            {g.courseName && <div className="text-xs text-[var(--muted)]">{g.courseName}</div>}
+            <div className="text-2xl font-extrabold leading-tight">
+              Hole {h + 1} <span className="text-[var(--muted)] font-medium text-base">of {g.holes}</span>
             </div>
-            <div className="text-lg font-bold">
-              Par {g.pars[h]} <span className="text-[var(--muted)] font-normal text-sm">· {GOLF_MODE_LABELS[seg.format]}</span>
+            <div className="mt-0.5 text-sm font-bold text-[var(--brand)]">
+              {GOLF_MODE_LABELS[seg.format]}
+              <span className="text-[var(--muted)] font-normal">
+                {" "}
+                · Holes {seg.from}–{seg.to} · Par {g.pars[h]}
+              </span>
             </div>
           </div>
           <Button variant="outline" className="px-3 py-1.5" disabled={h >= g.holes - 1} onClick={() => setHole(h + 1)}>
