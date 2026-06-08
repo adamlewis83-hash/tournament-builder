@@ -13,7 +13,7 @@ const QUERIES: (string | { id: string })[] = [
   "beach volleyball",
   "outdoor basketball court park",
   "kids soccer field park",
-  "outdoor running track",
+  "bowling alley lane",
   { id: "g_OYkZ-fbLM" }, // table tennis — casual friends playing
   "disc golf",
 ];
