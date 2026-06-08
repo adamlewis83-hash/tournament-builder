@@ -122,18 +122,18 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
       >
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
-          WORKS OFFLINE · ANY SPORT
+          WHERE COMPETITION TAKES ROOT
         </span>
         <h1 className="mt-3 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">
           <span className="text-emerald-400">Seed.</span> <span className="text-white">Play.</span>{" "}
           <span className="text-amber-300">Crown.</span>
         </h1>
         <p className="mt-3 text-xl sm:text-2xl font-display font-semibold text-white/90">
-          Where competition takes root.
+          Run a tournament for any sport — scored live on every phone.
         </p>
         <p className="mt-2 text-white/80 max-w-md">
-          Round robins, brackets, pool play, Swiss, King of the Court, Ryder Cup and full golf
-          scorecards — for any sport. Score it live together on everyone&apos;s phone.
+          Set it up in seconds, share a join code, and everyone follows along, scores together, and
+          cheers each other on — right up to crowning the champion.
         </p>
 
         <div className="mt-6">
