@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 // Sport scenes to cycle through. A string = top search result; { id } = a
 // specific hand-picked Unsplash photo.
 const QUERIES: (string | { id: string })[] = [
-  "golf course",
+  "golf course fairway flag",
   "outdoor tennis court",
   "pickleball court",
   "cornhole backyard game",
