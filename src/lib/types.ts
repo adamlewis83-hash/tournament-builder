@@ -213,6 +213,7 @@ export const SPORTS: string[] = [
   "Spikeball",
   "Volleyball",
   "Soccer",
+  "Flag Football",
   "Golf",
   "Disc Golf",
   "Darts",
