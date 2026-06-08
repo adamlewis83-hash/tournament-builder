@@ -18,13 +18,17 @@
     <circle cx="256" cy="68" r="20" fill="url(#g)"/>
     <circle cx="300" cy="92" r="17" fill="url(#g)"/>
     <!-- stem -->
-    <path d="M256 150 V 338" fill="none" stroke="url(#g)" stroke-width="26" stroke-linecap="round"/>
+    <path d="M256 150 V 341" fill="none" stroke="url(#g)" stroke-width="26" stroke-linecap="round"/>
     <!-- leaves -->
     <path d="M256 292 C 200 286 164 250 158 196 C 216 202 252 244 256 292 Z" fill="url(#g)"/>
     <path d="M256 292 C 312 286 348 250 354 196 C 296 202 260 244 256 292 Z" fill="url(#g)"/>
-    <!-- roots -->
-    <path d="M256 338 V 460" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
-    <path d="M256 362 C 214 392 186 418 166 458" fill="none" stroke="url(#g)" stroke-width="20" stroke-linecap="round"/>
-    <path d="M256 362 C 298 392 326 418 346 458" fill="none" stroke="url(#g)" stroke-width="20" stroke-linecap="round"/>
+    <!-- roots as a tournament bracket converging to a champion -->
+    <g fill="none" stroke="url(#g)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M150 345 H 362"/>
+      <path d="M150 345 V 396 H 232"/>
+      <path d="M362 345 V 396 H 280"/>
+      <path d="M256 345 V 418"/>
+      <path d="M222 456 L 256 418 L 290 456"/>
+    </g>
   </g>
 </svg>

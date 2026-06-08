@@ -1,4 +1,4 @@
-// Sporos logo mark: roots (foundation/brackets) → stem & leaves (growth) → crown (champion).
+// Sporos logo mark: a tournament BRACKET (foundation) → stem & leaves (growth) → crown (champion).
 // Uses currentColor so it inherits its surroundings (cream on green in the header, etc.).
 export function SporosMark({ className }: { className?: string }) {
   return (
@@ -12,7 +12,7 @@ export function SporosMark({ className }: { className?: string }) {
       <circle cx="12" cy="2.2" r="0.95" fill="currentColor" />
       <circle cx="14.7" cy="3.5" r="0.85" fill="currentColor" />
       {/* stem */}
-      <path d="M12 6.3 V 15.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M12 6.3 V 16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       {/* leaves */}
       <path
         d="M12 10.8 C 13.5 9.3 15.6 8.8 16.9 7.7 C 16.1 9.8 14.4 11.1 12 11.1 Z"
@@ -22,20 +22,20 @@ export function SporosMark({ className }: { className?: string }) {
         d="M12 10.8 C 10.5 9.3 8.4 8.8 7.1 7.7 C 7.9 9.8 9.6 11.1 12 11.1 Z"
         fill="currentColor"
       />
-      {/* roots */}
-      <path d="M12 15.4 V 20.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path
-        d="M12 16.6 C 10.5 17.7 9.3 18.8 8.3 20.8"
+      {/* roots drawn as a tournament bracket converging to a champion */}
+      <g
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.6"
         strokeLinecap="round"
-      />
-      <path
-        d="M12 16.6 C 13.5 17.7 14.7 18.8 15.7 20.8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+        strokeLinejoin="round"
+        fill="none"
+      >
+        <path d="M6.8 16 H 17.2" />
+        <path d="M6.8 16 V 18.4 H 10.7" />
+        <path d="M17.2 16 V 18.4 H 13.3" />
+        <path d="M12 16 V 19.4" />
+        <path d="M10.4 21.2 L 12 19.4 L 13.6 21.2" />
+      </g>
     </svg>
   );
 }
