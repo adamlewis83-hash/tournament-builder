@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:formats": "tsx test-formats.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -22,6 +23,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

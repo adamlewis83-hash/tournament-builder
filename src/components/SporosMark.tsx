@@ -15,11 +15,11 @@ export function SporosMark({ className }: { className?: string }) {
       <path d="M12 6.3 V 16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       {/* leaves */}
       <path
-        d="M12 10.8 C 13.5 9.3 15.6 8.8 16.9 7.7 C 16.1 9.8 14.4 11.1 12 11.1 Z"
+        d="M12 13.4 C 14.3 13.2 16.5 12.1 17.3 9.6 C 14.8 10.4 13.1 11.7 12 13.4 Z"
         fill="currentColor"
       />
       <path
-        d="M12 10.8 C 10.5 9.3 8.4 8.8 7.1 7.7 C 7.9 9.8 9.6 11.1 12 11.1 Z"
+        d="M12 13.4 C 9.7 13.2 7.5 12.1 6.7 9.6 C 9.2 10.4 10.9 11.7 12 13.4 Z"
         fill="currentColor"
       />
       {/* roots drawn as a tournament bracket converging to a champion */}

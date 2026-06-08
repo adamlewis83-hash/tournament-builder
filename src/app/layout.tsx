@@ -46,8 +46,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="no-print sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/70 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
-                <SporosMark className="h-6 w-6 text-[var(--on-brand)]" />
+              <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
+                <SporosMark className="h-7 w-7 text-[var(--on-brand)]" />
               </span>
               <span className="brand-text">Sporos</span>
             </Link>
