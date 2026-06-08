@@ -35,9 +35,9 @@ const DEFAULT_CONFIG: TournamentConfig = {
   tiebreaker: "diff",
   thirdPlace: false,
   teamNames: ["Team A", "Team B"],
-  ryderFoursomes: 1,
-  ryderFourball: 1,
-  ryderSingles: 1,
+  ryderFoursomes: 0, // default to captain mode — build sessions as the cup unfolds
+  ryderFourball: 0,
+  ryderSingles: 0,
   golfMode: "stroke",
 };
 
