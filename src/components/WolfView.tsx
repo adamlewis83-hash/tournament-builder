@@ -2,9 +2,10 @@
 
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeWolf, wolfForHole } from "@/lib/golf";
+import { computeWolf, wolfForHole, holeStrokes } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
+import { StrokeDots } from "./StrokeDots";
 import { Card } from "./ui";
 
 export function WolfView({ t }: { t: Tournament }) {
@@ -75,13 +76,14 @@ export function WolfView({ t }: { t: Tournament }) {
                   <td className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 font-medium border-t border-[var(--border)]">{h + 1}</td>
                   <td className="px-1 py-1 text-center text-[var(--muted)] border-t border-[var(--border)]">{g.pars[h]}</td>
                   {t.participants.map((p) => (
-                    <td key={p.id} className={`px-0.5 py-1 text-center border-t border-[var(--border)] ${p.id === wolf ? "bg-amber-400/10" : ""}`}>
+                    <td key={p.id} className={`px-0.5 py-1 align-bottom text-center border-t border-[var(--border)] ${p.id === wolf ? "bg-amber-400/10" : ""}`}>
+                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
                       <input
                         type="number"
                         inputMode="numeric"
                         value={g.scores[p.id]?.[h] ?? ""}
                         onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
-                        className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+                        className="mt-0.5 w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                     </td>
                   ))}

@@ -9,9 +9,11 @@ import {
   computeGolf,
   computeMixedOverall,
   formatToPar,
+  holeStrokes,
   mixedComplete,
   segmentForHole,
 } from "@/lib/golf";
+import { StrokeDots } from "./StrokeDots";
 import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
@@ -137,7 +139,8 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
                   </span>
                 </td>
                 {holes.map((hh) => (
-                  <td key={hh} className="px-0.5 py-1 text-center border-t border-[var(--border)]">
+                  <td key={hh} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
+                    <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[hh], g.holes)} />
                     <input
                       type="number"
                       inputMode="numeric"
@@ -145,7 +148,7 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
                       onChange={(e) =>
                         setGolfScore(t.id, p.id, hh, e.target.value === "" ? null : Number(e.target.value))
                       }
-                      className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+                      className="mt-0.5 w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                     />
                   </td>
                 ))}
@@ -164,6 +167,9 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
             {GOLF_MODE_LABELS[f]}
           </span>
         ))}
+        <span className="inline-flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> handicap stroke
+        </span>
       </div>
     </div>
   );
@@ -295,6 +301,9 @@ export function MixedGolfView({ t }: { t: Tournament }) {
                     <Avatar name={p.name} color={colorFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
                     <span className="truncate">{p.name}</span>
                     {(p.handicap ?? 0) > 0 && <span className="text-xs text-[var(--muted)]">({p.handicap})</span>}
+                    {holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes) > 0 && (
+                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
+                    )}
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     {rel != null && (

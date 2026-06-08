@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeGolf, formatToPar } from "@/lib/golf";
+import { computeGolf, formatToPar, holeStrokes } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
+import { StrokeDots } from "./StrokeDots";
 import { BbbView } from "./BbbView";
 import { WolfView } from "./WolfView";
 import { MixedGolfView } from "./MixedGolfView";
@@ -268,7 +269,8 @@ export function GolfView({ t }: { t: Tournament }) {
                     </span>
                   </td>
                   {holes.map((h) => (
-                    <td key={h} className="px-0.5 py-1 text-center border-t border-[var(--border)]">
+                    <td key={h} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
+                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
                       <input
                         type="number"
                         inputMode="numeric"
@@ -276,7 +278,7 @@ export function GolfView({ t }: { t: Tournament }) {
                         onChange={(e) =>
                           setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))
                         }
-                        className="w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+                        className="mt-0.5 w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                     </td>
                   ))}
@@ -288,6 +290,9 @@ export function GolfView({ t }: { t: Tournament }) {
             })}
           </tbody>
         </table>
+        <p className="mt-2 px-1 text-[10px] text-[var(--muted)] flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> = a handicap stroke on that hole
+        </p>
       </Card>
       )}
     </div>
