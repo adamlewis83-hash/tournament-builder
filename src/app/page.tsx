@@ -120,8 +120,8 @@ function Hero({ creating, onCreate }: { creating: boolean; onCreate: () => void 
         className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-9 sm:pt-12 sm:pb-10 text-white"
         style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
       >
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.15em] text-white/80">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" />
+        <span className="inline-flex items-center gap-2 text-sm sm:text-base font-bold tracking-[0.22em] text-emerald-200">
+          <span className="h-2 w-2 rounded-full bg-[var(--win)] pulse-ring" />
           WHERE COMPETITION TAKES ROOT
         </span>
         <h1 className="mt-3 text-3xl sm:text-5xl font-display font-bold tracking-tight leading-[1.1]">

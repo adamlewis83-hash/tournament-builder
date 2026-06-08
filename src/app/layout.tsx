@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
-import { Sprout, Trophy } from "@/components/icons";
+import { Trophy } from "@/components/icons";
+import { SporosMark } from "@/components/SporosMark";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CloudSync } from "@/components/CloudSync";
@@ -46,7 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight">
               <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
-                <Sprout className="h-5 w-5" />
+                <SporosMark className="h-6 w-6 text-[var(--on-brand)]" />
               </span>
               <span className="brand-text">Sporos</span>
             </Link>

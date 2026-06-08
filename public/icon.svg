@@ -12,12 +12,19 @@
   <rect width="512" height="512" rx="112" fill="#08140d"/>
   <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="url(#g)" stroke-opacity="0.25" stroke-width="4"/>
   <g filter="url(#glow)">
+    <!-- crown -->
+    <path d="M198 150 L212 100 L240 124 L256 76 L272 124 L300 100 L314 150 Z" fill="url(#g)"/>
+    <circle cx="212" cy="92" r="17" fill="url(#g)"/>
+    <circle cx="256" cy="68" r="20" fill="url(#g)"/>
+    <circle cx="300" cy="92" r="17" fill="url(#g)"/>
     <!-- stem -->
-    <path d="M256 400 V236" fill="none" stroke="url(#g)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M256 150 V 338" fill="none" stroke="url(#g)" stroke-width="26" stroke-linecap="round"/>
     <!-- leaves -->
-    <path d="M256 250 C 196 250 156 210 150 150 C 214 150 252 192 256 250 Z" fill="url(#g)"/>
-    <path d="M256 250 C 316 250 356 210 362 150 C 298 150 260 192 256 250 Z" fill="url(#g)"/>
-    <!-- seed -->
-    <circle cx="256" cy="412" r="26" fill="url(#g)"/>
+    <path d="M256 292 C 200 286 164 250 158 196 C 216 202 252 244 256 292 Z" fill="url(#g)"/>
+    <path d="M256 292 C 312 286 348 250 354 196 C 296 202 260 244 256 292 Z" fill="url(#g)"/>
+    <!-- roots -->
+    <path d="M256 338 V 460" fill="none" stroke="url(#g)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M256 362 C 214 392 186 418 166 458" fill="none" stroke="url(#g)" stroke-width="20" stroke-linecap="round"/>
+    <path d="M256 362 C 298 392 326 418 346 458" fill="none" stroke="url(#g)" stroke-width="20" stroke-linecap="round"/>
   </g>
 </svg>
