@@ -13,6 +13,7 @@ const QUERIES: (string | { id: string })[] = [
   { id: "5VNkwImRDwo" }, // volleyball — casual park pickup game
   "outdoor basketball court park",
   "kids soccer field park",
+  { id: "k_a-ott2G-w" }, // flag football — rec game
   "bowling alley lane",
   { id: "g_OYkZ-fbLM" }, // table tennis — casual friends playing
   "disc golf",

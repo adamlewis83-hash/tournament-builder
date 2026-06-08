@@ -112,3 +112,17 @@ export function computeStandings(
   rows.forEach((r, i) => (r.rank = i + 1));
   return rows;
 }
+
+/** Individual leaderboard ranked by total points scored (Americano / Mexicano). */
+export function pointsLeaderboard(participants: Participant[], matches: Match[]): Standing[] {
+  const rows = computeStandings(participants, matches);
+  rows.sort(
+    (x, y) =>
+      y.pointsFor - x.pointsFor ||
+      y.diff - x.diff ||
+      y.wins - x.wins ||
+      x.name.localeCompare(y.name),
+  );
+  rows.forEach((r, i) => (r.rank = i + 1));
+  return rows;
+}

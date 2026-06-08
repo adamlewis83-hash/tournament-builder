@@ -23,6 +23,7 @@ const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
   teams: "Build teams with 2+ players each (e.g. volleyball). Each team competes as one unit.",
 };
 const OTHER = "__other__";
+const TEAM_SPORTS = new Set(["Flag Football", "Soccer", "Basketball", "Volleyball", "Spikeball"]);
 
 export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const router = useRouter();
@@ -42,6 +43,11 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
     const avail = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
     if (!avail.includes(format)) setFormat(avail[0]);
   }, [sportChoice, sport, format]);
+
+  // Team sports default to the Teams play style (with rosters).
+  useEffect(() => {
+    if (TEAM_SPORTS.has(sport)) setPlayStyle("teams");
+  }, [sport]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +116,13 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
         </div>
       </div>
 
-      <div className={format === "ryder" || format === "golf" ? "hidden" : ""}>
+      <div
+        className={
+          format === "ryder" || format === "golf" || format === "americano" || format === "mexicano"
+            ? "hidden"
+            : ""
+        }
+      >
         <span className="text-sm font-medium">Play style</span>
         <div className="mt-2 flex flex-wrap gap-2">
           {STYLES.map((s) => (

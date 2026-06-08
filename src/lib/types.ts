@@ -7,6 +7,8 @@ export type Format =
   | "single-elim"
   | "double-elim"
   | "pool-bracket"
+  | "americano"
+  | "mexicano"
   | "ryder"
   | "golf";
 
@@ -181,6 +183,8 @@ export const FORMAT_LABELS: Record<Format, string> = {
   "single-elim": "Single Elimination",
   "double-elim": "Double Elimination",
   "pool-bracket": "Pool Play → Bracket",
+  americano: "Americano",
+  mexicano: "Mexicano",
   ryder: "Ryder Cup (Team Match Play)",
   golf: "Golf",
 };
@@ -195,6 +199,10 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   "single-elim": "Seeded knockout bracket. Lose once and you're out.",
   "double-elim": "Knockout with a losers bracket — one loss before elimination.",
   "pool-bracket": "Group-stage round robin, then top finishers seed into a knockout bracket.",
+  americano:
+    "Social mixer: rotate partners every round and play with & against everyone. You earn individual points each game — most points wins. A pickleball/padel favorite.",
+  mexicano:
+    "Like Americano, but each round's matchups are set by the current standings (top players paired together & against) to keep games balanced. Individual points decide it.",
   ryder:
     "Two teams face off in pairs + singles matches. Each match is worth a point (½ for a tie); first team past half the points wins the cup. Great for golf.",
   golf:
@@ -235,15 +243,26 @@ export const ALL_FORMATS: Format[] = [
   "single-elim",
   "double-elim",
   "pool-bracket",
+  "americano",
+  "mexicano",
   "ryder",
   "golf",
 ];
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
-// formats; everything else gets the court/bracket formats.
+// formats; everything else gets the court/bracket/social formats.
 export function formatsForSport(sport: string): Format[] {
   if (/golf/i.test(sport)) return ["golf", "ryder"];
-  return ["round-robin", "swiss", "kotc", "single-elim", "double-elim", "pool-bracket"];
+  return [
+    "round-robin",
+    "swiss",
+    "kotc",
+    "single-elim",
+    "double-elim",
+    "pool-bracket",
+    "americano",
+    "mexicano",
+  ];
 }
 
 export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {

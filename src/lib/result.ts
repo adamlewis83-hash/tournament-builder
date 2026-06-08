@@ -1,6 +1,6 @@
 import { Match, Tournament } from "./types";
 import { bracketChampion } from "./bracket";
-import { computeStandings } from "./standings";
+import { computeStandings, pointsLeaderboard } from "./standings";
 import { ryderScore } from "./ryder";
 import { computeBbb, computeGolf, computeMixedOverall, mixedComplete } from "./golf";
 
@@ -51,6 +51,18 @@ export function getResult(t: Tournament): TournamentResult {
     if (maxR >= t.config.rounds && allScored(cur)) {
       const s = computeStandings(P, ms, t.config.tiebreaker);
       return { complete: true, winner: s[0]?.name ?? null };
+    }
+    return none;
+  }
+
+  if (t.format === "americano" || t.format === "mexicano") {
+    const ms = t.matches.filter((m) => m.phase === "rr");
+    const maxR = ms.reduce((x, m) => Math.max(x, m.round), 0);
+    const cur = ms.filter((m) => m.round === maxR);
+    const enoughRounds = t.format === "mexicano" ? maxR >= t.config.rounds : true;
+    if (enoughRounds && allScored(ms) && allScored(cur)) {
+      const s = pointsLeaderboard(P, ms);
+      return { complete: true, winner: s[0]?.pointsFor ? s[0].name : null };
     }
     return none;
   }

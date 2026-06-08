@@ -82,7 +82,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const isDoubles = t.playStyle === "doubles";
   const isFixed = t.playStyle === "doubles-fixed";
   const isTeams = t.playStyle === "teams";
-  const teamMode = isFixed || isTeams;
+  const isSocial = t.format === "americano" || t.format === "mexicano";
+  const teamMode = (isFixed || isTeams) && !isSocial; // social formats are always individuals
 
   const emptyTeam = () => ({ name: "", members: isFixed ? ["", ""] : [""] });
   const [teams, setLocalTeams] = useState<{ name: string; members: string[] }[]>(() => {
@@ -141,7 +142,15 @@ export function SetupPanel({ t }: { t: Tournament }) {
     update(next);
   };
 
-  const minNeeded = teamMode ? 2 : t.format === "round-robin" && isDoubles ? 4 : t.format === "kotc" ? 3 : 2;
+  const minNeeded = teamMode
+    ? 2
+    : isSocial
+      ? 4
+      : t.format === "round-robin" && isDoubles
+        ? 4
+        : t.format === "kotc"
+          ? 3
+          : 2;
   const showThirdPlace =
     t.format === "single-elim" ||
     (t.format === "pool-bracket" && cfg.bracketType === "single") ||
@@ -308,17 +317,20 @@ export function SetupPanel({ t }: { t: Tournament }) {
       <Card className="p-5 flex flex-col">
         <h2 className="font-semibold mb-3">Settings</h2>
         <div className="grid grid-cols-2 gap-4">
-          {((t.format === "round-robin" && isDoubles) || t.format === "swiss") && (
+          {((t.format === "round-robin" && isDoubles) || t.format === "swiss" || isSocial) && (
             <NumberField
               label="Rounds"
               value={cfg.rounds}
               min={1}
               max={20}
               onChange={(v) => setCfg({ rounds: v })}
-              hint={t.format === "swiss" ? "Swiss rounds" : "Games each player plays"}
+              hint={t.format === "swiss" ? "Swiss rounds" : "Rounds everyone plays"}
             />
           )}
-          {(t.format === "round-robin" || t.format === "pool-bracket" || t.format === "swiss") && (
+          {(t.format === "round-robin" ||
+            t.format === "pool-bracket" ||
+            t.format === "swiss" ||
+            isSocial) && (
             <NumberField
               label="Courts"
               value={cfg.courts}
@@ -423,7 +435,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
-            {t.format === "swiss"
+            {t.format === "swiss" || isSocial
               ? "Generate Round 1 →"
               : t.format === "kotc"
                 ? "Start — Game 1 →"

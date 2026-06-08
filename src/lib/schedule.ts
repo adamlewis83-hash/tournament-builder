@@ -279,6 +279,30 @@ export function genKotcNext(ids: string[], existing: Match[], court = 1): Match 
   });
 }
 
+/**
+ * One Mexicano round. `orderedIds` is the field ranked (by standings, or entry
+ * order for round 1). Each group of four — ranks [0,1,2,3] — plays (0 & 3) vs
+ * (1 & 2). Limited to `courts` games; extra players sit the round out.
+ */
+export function genMexicanoRound(orderedIds: string[], roundNumber: number, courts: number): Match[] {
+  const groups = Math.min(Math.max(1, courts), Math.floor(orderedIds.length / 4));
+  const matches: Match[] = [];
+  for (let g = 0; g < groups; g++) {
+    const [p0, p1, p2, p3] = orderedIds.slice(g * 4, g * 4 + 4);
+    matches.push(
+      makeMatch({
+        phase: "rr",
+        round: roundNumber,
+        order: g,
+        court: g + 1,
+        sideA: [p0, p3],
+        sideB: [p1, p2],
+      }),
+    );
+  }
+  return matches;
+}
+
 export function nameOf(participants: Participant[], id: string): string {
   return participants.find((p) => p.id === id)?.name ?? "—";
 }

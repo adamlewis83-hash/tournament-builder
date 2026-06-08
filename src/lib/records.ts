@@ -1,5 +1,5 @@
 import { Tournament } from "./types";
-import { computeStandings } from "./standings";
+import { computeStandings, pointsLeaderboard } from "./standings";
 import { computeBbb, computeGolf, computeMixedOverall, formatToPar } from "./golf";
 import { ryderScore } from "./ryder";
 import { getResult } from "./result";
@@ -42,6 +42,14 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     ].sort((x, y) => parseFloat(y.stat) - parseFloat(x.stat));
   }
 
+  if (t.format === "americano" || t.format === "mexicano") {
+    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
+    return pointsLeaderboard(t.participants, scored).map((r) => ({
+      name: r.name,
+      stat: `${r.pointsFor} pt`,
+    }));
+  }
+
   const s = computeStandings(
     t.participants,
     t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
@@ -77,6 +85,10 @@ export function getRanking(t: Tournament): string[] {
   if (t.format === "ryder") {
     const { winners, losers } = ryderTeams(t);
     return [...winners, ...losers];
+  }
+  if (t.format === "americano" || t.format === "mexicano") {
+    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
+    return pointsLeaderboard(t.participants, scored).map((r) => r.name);
   }
   const order = computeStandings(
     t.participants,

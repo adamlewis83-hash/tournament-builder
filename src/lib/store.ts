@@ -12,7 +12,7 @@ import {
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
-import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext } from "./schedule";
+import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
 import { genRyder } from "./ryder";
 import { matchStatus } from "./ryderGolf";
 import { defaultGolf } from "./golf";
@@ -22,7 +22,7 @@ import {
   genSingleElimSides,
   propagateBracket,
 } from "./bracket";
-import { computeStandings } from "./standings";
+import { computeStandings, pointsLeaderboard } from "./standings";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 const DEFAULT_CONFIG: TournamentConfig = {
@@ -123,6 +123,12 @@ function buildMatches(t: Tournament): Match[] {
       return t.playStyle === "doubles"
         ? genDoublesRR(ids, rounds, courts)
         : genSinglesRR(ids, courts, "rr");
+
+    case "americano":
+      return genDoublesRR(ids, rounds, courts);
+
+    case "mexicano":
+      return genMexicanoRound(ids, 1, courts);
 
     case "swiss":
       return genSwissRound(ids, [], 1, courts);
@@ -500,6 +506,15 @@ export const useStore = create<State>()(
                 (r) => r.participantId,
               );
               const next = genSwissRound(ordered, t.matches, maxRound + 1, t.config.courts);
+              return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+            }
+
+            if (t.format === "mexicano") {
+              if (maxRound >= t.config.rounds) return t;
+              const ordered = pointsLeaderboard(t.participants, t.matches).map(
+                (r) => r.participantId,
+              );
+              const next = genMexicanoRound(ordered, maxRound + 1, t.config.courts);
               return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
             }
 
