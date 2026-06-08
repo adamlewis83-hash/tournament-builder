@@ -1,4 +1,4 @@
-import { GolfData, GolfMode, GolfSegment, Participant, Tournament } from "./types";
+import { GolfData, GolfMode, GolfSegment, Participant, SegmentFormat, Tournament } from "./types";
 
 export const isSideGame = (m: GolfMode) => m === "bingo" || m === "wolf";
 
@@ -148,7 +148,11 @@ export interface GolfRow {
   backNet: number; // Nassau back 9 (net)
 }
 
-export function computeGolf(t: Tournament, mode: GolfMode = "stroke", range?: HoleRange): GolfRow[] {
+export function computeGolf(
+  t: Tournament,
+  mode: GolfMode | SegmentFormat = "stroke",
+  range?: HoleRange,
+): GolfRow[] {
   const g = t.golf;
   if (!g) return [];
   const players = t.participants;
@@ -259,17 +263,17 @@ export function computeMixedOverall(t: Tournament, segments: GolfSegment[]): Ove
     } else {
       const rows = computeGolf(t, seg.format, range).filter((r) => r.thru > 0);
       if (!rows.length) continue;
-      if (seg.format === "stroke") {
-        const best = Math.min(...rows.map((r) => r.net));
-        winners = rows.filter((r) => r.net === best).map((r) => r.participantId);
-      } else if (seg.format === "stableford") {
+      if (seg.format === "stableford") {
         const best = Math.max(...rows.map((r) => r.stableford));
         winners = rows.filter((r) => r.stableford === best).map((r) => r.participantId);
-      } else {
-        // skins
+      } else if (seg.format === "skins") {
         const best = Math.max(...rows.map((r) => r.skins));
         if (best <= 0) continue;
         winners = rows.filter((r) => r.skins === best).map((r) => r.participantId);
+      } else {
+        // stroke, scramble, best ball, alternate shot → lowest net wins
+        const best = Math.min(...rows.map((r) => r.net));
+        winners = rows.filter((r) => r.net === best).map((r) => r.participantId);
       }
     }
     const share = 1 / winners.length;

@@ -86,6 +86,7 @@ interface State {
       strokeIndex?: number[];
       courseName?: string;
       segments?: import("./types").GolfSegment[];
+      teams?: boolean;
     },
   ) => void;
   setGolfHandicap: (id: string, participantId: string, handicap: number) => void;
@@ -415,6 +416,7 @@ export const useStore = create<State>()(
               golf.strokeIndex = input.strokeIndex;
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
             if (input.segments?.length) golf.segments = input.segments;
+            if (input.teams) golf.teams = true;
             return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
           }),
         }));

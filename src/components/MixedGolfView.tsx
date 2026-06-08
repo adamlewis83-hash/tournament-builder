@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Trophy } from "@/components/icons";
-import { GOLF_MODE_LABELS, GolfSegment, Tournament } from "@/lib/types";
+import { SEGMENT_LABELS, GolfSegment, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {
   computeBbb,
@@ -30,6 +30,9 @@ const SEG_COLORS: Record<string, string> = {
   stableford: "#0ea5e9",
   skins: "#f59e0b",
   bingo: "#a855f7",
+  scramble: "#0d9488",
+  bestball: "#e11d48",
+  altshot: "#6366f1",
 };
 
 function SegmentBoard({ t, seg }: { t: Tournament; seg: GolfSegment }) {
@@ -40,7 +43,7 @@ function SegmentBoard({ t, seg }: { t: Tournament; seg: GolfSegment }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
       <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">
-        Holes {seg.from}–{seg.to} · {GOLF_MODE_LABELS[seg.format]}
+        Holes {seg.from}–{seg.to} · {SEGMENT_LABELS[seg.format]}
       </div>
       <table className="w-full text-sm">
         <tbody>
@@ -104,7 +107,7 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
                   <span
                     className="block h-1.5 rounded-sm"
                     style={{ background: SEG_COLORS[f] }}
-                    title={GOLF_MODE_LABELS[f]}
+                    title={SEGMENT_LABELS[f]}
                   />
                 </th>
               );
@@ -164,7 +167,7 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
         {usedFormats.map((f) => (
           <span key={f} className="inline-flex items-center gap-1">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: SEG_COLORS[f] }} />
-            {GOLF_MODE_LABELS[f]}
+            {SEGMENT_LABELS[f]}
           </span>
         ))}
         <span className="inline-flex items-center gap-1">
@@ -258,7 +261,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
               Hole {h + 1} <span className="text-[var(--muted)] font-medium text-base">of {g.holes}</span>
             </div>
             <div className="mt-0.5 text-sm font-bold text-[var(--brand)]">
-              {GOLF_MODE_LABELS[seg.format]}
+              {SEGMENT_LABELS[seg.format]}
               <span className="text-[var(--muted)] font-normal">
                 {" "}
                 · Holes {seg.from}–{seg.to} · Par {g.pars[h]}
@@ -332,7 +335,12 @@ export function MixedGolfView({ t }: { t: Tournament }) {
       {/* Full scorecard — inline, plus a pop-out modal */}
       <Card className="p-3">
         <div className="flex items-center justify-between mb-2 px-1">
-          <span className="font-bold text-sm">Scorecard</span>
+          <span className="font-bold text-sm">
+            Scorecard
+            {g.teams && (
+              <span className="ml-2 font-normal text-xs text-[var(--muted)]">· one ball per team</span>
+            )}
+          </span>
           <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={() => setCardOpen(true)}>
             ⤢ Pop out
           </Button>

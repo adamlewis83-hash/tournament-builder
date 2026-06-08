@@ -8,6 +8,9 @@ import {
   GolfMode,
   GolfSegment,
   SegmentFormat,
+  SEGMENT_LABELS,
+  SOLO_SEGMENT_FORMATS,
+  TEAM_SEGMENT_FORMATS,
   Tournament,
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
@@ -27,11 +30,11 @@ const MODES: GolfMode[] = [
   "mixed",
 ];
 
-const SEGMENT_FORMATS: SegmentFormat[] = ["stroke", "stableford", "skins", "bingo"];
-
-function defaultSegments(holes: number): GolfSegment[] {
+function defaultSegments(holes: number, teams = false): GolfSegment[] {
   const chunk = Math.ceil(holes / 3);
-  const fmts: SegmentFormat[] = ["stroke", "stableford", "skins"];
+  const fmts: SegmentFormat[] = teams
+    ? ["scramble", "bestball", "altshot"]
+    : ["stroke", "stableford", "skins"];
   const segs: GolfSegment[] = [];
   for (let i = 0; i < 3; i++) {
     const from = i * chunk + 1;
@@ -65,9 +68,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [results, setResults] = useState<CourseSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
+  const [teamMode, setTeamMode] = useState<boolean>(!!t.golf?.teams);
   const [segments, setSegments] = useState<GolfSegment[]>(
-    t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18),
+    t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18, !!t.golf?.teams),
   );
+  // In Build-Your-Own you can play as teams (one ball per team), like scramble.
+  const teamsMode = isScramble || (mode === "mixed" && teamMode);
+  const segFormats = teamMode ? TEAM_SEGMENT_FORMATS : SOLO_SEGMENT_FORMATS;
 
   const seed: PlayerRow[] = t.participants.length
     ? t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0) }))
@@ -84,7 +91,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     const c = defaultCourse(n);
     setPars(c.pars);
     setSi(c.strokeIndex);
-    setSegments(defaultSegments(n));
+    setSegments(defaultSegments(n, teamMode));
   }
 
   function loadCourse(c: Course) {
@@ -92,7 +99,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
-    setSegments(defaultSegments(c.holes));
+    setSegments(defaultSegments(c.holes, teamMode));
   }
 
   function applyCourse(c: ImportedCourse) {
@@ -100,7 +107,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
-    setSegments(defaultSegments(c.holes));
+    setSegments(defaultSegments(c.holes, teamMode));
   }
 
   async function runSearch() {
@@ -145,6 +152,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       strokeIndex: si.slice(0, holes),
       courseName,
       segments: mode === "mixed" ? segments : undefined,
+      teams: mode === "mixed" && teamMode,
     });
   }
 
@@ -328,7 +336,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
       {/* Players + handicaps */}
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">{isScramble ? "Teams" : "Players & handicaps"}</h2>
+        <h2 className="font-semibold mb-1">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
         <p className="text-sm text-[var(--muted)] mb-3">
           {isScramble
             ? "One team per line; handicap optional (one ball per team)."
@@ -344,7 +352,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                   next[i] = { ...next[i], name: e.target.value };
                   setPlayers(next);
                 }}
-                placeholder={isScramble ? `Team ${i + 1}` : `Player ${i + 1}`}
+                placeholder={teamsMode ? `Team ${i + 1}` : `Player ${i + 1}`}
                 className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
               />
               <label className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -376,7 +384,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
           onClick={() => setPlayers([...players, { name: "", handicap: "0" }])}
           className="mt-3 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
         >
-          + Add {isScramble ? "team" : "player"}
+          + Add {teamsMode ? "team" : "player"}
         </button>
       </Card>
 
@@ -406,11 +414,33 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
         {mode === "mixed" && (
           <div className="mt-4 border-t border-[var(--border)] pt-4">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer mb-3">
+              <input
+                type="checkbox"
+                checked={teamMode}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setTeamMode(on);
+                  setSegments(defaultSegments(holes, on));
+                }}
+                className="h-4 w-4 accent-[var(--brand)]"
+              />
+              Play as teams — one ball per team (scramble, best ball, alternate shot)
+            </label>
             <h3 className="font-medium text-sm mb-1">Segments</h3>
             <p className="text-xs text-[var(--muted)] mb-3">
-              Assign a format to each stretch of holes — e.g. 1–6 Stroke, 7–12 Bingo, 13–18
-              Stableford.
+              Assign a format to each stretch of holes — e.g.{" "}
+              {teamMode
+                ? "1–6 Scramble, 7–12 Best Ball, 13–18 Alternate Shot"
+                : "1–6 Stroke, 7–12 Bingo, 13–18 Stableford"}
+              .
             </p>
+            {teamMode && (
+              <p className="text-xs text-[var(--muted)] mb-3">
+                Enter your teams above (e.g. <span className="font-medium">Cody &amp; Adam</span>) —
+                one score per team per hole.
+              </p>
+            )}
             <div className="space-y-2">
               {segments.map((seg, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
@@ -449,9 +479,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
                     }}
                     className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 bg-[var(--surface)]"
                   >
-                    {SEGMENT_FORMATS.map((f) => (
+                    {segFormats.map((f) => (
                       <option key={f} value={f}>
-                        {GOLF_MODE_LABELS[f]}
+                        {SEGMENT_LABELS[f]}
                       </option>
                     ))}
                   </select>
@@ -471,7 +501,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
               onClick={() => {
                 const last = segments[segments.length - 1];
                 const from = last ? Math.min(last.to + 1, holes) : 1;
-                setSegments([...segments, { from, to: holes, format: "stroke" }]);
+                setSegments([...segments, { from, to: holes, format: segFormats[0] }]);
               }}
               className="mt-2 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
             >

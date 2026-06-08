@@ -58,12 +58,35 @@ export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
 };
 
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
-export type SegmentFormat = "stroke" | "stableford" | "skins" | "bingo";
+// Individual formats: stroke/stableford/skins/bingo. Team formats (one ball per team):
+// scramble/bestball/altshot — all scored to-par like stroke, just played differently.
+export type SegmentFormat =
+  | "stroke"
+  | "stableford"
+  | "skins"
+  | "bingo"
+  | "scramble"
+  | "bestball"
+  | "altshot";
 export interface GolfSegment {
   from: number;
   to: number;
   format: SegmentFormat;
 }
+
+export const SEGMENT_LABELS: Record<SegmentFormat, string> = {
+  stroke: "Stroke Play",
+  stableford: "Stableford",
+  skins: "Skins",
+  bingo: "Bingo Bango Bongo",
+  scramble: "Scramble",
+  bestball: "Best Ball",
+  altshot: "Alternate Shot",
+};
+
+// Segment formats that are team games (one ball per team).
+export const TEAM_SEGMENT_FORMATS: SegmentFormat[] = ["scramble", "bestball", "altshot", "stableford", "skins"];
+export const SOLO_SEGMENT_FORMATS: SegmentFormat[] = ["stroke", "stableford", "skins", "bingo"];
 
 // Per-hole award winners for Bingo Bango Bongo (participantId or null).
 export interface BbbData {
@@ -95,6 +118,7 @@ export interface GolfData {
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices
   segments?: GolfSegment[]; // "Build Your Own": format per hole range
+  teams?: boolean; // "Build Your Own" played as teams (one ball per team)
 }
 
 export interface Match {
