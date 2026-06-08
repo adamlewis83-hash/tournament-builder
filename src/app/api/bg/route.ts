@@ -6,16 +6,16 @@ export const dynamic = "force-dynamic";
 // Sport scenes to cycle through. A string = top search result; { id } = a
 // specific hand-picked Unsplash photo.
 const QUERIES: (string | { id: string })[] = [
-  "golf course green",
-  "tennis court",
+  "golf course",
+  "outdoor tennis court",
   "pickleball court",
-  "cornhole bean bag toss",
-  "volleyball court",
-  "basketball court",
-  "soccer stadium pitch",
-  "running track stadium",
-  { id: "SlHYzF_YQX8" }, // table tennis — hand-picked action shot
-  "disc golf basket",
+  "cornhole backyard game",
+  "beach volleyball",
+  "outdoor basketball court park",
+  "kids soccer field park",
+  "outdoor running track",
+  { id: "g_OYkZ-fbLM" }, // table tennis — casual friends playing
+  "disc golf",
 ];
 
 interface BgPhoto {
