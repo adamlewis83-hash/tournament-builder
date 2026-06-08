@@ -49,7 +49,6 @@ const FORMAT_COLOR: Record<string, string> = {
 
 export default function Home() {
   const [creating, setCreating] = useState(false);
-  const hasTournaments = useStore((s) => s.tournaments.length > 0);
   useSharedImport();
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("new")) setCreating(true);
@@ -65,14 +64,7 @@ export default function Home() {
         </Card>
       )}
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold">Your tournaments</h2>
-        {!creating && hasTournaments && (
-          <Button variant="outline" className="px-3 py-1.5" onClick={() => setCreating(true)}>
-            + New
-          </Button>
-        )}
-      </div>
+      <h2 className="text-lg font-bold mb-4">Your tournaments</h2>
       <TournamentList />
 
       <div className="mt-10 pt-6 border-t border-[var(--border)] space-y-4">
