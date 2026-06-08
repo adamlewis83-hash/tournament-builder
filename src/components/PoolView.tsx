@@ -23,12 +23,14 @@ export function PoolView({ t }: { t: Tournament }) {
     <div className="space-y-8">
       {poolIds.map((pid, i) => {
         const pm = poolMatches.filter((m) => m.poolId === pid);
+        const ids = new Set(pm.flatMap((m) => [...m.sideA, ...m.sideB]));
+        const poolParticipants = t.participants.filter((p) => ids.has(p.id));
         return (
           <div key={pid} className="space-y-3">
             <h2 className="text-lg font-bold">Pool {String.fromCharCode(65 + i)}</h2>
             <div className="grid lg:grid-cols-2 gap-4">
               <StandingsTable
-                participants={t.participants}
+                participants={poolParticipants}
                 matches={pm}
                 title="Standings"
                 tiebreaker={t.config.tiebreaker}
