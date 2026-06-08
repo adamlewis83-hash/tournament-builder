@@ -6,7 +6,7 @@ import { useLiveComments } from "@/hooks/useLiveComments";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
 
-const EMOJI = ["👏", "🔥", "⛳", "🎉", "💪", "🦅", "😅", "🍺"];
+const EMOJI = ["👏", "🔥", "🎉", "💪", "🙌", "😤", "⚡", "🏆"];
 const NAME_KEY = "seeded-cheer-name";
 
 function ago(iso: string): string {
@@ -173,7 +173,7 @@ export function CommentsPanel({ t }: { t: Tournament }) {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && send()}
-                placeholder="Nice birdie! 🔥"
+                placeholder="Cheer them on… 🔥"
                 maxLength={280}
                 className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
               />
