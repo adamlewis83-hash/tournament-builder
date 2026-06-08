@@ -10,7 +10,7 @@ const QUERIES: (string | { id: string })[] = [
   "outdoor tennis court",
   "pickleball court",
   { id: "KWsKzLGmmzQ" }, // cornhole — casual patio game
-  { id: "5VNkwImRDwo" }, // volleyball — casual park pickup game
+  { id: "7otVwMaIXyo" }, // volleyball — outdoor rec court (no lens flare)
   "outdoor basketball court park",
   "kids soccer field park",
   { id: "k_a-ott2G-w" }, // flag football — rec game

@@ -212,9 +212,23 @@ function TournamentList() {
         </div>
         <p className="font-semibold">No tournaments yet</p>
         <p className="text-sm text-[var(--muted)]">
-          Hit <span className="text-[var(--brand)] font-medium">+ New Tournament</span> to build a
-          schedule, track scores, and crown a champion.
+          Hit <span className="text-[var(--brand)] font-medium">New Tournament</span> to get started —
+          here&apos;s how it works:
         </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3 max-w-xl mx-auto text-left">
+          {[
+            ["1", "Pick a sport & format"],
+            ["2", "Add players, share a code"],
+            ["3", "Score live, crown a champion"],
+          ].map(([n, t]) => (
+            <div key={n} className="rounded-xl bg-[var(--subtle)] p-3">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--brand)] text-xs font-bold text-[var(--on-brand)]">
+                {n}
+              </span>
+              <p className="mt-2 text-sm font-medium">{t}</p>
+            </div>
+          ))}
+        </div>
       </Card>
     );
   }

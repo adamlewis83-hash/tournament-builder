@@ -11,15 +11,34 @@ import { BottomNav } from "@/components/BottomNav";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
 
+const SITE_URL = "https://tournament-builder-three.vercel.app";
+const TITLE = "Sporos — Run & score any tournament";
+const DESC =
+  "Run round robins, brackets, pool play, golf and more — with live shared scoring on every phone.";
+
 export const metadata: Metadata = {
-  title: "Sporos — Run & score any tournament",
-  description:
-    "Run round robins, brackets, pool play, golf and more — with live shared scoring on every phone.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESC,
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Sporos" },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/apple-touch-icon.png" }],
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Sporos",
+    title: TITLE,
+    description: DESC,
+    url: SITE_URL,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Sporos — Where competition takes root" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: "Run & score any tournament, live on every phone.",
+    images: ["/og.png"],
   },
 };
 

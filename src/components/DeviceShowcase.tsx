@@ -19,7 +19,7 @@ function Avatar({ l, c }: { l: string; c: string }) {
 /* ---- Phone: live scoreboard ---- */
 function Phone() {
   return (
-    <div className="relative w-[166px] shrink-0 rounded-[1.9rem] bg-slate-900 p-1.5 shadow-2xl ring-1 ring-black/10">
+    <div className="relative w-[166px] shrink-0 rounded-[1.9rem] bg-slate-900 p-1.5 shadow-2xl ring-1 ring-white/15">
       <div className="absolute left-1/2 top-2 z-10 h-1.5 w-10 -translate-x-1/2 rounded-full bg-white/25" />
       <div className="aspect-[9/18.5] overflow-hidden rounded-[1.45rem] bg-[var(--surface)]">
         <div className="px-3 pb-3 pt-6 text-[10px] leading-tight">
@@ -69,7 +69,7 @@ function Tablet() {
     { a: "Tom", c: "#0ea5e9", t: "What a rally 👏" },
   ];
   return (
-    <div className="w-[180px] shrink-0 rounded-2xl bg-slate-900 p-1.5 shadow-2xl ring-1 ring-black/10">
+    <div className="w-[180px] shrink-0 rounded-2xl bg-slate-900 p-1.5 shadow-2xl ring-1 ring-white/15">
       <div className="aspect-[3/4] overflow-hidden rounded-xl bg-[var(--surface)]">
         <div className="p-3 text-[10px]">
           <div className="mb-2 flex items-center gap-1 text-[11px] font-bold">Cheers 💬</div>
@@ -107,7 +107,7 @@ function Laptop() {
   ];
   return (
     <div className="w-[300px] shrink-0">
-      <div className="overflow-hidden rounded-t-xl border-4 border-slate-900 bg-[var(--surface)] shadow-2xl">
+      <div className="overflow-hidden rounded-t-xl border-4 border-slate-900 bg-[var(--surface)] shadow-2xl ring-1 ring-white/15">
         <div className="aspect-[16/10] p-3 text-[10px]">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[11px] font-bold">Standings</span>

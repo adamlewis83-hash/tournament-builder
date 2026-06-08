@@ -6,3 +6,9 @@ for (const [w, out] of [[512,"public/icon-512.png"],[192,"public/icon-192.png"],
   writeFileSync(out, r.render().asPng());
   console.log("wrote", out, w+"px");
 }
+
+// Open Graph / link-preview image (1200x630)
+const og = readFileSync("public/og.svg", "utf8");
+const ogR = new Resvg(og, { fitTo: { mode: "width", value: 1200 }, font: { loadSystemFonts: true } });
+writeFileSync("public/og.png", ogR.render().asPng());
+console.log("wrote public/og.png 1200x630");
