@@ -15,6 +15,7 @@ import { SwissView } from "@/components/SwissView";
 import { KotcView } from "@/components/KotcView";
 import { AmericanoView } from "@/components/AmericanoView";
 import { FormatInfo } from "@/components/FormatInfo";
+import { CommentsPanel } from "@/components/CommentsPanel";
 import { RyderView } from "@/components/RyderView";
 import { GolfView } from "@/components/GolfView";
 import { BracketView } from "@/components/BracketView";
@@ -108,6 +109,8 @@ function TournamentDetail({ id }: { id: string }) {
       )}
 
       {t.generated && !t.spectator && <LivePanel t={t} />}
+
+      {t.liveCode && t.generated && <CommentsPanel t={t} />}
 
       {!t.generated && <SetupPanel t={t} />}
 

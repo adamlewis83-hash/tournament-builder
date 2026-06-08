@@ -67,3 +67,41 @@ export async function sendPatch(code: string, patch: LivePatch): Promise<LiveSta
   if (!res.ok) return null;
   return res.json();
 }
+
+// ---- Live comments (cheer feed) ----
+
+export interface LiveComment {
+  id: string;
+  code: string;
+  author: string;
+  text: string;
+  targetType?: string | null;
+  targetLabel?: string | null;
+  createdAt: string;
+}
+
+export interface NewComment {
+  author: string;
+  text: string;
+  targetType?: string | null;
+  targetLabel?: string | null;
+}
+
+export async function fetchComments(code: string, since?: string): Promise<LiveComment[]> {
+  const url = `/api/live/${code}/comments${since ? `?since=${encodeURIComponent(since)}` : ""}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return [];
+  const j = await res.json();
+  return (j.comments ?? []) as LiveComment[];
+}
+
+export async function postComment(code: string, input: NewComment): Promise<LiveComment | null> {
+  const res = await fetch(`/api/live/${code}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) return null;
+  const j = await res.json();
+  return (j.comment ?? null) as LiveComment | null;
+}

@@ -21,6 +21,21 @@ model LiveTournament {
   @@map("live_tournaments")
 }
 
+// A cheer/comment posted to a live tournament's feed. Anyone in the session
+// (host or spectator) can post; optionally tagged to a player or a hole.
+model LiveComment {
+  id          String   @id @default(cuid())
+  code        String // live tournament code
+  author      String
+  text        String
+  targetType  String? // "player" | "hole"
+  targetLabel String? // e.g. "Adam" or "Hole 7"
+  createdAt   DateTime @default(now())
+
+  @@index([code, createdAt])
+  @@map("live_comments")
+}
+
 // A user's tournament backed up to the cloud under their anonymous library key.
 // Survives browser/storage clearing and lets a library be pulled onto other devices.
 model OwnedTournament {
