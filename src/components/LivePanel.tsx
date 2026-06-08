@@ -35,8 +35,9 @@ export function LivePanel({ t }: { t: Tournament }) {
             <Radio className="h-4 w-4 text-[var(--brand)]" /> Go live
           </h3>
           <p className="text-sm text-[var(--muted)]">
-            Share a join code so everyone can follow &amp; enter scores from their phones — updates in
-            real time.
+            Share a join code so everyone can follow live from their phones — and post in the{" "}
+            <span className="font-medium text-[var(--foreground)]">💬 cheer feed</span> to hype the
+            players. Scores stay yours to enter.
           </p>
         </div>
         <Button onClick={go} disabled={busy}>
