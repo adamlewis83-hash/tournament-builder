@@ -64,7 +64,7 @@ export default function Home() {
         </Card>
       )}
 
-      <h2 className="text-lg font-bold mb-4">Your tournaments</h2>
+      <h2 className="text-lg font-bold mb-4 text-center">Your tournaments</h2>
       <TournamentList />
 
       <div className="mt-10 pt-6 border-t border-[var(--border)] space-y-4">
@@ -220,7 +220,7 @@ function TournamentList() {
 
   return (
     <>
-      <div className="inline-flex rounded-lg p-1 mb-4">
+      <div className="flex justify-center gap-1 mb-4">
         {TABS.map((tab) => (
           <button
             key={tab.k}
@@ -241,11 +241,11 @@ function TournamentList() {
           No {filter === "done" ? "completed" : "active"} tournaments.
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
           {shown.map(({ t, res }) => {
             const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
             return (
-              <Card key={t.id} bare className="p-4 flex flex-col rounded-2xl hover:bg-[var(--surface)]/70 transition">
+              <Card key={t.id} bare className="basis-full sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] p-4 flex flex-col rounded-2xl hover:bg-[var(--surface)]/70 transition">
                 <Link href={`/t/${t.id}`} className="flex-1 block group">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
