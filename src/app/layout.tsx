@@ -91,7 +91,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
         </main>
         <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 sm:pb-4 text-center text-xs text-[var(--muted)]">
-          Sporos · plays offline · saved on your device
+          Sporos · plays offline · saved on your device ·{" "}
+          <Link href="/privacy" className="hover:underline">
+            Privacy
+          </Link>
         </footer>
         <BottomNav />
       </body>
