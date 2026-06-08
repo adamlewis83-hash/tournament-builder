@@ -57,6 +57,17 @@ export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
   mixed: "Build Your Own",
 };
 
+export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
+  stroke: "Count every stroke — lowest net total wins. Standard golf.",
+  stableford: "Earn points each hole by net score vs par (e.g. birdie 3, par 2, bogey 1). Most points wins.",
+  skins: "Every hole is a 'skin' — the lowest net score takes it; a tie carries the skin to the next hole.",
+  scramble: "Team game: everyone tees off, the team plays its next shot from the best ball, and repeats. One score per team per hole.",
+  nassau: "Three matches in one — front 9, back 9, and overall 18 — each scored as net match play.",
+  bingo: "A point for first on the green (bingo), closest to the pin once all are on (bango), and first in the hole (bongo).",
+  wolf: "Each hole one player is the 'Wolf' and picks a partner after the tee shots — or plays alone (Lone Wolf) for bigger points.",
+  mixed: "Build Your Own: assign a different game to each stretch of holes; the winner of each segment earns a point.",
+};
+
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
 // Individual formats: stroke/stableford/skins/bingo. Team formats (one ball per team):
 // scramble/bestball/altshot — all scored to-par like stroke, just played differently.
@@ -82,6 +93,16 @@ export const SEGMENT_LABELS: Record<SegmentFormat, string> = {
   scramble: "Scramble",
   bestball: "Best Ball",
   altshot: "Alternate Shot",
+};
+
+export const SEGMENT_BLURBS: Record<SegmentFormat, string> = {
+  stroke: "Lowest net score over these holes wins the segment.",
+  stableford: "Most Stableford points (net score vs par) over these holes wins.",
+  skins: "Win the most holes outright on low net over this stretch — ties carry over.",
+  bingo: "Bingo Bango Bongo points (first on, closest once all on, first in) over these holes.",
+  scramble: "Team plays one ball from the best shot each time — lowest team score wins.",
+  bestball: "Each teammate plays their own ball; the team takes the lower score each hole.",
+  altshot: "Alternate Shot: partners share one ball, taking turns hitting each shot.",
 };
 
 // Segment formats that are team games (one ball per team).

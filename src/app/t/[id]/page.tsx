@@ -14,6 +14,7 @@ import { PoolView } from "@/components/PoolView";
 import { SwissView } from "@/components/SwissView";
 import { KotcView } from "@/components/KotcView";
 import { AmericanoView } from "@/components/AmericanoView";
+import { FormatInfo } from "@/components/FormatInfo";
 import { RyderView } from "@/components/RyderView";
 import { GolfView } from "@/components/GolfView";
 import { BracketView } from "@/components/BracketView";
@@ -70,6 +71,7 @@ function TournamentDetail({ id }: { id: string }) {
             {t.format !== "ryder" && t.format !== "golf" && (
               <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>
             )}
+            <FormatInfo t={t} />
             {t.generated && <ShareBar t={t} />}
             {t.generated && (
               <Button
