@@ -11,17 +11,17 @@ export function useLiveComments(code?: string) {
 
   const merge = useCallback((incoming: LiveComment[]) => {
     if (!incoming.length) return;
-    setComments((prev) => {
-      const next = [...prev];
-      for (const c of incoming) {
-        if (seen.current.has(c.id)) continue;
-        seen.current.add(c.id);
-        next.push(c);
-        if (!sinceRef.current || c.createdAt > sinceRef.current) sinceRef.current = c.createdAt;
-      }
-      next.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      return next;
-    });
+    // De-dupe and advance refs OUTSIDE the state updater — the updater must stay
+    // pure (StrictMode double-invokes it in dev, which would drop "already seen" items).
+    const fresh = incoming.filter((c) => !seen.current.has(c.id));
+    if (!fresh.length) return;
+    for (const c of fresh) {
+      seen.current.add(c.id);
+      if (!sinceRef.current || c.createdAt > sinceRef.current) sinceRef.current = c.createdAt;
+    }
+    setComments((prev) =>
+      [...prev, ...fresh].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    );
   }, []);
 
   useEffect(() => {
