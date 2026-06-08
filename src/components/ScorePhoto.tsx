@@ -4,7 +4,8 @@ import { Tournament, FORMAT_LABELS, GOLF_MODE_LABELS } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { getFinalRows } from "@/lib/records";
 import { colorForName } from "@/lib/colors";
-import { Sprout, Trophy } from "./icons";
+import { Trophy } from "./icons";
+import { SporosMark } from "./SporosMark";
 import { Avatar } from "./Avatar";
 
 // Gradient rank badge: gold / silver / bronze for the podium, soft gray otherwise.
@@ -47,9 +48,9 @@ export function ScorePhoto({ t }: { t: Tournament }) {
               style={{ background: "linear-gradient(135deg,#34d399,#10b981)", color: "#06281c" }}
               className="inline-flex h-6 w-6 items-center justify-center rounded-lg"
             >
-              <Sprout className="h-4 w-4" />
+              <SporosMark className="h-4 w-4" />
             </span>
-            <span style={{ color: "#16a34a" }}>SEEDED</span>
+            <span style={{ color: "#16a34a" }}>SPOROS</span>
           </div>
           <span className="text-xs font-medium" style={{ color: "#94a3b8" }}>
             {date}
@@ -113,7 +114,7 @@ export function ScorePhoto({ t }: { t: Tournament }) {
           className="mt-4 flex items-center justify-center gap-1 text-[11px] font-medium"
           style={{ color: "#94a3b8" }}
         >
-          <Sprout className="h-3.5 w-3.5" /> Made with Seeded
+          <SporosMark className="h-3.5 w-3.5" /> Made with Sporos
         </div>
       </div>
     </div>

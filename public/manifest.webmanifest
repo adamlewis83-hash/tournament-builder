@@ -1,7 +1,7 @@
 {
-  "name": "Seeded",
-  "short_name": "Seeded",
-  "description": "Build round robins, brackets, and pool-play tournaments for any sport.",
+  "name": "Sporos",
+  "short_name": "Sporos",
+  "description": "Run and score tournaments for any sport — live on every phone.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f6f8",

@@ -12,16 +12,16 @@ function genCode(): string {
 async function sendEmail(to: string, code: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.RECOVERY_EMAIL_FROM || "Seeded <onboarding@resend.dev>";
+  const from = process.env.RECOVERY_EMAIL_FROM || "Sporos <onboarding@resend.dev>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from,
       to,
-      subject: `Your Seeded code: ${code}`,
+      subject: `Your Sporos code: ${code}`,
       html: `<div style="font-family:system-ui,Segoe UI,sans-serif;max-width:420px">
-        <div style="font-size:20px;font-weight:800;color:#16a34a">🌱 Seeded</div>
+        <div style="font-size:20px;font-weight:800;color:#16a34a">🌱 Sporos</div>
         <p>Enter this code to back up or recover your tournaments:</p>
         <p style="font-size:30px;font-weight:800;letter-spacing:6px;margin:14px 0">${code}</p>
         <p style="color:#777;font-size:13px">It expires in 10 minutes. If you didn't request this, you can ignore this email.</p>

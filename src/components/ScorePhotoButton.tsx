@@ -24,7 +24,7 @@ export function ScorePhotoButton({ t }: { t: Tournament }) {
     try {
       const blob = await makeBlob();
       if (!blob) return;
-      const file = new File([blob], `${t.name || "seeded"}.png`, { type: "image/png" });
+      const file = new File([blob], `${t.name || "sporos"}.png`, { type: "image/png" });
       const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
       if (nav.canShare && nav.canShare({ files: [file] })) {
         await nav.share({ files: [file], title: t.name });
@@ -32,7 +32,7 @@ export function ScorePhotoButton({ t }: { t: Tournament }) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${t.name || "seeded"}.png`;
+        a.download = `${t.name || "sporos"}.png`;
         a.click();
         URL.revokeObjectURL(url);
       }

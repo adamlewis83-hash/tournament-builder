@@ -24,7 +24,7 @@ function resultsText(t: Tournament): string {
       lines.push(`  ${r.rank}. ${r.name}  ${r.wins}-${r.losses}  (${r.diff > 0 ? "+" : ""}${r.diff})`),
     );
   }
-  lines.push("", "Made with Seeded");
+  lines.push("", "Made with Sporos");
   return lines.join("\n");
 }
 
