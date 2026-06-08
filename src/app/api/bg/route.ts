@@ -24,13 +24,16 @@ interface BgPhoto {
   creditUrl: string;
 }
 
-let cache: { at: number; photos: BgPhoto[] } | null = null;
+let cache: { at: number; v: string; photos: BgPhoto[] } | null = null;
 const TTL = 1000 * 60 * 60 * 6; // 6 hours
+const CACHE_VERSION = JSON.stringify(QUERIES); // changing the sport list invalidates the cache
 
-export async function GET() {
+export async function GET(req: Request) {
   const key = process.env.UNSPLASH_ACCESS_KEY;
   if (!key) return NextResponse.json({ photos: [] }, { status: 503 });
-  if (cache && Date.now() - cache.at < TTL) return NextResponse.json({ photos: cache.photos });
+  const refresh = new URL(req.url).searchParams.has("refresh");
+  if (!refresh && cache && cache.v === CACHE_VERSION && Date.now() - cache.at < TTL)
+    return NextResponse.json({ photos: cache.photos });
 
   try {
     const photos: BgPhoto[] = [];
@@ -54,7 +57,7 @@ export async function GET() {
         });
       }
     }
-    if (photos.length) cache = { at: Date.now(), photos };
+    if (photos.length) cache = { at: Date.now(), v: CACHE_VERSION, photos };
     return NextResponse.json({ photos });
   } catch {
     return NextResponse.json({ photos: [] }, { status: 502 });
