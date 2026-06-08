@@ -87,6 +87,8 @@ const ROTATING_FORMATS: { label: string; color: string }[] = [
   { label: "Single Elimination", color: "text-emerald-300" },
   { label: "Double Elimination", color: "text-violet-300" },
   { label: "Pool Play → Bracket", color: "text-orange-300" },
+  { label: "Americano", color: "text-cyan-300" },
+  { label: "Mexicano", color: "text-pink-300" },
   { label: "Ryder Cup", color: "text-rose-300" },
 ];
 
