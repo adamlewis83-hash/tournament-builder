@@ -703,22 +703,25 @@ export const useStore = create<State>()(
         const remote = await fetchLive(upper);
         if (!remote) return null;
         const data = remote.data as Tournament;
-        const linked: Tournament = {
-          ...data,
-          liveCode: upper,
-          liveVersion: remote.version,
-          spectator: true, // joined as a viewer — read-only
-          updatedAt: Date.now(),
-        };
         set((s) => {
-          const exists = s.tournaments.some((x) => x.id === linked.id);
+          const existing = s.tournaments.find((x) => x.id === data.id);
+          const linked: Tournament = {
+            ...data,
+            liveCode: upper,
+            liveVersion: remote.version,
+            // A brand-new import is a spectator (read-only). If this tournament is
+            // already on this device — the host, or a returning viewer — keep its
+            // existing role so the host opening their own share link isn't locked out.
+            spectator: existing ? existing.spectator : true,
+            updatedAt: Date.now(),
+          };
           return {
-            tournaments: exists
-              ? s.tournaments.map((x) => (x.id === linked.id ? linked : x))
+            tournaments: existing
+              ? s.tournaments.map((x) => (x.id === data.id ? linked : x))
               : [linked, ...s.tournaments],
           };
         });
-        return linked.id;
+        return data.id;
       },
 
       goOffline: (id) =>
