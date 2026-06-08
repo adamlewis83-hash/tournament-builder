@@ -142,20 +142,23 @@ export function SetupPanel({ t }: { t: Tournament }) {
     update(next);
   };
 
-  const minNeeded = teamMode
-    ? 2
-    : isSocial
+  const minNeeded =
+    t.format === "double-elim"
       ? 4
-      : t.format === "round-robin" && isDoubles
-        ? 4
-        : t.format === "kotc"
-          ? 3
-          : 2;
+      : teamMode
+        ? 2
+        : isSocial
+          ? 4
+          : t.format === "round-robin" && isDoubles
+            ? 4
+            : t.format === "kotc"
+              ? 3
+              : 2;
   const showThirdPlace =
     t.format === "single-elim" ||
     (t.format === "pool-bracket" && cfg.bracketType === "single") ||
     (t.format === "round-robin" && !isDoubles);
-  const canGenerate = teamMode ? teamCount >= 2 : count >= minNeeded;
+  const canGenerate = teamMode ? teamCount >= minNeeded : count >= minNeeded;
 
   function commitNames() {
     setParticipants(t.id, names);
@@ -430,8 +433,10 @@ export function SetupPanel({ t }: { t: Tournament }) {
 
         <div className="mt-auto pt-5">
           {!canGenerate && (
-            <p className="text-sm text-amber-400 mb-2">
-              Add at least {minNeeded} participants to generate.
+            <p className="text-sm text-amber-500 mb-2">
+              {t.format === "double-elim"
+                ? `Double elimination needs at least 4 ${teamMode ? "teams" : "players"} — try Single Elimination for a smaller field.`
+                : `Add at least ${minNeeded} ${teamMode ? "teams" : "participants"} to generate.`}
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
