@@ -58,9 +58,9 @@ export default function Home() {
     <HydrationGate>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-0 flex justify-center overflow-hidden pb-[10vh]"
       >
-        <SporosMark className="h-[85vmin] w-[85vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
+        <SporosMark className="h-[55vmin] w-[55vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
       </div>
       <Hero creating={creating} onCreate={() => setCreating(true)} />
 
