@@ -65,9 +65,6 @@ export default function Home() {
         </Card>
       )}
 
-      <JoinByCode />
-      <SyncPanel />
-
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold">Your tournaments</h2>
         {!creating && hasTournaments && (
@@ -77,6 +74,11 @@ export default function Home() {
         )}
       </div>
       <TournamentList />
+
+      <div className="mt-10 pt-6 border-t border-[var(--border)] space-y-4">
+        <JoinByCode />
+        <SyncPanel />
+      </div>
     </HydrationGate>
   );
 }
