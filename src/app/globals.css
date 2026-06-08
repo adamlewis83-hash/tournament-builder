@@ -45,7 +45,7 @@ html[data-theme="light"] {
   --danger: #e11d48;
   --glow: rgba(22, 163, 74, 0.22);
   --glow2: rgba(16, 185, 129, 0.12);
-  --grid: rgba(0, 0, 0, 0.04);
+  --grid: transparent; /* light theme: drop the graph-paper texture for a clean white */
 }
 
 @theme inline {
