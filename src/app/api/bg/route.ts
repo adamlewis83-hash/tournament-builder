@@ -10,7 +10,7 @@ const QUERIES: (string | { id: string })[] = [
   "outdoor tennis court",
   "pickleball court",
   "cornhole backyard game",
-  "beach volleyball",
+  "volleyball court net",
   "outdoor basketball court park",
   "kids soccer field park",
   "bowling alley lane",
