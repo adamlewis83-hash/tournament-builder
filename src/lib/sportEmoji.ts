@@ -1,8 +1,9 @@
 const RULES: [RegExp, string][] = [
   [/ping|table tennis/i, "🏓"],
-  [/pickle/i, "🥒"],
+  [/pickle/i, "🏓"],
   [/tennis/i, "🎾"],
   [/basket/i, "🏀"],
+  [/flag football|american football|gridiron/i, "🏈"],
   [/soccer|football/i, "⚽"],
   [/golf/i, "⛳"],
   [/disc/i, "🥏"],
