@@ -63,7 +63,8 @@ function TournamentDetail({ id }: { id: string }) {
             <input
               value={t.name}
               onChange={(e) => patch(t.id, { name: e.target.value })}
-              className="text-2xl font-bold bg-transparent border-b border-transparent hover:border-[var(--border)] focus:border-[var(--brand)] outline-none"
+              disabled={t.spectator}
+              className="text-2xl font-bold bg-transparent border-b border-transparent hover:border-[var(--border)] focus:border-[var(--brand)] outline-none disabled:hover:border-transparent"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -73,7 +74,7 @@ function TournamentDetail({ id }: { id: string }) {
             )}
             <FormatInfo t={t} />
             {t.generated && <ShareBar t={t} />}
-            {t.generated && (
+            {t.generated && !t.spectator && (
               <Button
                 variant="outline"
                 className="px-2.5 py-1.5"
@@ -96,7 +97,17 @@ function TournamentDetail({ id }: { id: string }) {
         </p>
       </div>
 
-      {t.generated && <LivePanel t={t} />}
+      {t.spectator && (
+        <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-4 py-2.5 text-sm flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[var(--win)] pulse-ring shrink-0" />
+          <span>
+            <span className="font-semibold">Watching live</span> — scores update from the host
+            automatically. You&apos;re a spectator, so scoring is read-only.
+          </span>
+        </div>
+      )}
+
+      {t.generated && !t.spectator && <LivePanel t={t} />}
 
       {!t.generated && <SetupPanel t={t} />}
 

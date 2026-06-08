@@ -201,6 +201,8 @@ export const useStore = create<State>()(
         const t = get().tournaments.find((x) => x.id === id);
         if (t?.liveCode) pushPatch(id, { kind: "replace", data: { ...t } });
       };
+      // Spectators (joined via live code) are read-only — their edits are ignored.
+      const blocked = (id: string) => get().tournaments.find((x) => x.id === id)?.spectator === true;
 
       return {
       tournaments: [],
@@ -293,12 +295,14 @@ export const useStore = create<State>()(
         return newId;
       },
 
-      patchTournament: (id, patch) =>
+      patchTournament: (id, patch) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id ? { ...t, ...patch, updatedAt: Date.now() } : t,
           ),
-        })),
+        }));
+      },
 
       setParticipants: (id, names) =>
         set((s) => ({
@@ -370,6 +374,7 @@ export const useStore = create<State>()(
       },
 
       setRyderHoleScore: (id, matchId, key, hole, value) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id || !t.ryderGolf) return t;
@@ -424,6 +429,7 @@ export const useStore = create<State>()(
       },
 
       setGolfHandicap: (id, participantId, handicap) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
@@ -441,6 +447,7 @@ export const useStore = create<State>()(
       },
 
       setGolfScore: (id, participantId, hole, strokes) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id || !t.golf) return t;
@@ -455,6 +462,7 @@ export const useStore = create<State>()(
       },
 
       setGolfAward: (id, kind, hole, participantId) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id || !t.golf?.bbb) return t;
@@ -471,6 +479,7 @@ export const useStore = create<State>()(
       },
 
       setGolfWolf: (id, hole, partner) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id || !t.golf?.wolf) return t;
@@ -492,6 +501,7 @@ export const useStore = create<State>()(
       },
 
       generateNextRound: (id) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -535,6 +545,7 @@ export const useStore = create<State>()(
       },
 
       resetToSetup: (id) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id ? { ...t, matches: [], generated: false, updatedAt: Date.now() } : t,
@@ -544,6 +555,7 @@ export const useStore = create<State>()(
       },
 
       setScore: (id, matchId, a, b) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -561,6 +573,7 @@ export const useStore = create<State>()(
       },
 
       setMatchSides: (id, matchId, sideA, sideB) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
@@ -578,6 +591,7 @@ export const useStore = create<State>()(
       },
 
       generateFinals: (id) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -628,6 +642,7 @@ export const useStore = create<State>()(
       },
 
       clearFinals: (id) => {
+        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
@@ -664,6 +679,7 @@ export const useStore = create<State>()(
           ...data,
           liveCode: upper,
           liveVersion: remote.version,
+          spectator: true, // joined as a viewer — read-only
           updatedAt: Date.now(),
         };
         set((s) => {
@@ -688,7 +704,7 @@ export const useStore = create<State>()(
         set((s) => ({
           tournaments: s.tournaments.map((x) =>
             x.id === id
-              ? { ...data, id: x.id, liveCode: x.liveCode, liveVersion: version }
+              ? { ...data, id: x.id, liveCode: x.liveCode, liveVersion: version, spectator: x.spectator }
               : x,
           ),
         })),
