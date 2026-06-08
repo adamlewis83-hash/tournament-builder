@@ -16,6 +16,7 @@ import { Emoji } from "@/components/Emoji";
 import { SportBackdrop } from "@/components/SportBackdrop";
 import { SyncPanel } from "@/components/SyncPanel";
 import { SporosMark } from "@/components/SporosMark";
+import { DeviceShowcase } from "@/components/DeviceShowcase";
 
 function useSharedImport() {
   const router = useRouter();
@@ -73,6 +74,8 @@ export default function Home() {
 
       <h2 className="text-lg font-bold mb-4 text-center">Your tournaments</h2>
       <TournamentList />
+
+      <DeviceShowcase />
 
       <div className="mt-10 pt-6 border-t border-[var(--border)] space-y-4">
         <JoinByCode />
