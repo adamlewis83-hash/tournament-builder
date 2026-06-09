@@ -11,7 +11,7 @@ import { BottomNav } from "@/components/BottomNav";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
 
-const SITE_URL = "https://tournament-builder-three.vercel.app";
+const SITE_URL = "https://sporos.app";
 const TITLE = "Sporos — Run & score any tournament";
 const DESC =
   "Run round robins, brackets, pool play, golf and more — with live shared scoring on every phone.";
