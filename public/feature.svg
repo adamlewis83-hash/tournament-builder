@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500" width="1024" height="500">
+  <rect width="1024" height="500" fill="#0a1410"/>
+  <rect width="1024" height="500" fill="url(#vg)"/>
+  <defs>
+    <radialGradient id="vg" cx="30%" cy="45%" r="62%">
+      <stop offset="0" stop-color="#10311f" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#0a1410" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(80,108) scale(0.6)" fill="none">
+    <path d="M198 150 L212 100 L240 124 L256 76 L272 124 L300 100 L314 150 Z" fill="#34d399"/>
+    <circle cx="212" cy="92" r="17" fill="#34d399"/>
+    <circle cx="256" cy="68" r="20" fill="#34d399"/>
+    <circle cx="300" cy="92" r="17" fill="#34d399"/>
+    <path d="M256 150 V 341" stroke="#34d399" stroke-width="26" stroke-linecap="round"/>
+    <path d="M256 286 C 206 282 160 258 144 204 C 196 222 232 250 256 286 Z" fill="#34d399"/>
+    <path d="M256 286 C 306 282 352 258 368 204 C 316 222 280 250 256 286 Z" fill="#34d399"/>
+    <g stroke="#34d399" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M150 345 H 362"/>
+      <path d="M150 345 V 396 H 232"/>
+      <path d="M362 345 V 396 H 280"/>
+      <path d="M256 345 V 418"/>
+      <path d="M222 456 L 256 418 L 290 456"/>
+    </g>
+  </g>
+  <text x="360" y="252" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="138" font-weight="700" fill="#f3f4e8">sporos</text>
+  <text x="367" y="312" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#4ade80">WHERE COMPETITION TAKES ROOT</text>
+  <text x="367" y="356" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="27" fill="#9aa6b2">Run &amp; score any tournament, live.</text>
+</svg>
