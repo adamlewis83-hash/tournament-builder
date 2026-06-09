@@ -12,7 +12,7 @@ function genCode(): string {
 async function sendEmail(to: string, code: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.RECOVERY_EMAIL_FROM || "Sporos <onboarding@resend.dev>";
+  const from = process.env.RECOVERY_EMAIL_FROM || "Sporos <noreply@sporos.app>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
