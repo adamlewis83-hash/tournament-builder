@@ -1,15 +1,32 @@
 {
-  "name": "Sporos",
+  "id": "/",
+  "name": "Sporos — Run & score any tournament",
   "short_name": "Sporos",
   "description": "Run and score tournaments for any sport — live on every phone.",
   "start_url": "/",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f5f6f8",
   "theme_color": "#f5f6f8",
   "orientation": "portrait",
+  "categories": ["sports", "productivity", "utilities"],
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/shot-1-live.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Score it live, together" },
+    { "src": "/shot-2-cheer.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Everyone cheers along" },
+    { "src": "/shot-3-standings.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Any sport. Any format." },
+    { "src": "/feature.png", "sizes": "1024x500", "type": "image/png", "form_factor": "wide", "label": "Sporos — where competition takes root" }
+  ],
+  "shortcuts": [
+    { "name": "My tournaments", "short_name": "Tournaments", "url": "/" },
+    { "name": "Records", "short_name": "Records", "url": "/records" }
   ]
 }
