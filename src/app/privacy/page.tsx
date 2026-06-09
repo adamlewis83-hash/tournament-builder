@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <p className="mt-1 text-sm text-[var(--muted)]">Last updated: June 2026</p>
 
       <p className="mt-5 text-[var(--foreground)]">
-        Sporos is a tournament organizer and live-scoring app operated by LewCrew Labs. We built it to
+        Sporos is a tournament organizer and live-scoring app operated by LewCrew Labs LLC. We built it to
         be private by default: your data lives on your device, and we collect as little as possible.
         This policy explains what we store, why, and your choices. There are no accounts, passwords,
         ads, or trackers, and we never sell your data.
@@ -92,8 +92,8 @@ export default function PrivacyPage() {
       <H>Contact</H>
       <p className="text-[var(--foreground)]">
         Questions or requests? Email{" "}
-        <a href="mailto:lewcrewlabs@gmail.com" className="text-[var(--brand)] hover:underline">
-          lewcrewlabs@gmail.com
+        <a href="mailto:lewcrewlabsllc@gmail.com" className="text-[var(--brand)] hover:underline">
+          lewcrewlabsllc@gmail.com
         </a>
         .
       </p>
