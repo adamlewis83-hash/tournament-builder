@@ -68,7 +68,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
                 <SporosMark className="h-7 w-7 text-[var(--on-brand)]" />
               </span>
-              <span className="brand-text">Sporos</span>
+              <span className="inline-flex items-start">
+                <span className="brand-text">Sporos</span>
+                <sup className="ml-px text-[0.5em] font-semibold text-[var(--muted)]">™</sup>
+              </span>
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
               <ThemeToggle />
