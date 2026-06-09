@@ -9,9 +9,9 @@ function genCode(): string {
   return String(n).padStart(6, "0");
 }
 
-async function sendEmail(to: string, code: string): Promise<{ ok: boolean; detail?: string }> {
+async function sendEmail(to: string, code: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, detail: "no-api-key" };
+  if (!apiKey) return false;
   const from = "Sporos <noreply@sporos.app>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -28,9 +28,11 @@ async function sendEmail(to: string, code: string): Promise<{ ok: boolean; detai
       </div>`,
     }),
   });
-  if (res.ok) return { ok: true };
-  const body = await res.text().catch(() => "");
-  return { ok: false, detail: `${res.status} ${body.slice(0, 160)}` };
+  if (!res.ok) {
+    console.error("[recovery] resend send failed", res.status, await res.text().catch(() => ""));
+    return false;
+  }
+  return true;
 }
 
 // POST /api/recovery/send-code { email } -> emails a 6-digit code
@@ -57,6 +59,6 @@ export async function POST(req: Request) {
   });
 
   const sent = await sendEmail(email, code);
-  if (!sent.ok) return NextResponse.json({ error: "send-failed", detail: sent.detail }, { status: 502 });
+  if (!sent) return NextResponse.json({ error: "send-failed" }, { status: 502 });
   return NextResponse.json({ ok: true });
 }
