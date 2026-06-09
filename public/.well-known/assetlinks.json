@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lewcrewlabs.sporos",
+      "sha256_cert_fingerprints": [
+        "AD:DC:1C:30:6E:EA:9A:BE:34:84:FA:EA:45:60:18:F6:6A:E5:17:00:F8:14:36:57:2D:00:90:98:3B:7A:B6:5D"
+      ]
+    }
+  }
+]
