@@ -7,7 +7,6 @@ import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
-import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
@@ -53,6 +52,9 @@ export const viewport: Viewport = {
 // Set the theme before paint to avoid a flash.
 const themeScript = `(function(){try{var t=localStorage.getItem('seeded-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
+// Register the service worker as early as possible so PWA tooling + browsers detect it on first paint.
+const swScript = `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
@@ -62,7 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden">
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <ServiceWorkerRegister />
+        <script dangerouslySetInnerHTML={{ __html: swScript }} />
         <CloudSync />
         <header className="no-print sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/70 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
