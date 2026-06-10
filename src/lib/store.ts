@@ -28,7 +28,7 @@ import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./li
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
   courts: 3,
-  pointsTo: 11,
+  pointsTo: 10,
   timeLimitMin: 0,
   advanceCount: 4,
   poolCount: 2,
