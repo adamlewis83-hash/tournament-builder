@@ -29,6 +29,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
   courts: 3,
   pointsTo: 11,
+  timeLimitMin: 0,
   advanceCount: 4,
   poolCount: 2,
   bracketType: "single",

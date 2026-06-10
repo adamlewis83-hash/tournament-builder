@@ -53,6 +53,7 @@ function cfg(over: Partial<TournamentConfig> = {}): TournamentConfig {
     rounds: 3,
     courts: 2,
     pointsTo: 11,
+    timeLimitMin: 0,
     advanceCount: 4,
     poolCount: 2,
     bracketType: "single",

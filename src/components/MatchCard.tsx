@@ -1,8 +1,73 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { colorFor } from "@/lib/colors";
+
+// Countdown clock for timed games ("first to N points or M minutes").
+// Runs locally on the scorer's device; not synced.
+function MatchTimer({ minutes }: { minutes: number }) {
+  const total = minutes * 60;
+  const [left, setLeft] = useState(total);
+  const [running, setRunning] = useState(false);
+  const endAt = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    endAt.current = Date.now() + left * 1000;
+    const id = setInterval(() => {
+      const remain = Math.max(0, Math.round(((endAt.current ?? 0) - Date.now()) / 1000));
+      setLeft(remain);
+      if (remain <= 0) setRunning(false);
+    }, 250);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  const expired = left <= 0;
+  const mm = Math.floor(left / 60);
+  const ss = String(left % 60).padStart(2, "0");
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className={`font-mono text-xs font-bold tabular-nums rounded-md px-1.5 py-0.5 border ${
+          expired
+            ? "animate-pulse bg-red-500/15 border-red-500 text-red-500"
+            : running
+              ? "bg-[var(--win-bg)] border-[var(--win)] text-[var(--win)]"
+              : "bg-[var(--input)] border-[var(--border)] text-[var(--muted)]"
+        }`}
+      >
+        {expired ? "TIME!" : `${mm}:${ss}`}
+      </span>
+      {!expired && (
+        <button
+          type="button"
+          onClick={() => setRunning((r) => !r)}
+          className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+          title={running ? "Pause clock" : "Start clock"}
+        >
+          {running ? "⏸" : "▶"}
+        </button>
+      )}
+      {(expired || (!running && left < total)) && (
+        <button
+          type="button"
+          onClick={() => {
+            setRunning(false);
+            setLeft(total);
+          }}
+          className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+          title="Reset clock"
+        >
+          ↺
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Side({
   ids,
@@ -84,9 +149,13 @@ export function MatchCard({
   match: Match;
 }) {
   const setScore = useStore((s) => s.setScore);
+  const timeLimitMin = useStore(
+    (s) => s.tournaments.find((t) => t.id === tournamentId)?.config.timeLimitMin ?? 0
+  );
   const both = match.sideA.length > 0 && match.sideB.length > 0;
   const decided =
     match.scoreA !== null && match.scoreB !== null && match.scoreA !== match.scoreB;
+  const showTimer = timeLimitMin > 0 && both && !decided;
   const aWin = decided && (match.scoreA as number) > (match.scoreB as number);
   const bWin = decided && (match.scoreB as number) > (match.scoreA as number);
 
@@ -97,10 +166,13 @@ export function MatchCard({
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/80">
-      {match.label && (
-        <div className="px-3 pt-2 text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
-          {match.label}
-          {match.court ? ` · Court ${match.court}` : ""}
+      {(match.label || showTimer) && (
+        <div className="px-3 pt-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+            {match.label}
+            {match.label && match.court ? ` · Court ${match.court}` : ""}
+          </span>
+          {showTimer && <MatchTimer minutes={timeLimitMin} />}
         </div>
       )}
       <div className="p-2.5 space-y-1.5">

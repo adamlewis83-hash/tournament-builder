@@ -191,6 +191,7 @@ export interface TournamentConfig {
   rounds: number; // round-robin rounds
   courts: number; // simultaneous games
   pointsTo: number; // games played to N (display hint)
+  timeLimitMin: number; // 0 = no clock; otherwise games end at N points OR this many minutes, whichever first
   advanceCount: number; // top N advance from RR / overall pools
   poolCount: number; // pool-bracket: number of pools
   bracketType: "single" | "double"; // pool-bracket: knockout style after pools

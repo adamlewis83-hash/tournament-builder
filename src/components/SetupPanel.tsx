@@ -380,6 +380,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
             onChange={(v) => setCfg({ pointsTo: v })}
             hint="Scoring target"
           />
+          <NumberField
+            label="Time limit (min)"
+            value={cfg.timeLimitMin ?? 0}
+            min={0}
+            max={180}
+            onChange={(v) => setCfg({ timeLimitMin: v })}
+            hint="0 = no clock. Points or time — whichever first"
+          />
           {t.format === "pool-bracket" && (
             <label className="block">
               <span className="text-sm font-medium">Bracket type</span>
