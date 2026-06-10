@@ -12,6 +12,26 @@ function MatchTimer({ minutes }: { minutes: number }) {
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
   const endAt = useRef<number | null>(null);
+  const audio = useRef<AudioContext | null>(null);
+
+  // Three descending buzzer blasts when the clock hits zero.
+  function buzz() {
+    const ctx = audio.current;
+    if (!ctx) return;
+    [0, 0.45, 0.9].forEach((delay, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = i === 2 ? 392 : 523; // last blast lower
+      const t = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + (i === 2 ? 0.6 : 0.3));
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + (i === 2 ? 0.65 : 0.35));
+    });
+  }
 
   useEffect(() => {
     if (!running) return;
@@ -19,7 +39,10 @@ function MatchTimer({ minutes }: { minutes: number }) {
     const id = setInterval(() => {
       const remain = Math.max(0, Math.round(((endAt.current ?? 0) - Date.now()) / 1000));
       setLeft(remain);
-      if (remain <= 0) setRunning(false);
+      if (remain <= 0) {
+        setRunning(false);
+        buzz();
+      }
     }, 250);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,7 +68,20 @@ function MatchTimer({ minutes }: { minutes: number }) {
       {!expired && (
         <button
           type="button"
-          onClick={() => setRunning((r) => !r)}
+          onClick={() => {
+            // Unlock audio inside the tap gesture so the end-of-game buzzer can play.
+            if (!running) {
+              if (!audio.current) {
+                try {
+                  audio.current = new AudioContext();
+                } catch {
+                  /* no audio support — timer still works silently */
+                }
+              }
+              audio.current?.resume().catch(() => {});
+            }
+            setRunning((r) => !r);
+          }}
           className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
           title={running ? "Pause clock" : "Start clock"}
         >
