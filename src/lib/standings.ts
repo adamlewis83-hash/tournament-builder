@@ -101,6 +101,8 @@ export function computeStandings(
   rows.sort(
     (x, y) =>
       y.wins - x.wins ||
+      // "record": among equal wins, fewer losses ranks higher (so ties beat losses), then diff
+      (tiebreaker === "record" ? x.losses - y.losses : 0) ||
       (tiebreaker === "headToHead"
         ? (h2h.get(y.participantId) ?? 0) - (h2h.get(x.participantId) ?? 0)
         : 0) ||

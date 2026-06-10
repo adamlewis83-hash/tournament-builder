@@ -179,9 +179,10 @@ export interface RyderGolf {
   scores: Record<string, Record<string, (number | null)[]>>;
 }
 
-export type Tiebreaker = "diff" | "headToHead" | "pointsFor";
+export type Tiebreaker = "record" | "diff" | "headToHead" | "pointsFor";
 
 export const TIEBREAKER_LABELS: Record<Tiebreaker, string> = {
+  record: "Wins & losses, then point differential",
   diff: "Point differential",
   headToHead: "Head-to-head, then point differential",
   pointsFor: "Total points scored",
