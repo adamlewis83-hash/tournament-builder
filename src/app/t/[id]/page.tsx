@@ -22,6 +22,7 @@ import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
 import { LivePanel } from "@/components/LivePanel";
+import { MasterClock } from "@/components/MatchCard";
 import { useLiveSync } from "@/hooks/useLiveSync";
 
 export default function TournamentPage() {
@@ -111,6 +112,10 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && !t.spectator && <LivePanel t={t} />}
 
       {t.liveCode && t.generated && <CommentsPanel t={t} />}
+
+      {t.generated && (t.config.timeLimitMin ?? 0) > 0 && !t.golf && !t.ryderGolf && (
+        <MasterClock tournamentId={t.id} minutes={t.config.timeLimitMin} />
+      )}
 
       {!t.generated && <SetupPanel t={t} />}
 

@@ -5,14 +5,86 @@ import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { colorFor } from "@/lib/colors";
 
+type ClockAction = "start" | "pause" | "reset";
+const clockEvent = (tournamentId: string) => `sporos-clock:${tournamentId}`;
+
+// Master control: broadcasts start/pause/reset to every match clock on the page.
+export function MasterClock({ tournamentId, minutes }: { tournamentId: string; minutes: number }) {
+  function send(action: ClockAction) {
+    window.dispatchEvent(new CustomEvent(clockEvent(tournamentId), { detail: action }));
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 px-3 py-2">
+      <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+        Master clock · {minutes} min
+      </span>
+      <button
+        type="button"
+        onClick={() => send("start")}
+        className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--brand)] text-[var(--on-brand)] hover:opacity-90 transition"
+      >
+        ▶ Start all
+      </button>
+      <button
+        type="button"
+        onClick={() => send("pause")}
+        className="text-xs px-2 py-1 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+      >
+        ⏸ Pause all
+      </button>
+      <button
+        type="button"
+        onClick={() => send("reset")}
+        className="text-xs px-2 py-1 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+      >
+        ↺ Reset all
+      </button>
+    </div>
+  );
+}
+
 // Countdown clock for timed games ("first to N points or M minutes").
 // Runs locally on the scorer's device; not synced.
-function MatchTimer({ minutes }: { minutes: number }) {
+function MatchTimer({ minutes, tournamentId }: { minutes: number; tournamentId: string }) {
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
   const endAt = useRef<number | null>(null);
   const audio = useRef<AudioContext | null>(null);
+  const leftRef = useRef(total);
+  leftRef.current = left;
+
+  function unlockAudio() {
+    if (!audio.current) {
+      try {
+        audio.current = new AudioContext();
+      } catch {
+        /* no audio support — timer still works silently */
+      }
+    }
+    audio.current?.resume().catch(() => {});
+  }
+
+  // Obey the master clock (start/pause/reset all courts at once).
+  useEffect(() => {
+    const name = clockEvent(tournamentId);
+    const onMaster = (e: Event) => {
+      const action = (e as CustomEvent).detail as ClockAction;
+      if (action === "start") {
+        if (leftRef.current <= 0) return; // already expired — don't restart/re-buzz
+        unlockAudio(); // master tap is a user gesture; dispatch is synchronous
+        setRunning(true);
+      } else if (action === "pause") {
+        setRunning(false);
+      } else {
+        setRunning(false);
+        setLeft(total);
+      }
+    };
+    window.addEventListener(name, onMaster);
+    return () => window.removeEventListener(name, onMaster);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId, total]);
 
   // Three descending buzzer blasts when the clock hits zero.
   function buzz() {
@@ -70,16 +142,7 @@ function MatchTimer({ minutes }: { minutes: number }) {
           type="button"
           onClick={() => {
             // Unlock audio inside the tap gesture so the end-of-game buzzer can play.
-            if (!running) {
-              if (!audio.current) {
-                try {
-                  audio.current = new AudioContext();
-                } catch {
-                  /* no audio support — timer still works silently */
-                }
-              }
-              audio.current?.resume().catch(() => {});
-            }
+            if (!running) unlockAudio();
             setRunning((r) => !r);
           }}
           className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
@@ -208,7 +271,7 @@ export function MatchCard({
             {match.label}
             {match.label && match.court ? ` · Court ${match.court}` : ""}
           </span>
-          {showTimer && <MatchTimer minutes={timeLimitMin} />}
+          {showTimer && <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} />}
         </div>
       )}
       <div className="p-2.5 space-y-1.5">
