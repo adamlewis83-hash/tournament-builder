@@ -81,6 +81,10 @@ html,
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Kill horizontal panning on mobile — vertical scrolling only.
+     `clip` forbids all horizontal overflow scrolling (iOS ignores overflow-x on body alone). */
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 body {
