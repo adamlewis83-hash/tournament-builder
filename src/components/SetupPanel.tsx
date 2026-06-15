@@ -369,12 +369,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
           )}
           {(t.format === "round-robin" || t.format === "pool-bracket") && (
             <NumberField
-              label="Advance to finals"
+              label="Bracket size"
               value={cfg.advanceCount}
               min={2}
-              max={16}
+              max={64}
               onChange={(v) => setCfg({ advanceCount: v })}
-              hint="Top N by record"
+              hint="How many make the bracket (caps at your field — leave high for the whole field)"
             />
           )}
           {t.format === "kotc" && (

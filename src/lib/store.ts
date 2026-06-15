@@ -30,7 +30,8 @@ const DEFAULT_CONFIG: TournamentConfig = {
   courts: 3,
   pointsTo: 10,
   timeLimitMin: 0,
-  advanceCount: 4,
+  advanceCount: 16, // default: bracket the whole field (capped at player count); lower it for a top-N finals
+
   poolCount: 2,
   bracketType: "single",
   tiebreaker: "diff",
