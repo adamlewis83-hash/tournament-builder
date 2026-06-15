@@ -3,7 +3,7 @@
 import { Trophy } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { pointsLeaderboard } from "@/lib/standings";
-import { colorFor } from "@/lib/colors";
+import { colorFor, photoFor } from "@/lib/colors";
 import { useStore } from "@/lib/store";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
@@ -66,7 +66,7 @@ export function AmericanoView({ t }: { t: Tournament }) {
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.rank}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2.5">
-                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
+                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} photo={photoFor(t.participants, r.participantId)} />
                     {r.name}
                   </span>
                 </td>

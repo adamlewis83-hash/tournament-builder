@@ -7,6 +7,7 @@ import { colorForIndex } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
+import { RegistrationPanel } from "./RegistrationPanel";
 
 const SAMPLE_PLAYERS = [
   "Cody", "Adam", "Logan", "Brittany", "Joe", "Tyler",
@@ -174,7 +175,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
   if (t.format === "golf") return <GolfSetup t={t} />;
 
   return (
-    <div className="grid lg:grid-cols-2 gap-5">
+    <div className="space-y-5">
+      <RegistrationPanel t={t} />
+      <div className="grid lg:grid-cols-2 gap-5">
       {teamMode ? (
         <Card className="p-5">
           <div className="flex items-center justify-between mb-1">
@@ -458,6 +461,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
           </Button>
         </div>
       </Card>
+      </div>
     </div>
   );
 }

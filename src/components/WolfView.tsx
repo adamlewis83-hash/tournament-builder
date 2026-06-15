@@ -3,7 +3,7 @@
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeWolf, wolfForHole, holeStrokes } from "@/lib/golf";
-import { colorFor } from "@/lib/colors";
+import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { StrokeDots } from "./StrokeDots";
 import { Card } from "./ui";
@@ -36,7 +36,7 @@ export function WolfView({ t }: { t: Tournament }) {
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.points > 0 ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2">
-                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
+                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} photo={photoFor(t.participants, r.participantId)} />
                     {r.name}
                   </span>
                 </td>

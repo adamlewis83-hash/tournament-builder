@@ -4,7 +4,7 @@ import { useState } from "react";
 import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeGolf, formatToPar, holeStrokes } from "@/lib/golf";
-import { colorFor } from "@/lib/colors";
+import { colorFor, photoFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
 import { StrokeDots } from "./StrokeDots";
@@ -111,7 +111,7 @@ export function GolfView({ t }: { t: Tournament }) {
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
                     <span className="flex items-center gap-2 min-w-0">
-                      <Avatar name={p.name} color={colorFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
+                      <Avatar name={p.name} color={colorFor(t.participants, p.id)} photo={photoFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
                       <span className="truncate">{p.name}</span>
                       {(p.handicap ?? 0) > 0 && (
                         <span className="text-xs text-[var(--muted)]">({p.handicap})</span>
@@ -183,7 +183,7 @@ export function GolfView({ t }: { t: Tournament }) {
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.thru ? i + 1 : "–"}</td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2.5">
-                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} />
+                    <Avatar name={r.name} color={colorFor(t.participants, r.participantId)} photo={photoFor(t.participants, r.participantId)} />
                     {r.name}
                     {r.handicap > 0 && <span className="text-xs text-[var(--muted)]">({r.handicap})</span>}
                   </span>

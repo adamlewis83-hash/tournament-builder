@@ -36,6 +36,20 @@ model LiveComment {
   @@map("live_comments")
 }
 
+// A player who self-registered into a live tournament's lobby via its code.
+// The host pulls these into the participant pool; "kick" deletes the row.
+model LiveRegistration {
+  id        String   @id @default(cuid())
+  code      String // live tournament code
+  name      String
+  handicap  Float? // golf handicap, if supplied
+  photo     String? // small inline data-URL thumbnail
+  createdAt DateTime @default(now())
+
+  @@index([code, createdAt])
+  @@map("live_registrations")
+}
+
 // A user's tournament backed up to the cloud under their anonymous library key.
 // Survives browser/storage clearing and lets a library be pulled onto other devices.
 model OwnedTournament {

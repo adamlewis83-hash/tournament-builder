@@ -105,3 +105,44 @@ export async function postComment(code: string, input: NewComment): Promise<Live
   const j = await res.json();
   return (j.comment ?? null) as LiveComment | null;
 }
+
+// ---- Self-registration lobby ----
+
+export interface LiveRegistration {
+  id: string;
+  code: string;
+  name: string;
+  handicap: number | null;
+  photo: string | null;
+  createdAt: string;
+}
+
+export async function fetchRegistrations(code: string): Promise<LiveRegistration[]> {
+  const res = await fetch(`/api/live/${code}/register`, { cache: "no-store" });
+  if (!res.ok) return [];
+  const j = await res.json();
+  return (j.registrations ?? []) as LiveRegistration[];
+}
+
+export async function registerPlayer(
+  code: string,
+  input: { name: string; handicap?: number | null; photo?: string | null },
+): Promise<LiveRegistration | null> {
+  const res = await fetch(`/api/live/${code}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) return null;
+  const j = await res.json();
+  return (j.registration ?? null) as LiveRegistration | null;
+}
+
+export async function removeRegistration(code: string, id: string): Promise<boolean> {
+  const res = await fetch(`/api/live/${code}/register`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  return res.ok;
+}

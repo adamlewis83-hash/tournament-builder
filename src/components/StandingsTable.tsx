@@ -2,7 +2,7 @@
 
 import { Match, Participant, Tiebreaker, TIEBREAKER_LABELS } from "@/lib/types";
 import { computeStandings } from "@/lib/standings";
-import { colorFor } from "@/lib/colors";
+import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 
 export function StandingsTable({
@@ -55,7 +55,11 @@ export function StandingsTable({
                 </td>
                 <td className="px-3 py-2 font-medium">
                   <span className="flex items-center gap-2.5">
-                    <Avatar name={r.name} color={colorFor(participants, r.participantId)} />
+                    <Avatar
+                      name={r.name}
+                      color={colorFor(participants, r.participantId)}
+                      photo={photoFor(participants, r.participantId)}
+                    />
                     <span className="min-w-0">
                       <span className="block">{r.name}</span>
                       {(() => {

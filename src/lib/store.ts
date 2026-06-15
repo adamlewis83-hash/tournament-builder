@@ -63,6 +63,10 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setParticipants: (id: string, names: string[]) => void;
+  syncRegistrations: (
+    id: string,
+    regs: { id: string; name: string; handicap: number | null; photo: string | null }[],
+  ) => void;
   setTeams: (id: string, teams: { name: string; members: string[] }[]) => void;
   setRyderTeams: (
     id: string,
@@ -316,6 +320,31 @@ export const useStore = create<State>()(
               .map((n) => n.trim())
               .filter(Boolean)
               .map((n) => existing.get(n.toLowerCase()) ?? { id: uid(), name: n });
+            return { ...t, participants, updatedAt: Date.now() };
+          }),
+        })),
+
+      // Merge the live registration pool into participants. Each registration maps to a
+      // stable "reg-<id>" participant; host team/seed assignments are preserved across polls,
+      // and kicked (deleted) registrations drop out. Manually-added players are untouched.
+      syncRegistrations: (id, regs) =>
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            if (t.spectator || t.generated) return t; // host setup only
+            const prev = new Map(t.participants.map((p) => [p.id, p]));
+            const manual = t.participants.filter((p) => !p.id.startsWith("reg-"));
+            const regParts: Participant[] = regs.map((r) => {
+              const old = prev.get(`reg-${r.id}`);
+              const p: Participant = { id: `reg-${r.id}`, name: r.name };
+              if (r.handicap != null) p.handicap = r.handicap;
+              if (r.photo) p.photo = r.photo;
+              if (old?.team !== undefined) p.team = old.team;
+              if (old?.seed !== undefined) p.seed = old.seed;
+              return p;
+            });
+            const participants = [...manual, ...regParts];
+            if (JSON.stringify(participants) === JSON.stringify(t.participants)) return t;
             return { ...t, participants, updatedAt: Date.now() };
           }),
         })),
