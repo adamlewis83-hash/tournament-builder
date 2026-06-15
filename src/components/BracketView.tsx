@@ -111,7 +111,7 @@ export function BracketView({
   const hasLosers = losers.length > 0;
   const tree = [...winners, ...finals]; // the single-elim winners → final tree
 
-  const [mode, setMode] = useState<"round" | "full">("round");
+  const [mode, setMode] = useState<"round" | "full">("full");
   const [pinnedRound, setPinnedRound] = useState<number | null>(null);
 
   const decided = (m: Match) => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB;
