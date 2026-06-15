@@ -9,7 +9,8 @@ import { Badge, Button, Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SetupPanel } from "@/components/SetupPanel";
 import { ScheduleView } from "@/components/ScheduleView";
-import { FinalsPanel } from "@/components/FinalsPanel";
+import { BracketPanel } from "@/components/BracketPanel";
+import { StandingsTable } from "@/components/StandingsTable";
 import { PoolView } from "@/components/PoolView";
 import { SwissView } from "@/components/SwissView";
 import { KotcView } from "@/components/KotcView";
@@ -37,7 +38,7 @@ function TournamentDetail({ id }: { id: string }) {
   const t = useTournament(id);
   const patch = useStore((s) => s.patchTournament);
   const reset = useStore((s) => s.resetToSetup);
-  const [tab, setTab] = useState<"schedule" | "standings">("schedule");
+  const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
   useLiveSync(id, t?.liveCode, t?.liveVersion);
 
   if (!t) {
@@ -121,18 +122,29 @@ function TournamentDetail({ id }: { id: string }) {
             <TabButton active={tab === "schedule"} onClick={() => setTab("schedule")}>
               Schedule
             </TabButton>
+            <TabButton active={tab === "bracket"} onClick={() => setTab("bracket")}>
+              Bracket
+            </TabButton>
             <TabButton active={tab === "standings"} onClick={() => setTab("standings")}>
-              Standings &amp; Finals
+              Standings
             </TabButton>
           </div>
-          {tab === "schedule" ? (
+          {tab === "schedule" && (
             <ScheduleView
               matches={t.matches.filter((m) => m.phase === "rr")}
               participants={t.participants}
               tournamentId={t.id}
             />
-          ) : (
-            <FinalsPanel t={t} />
+          )}
+          {tab === "bracket" && <BracketPanel t={t} />}
+          {tab === "standings" && (
+            <StandingsTable
+              participants={t.participants}
+              matches={t.matches.filter((m) => m.phase === "rr")}
+              highlightTop={t.config.advanceCount}
+              title="Round Robin Standings"
+              tiebreaker={t.config.tiebreaker}
+            />
           )}
         </div>
       )}
