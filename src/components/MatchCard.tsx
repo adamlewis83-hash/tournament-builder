@@ -6,18 +6,24 @@ import { useStore } from "@/lib/store";
 import { colorFor } from "@/lib/colors";
 
 type ClockAction = "start" | "pause" | "reset";
+type ClockSignal = { action: ClockAction; round: number | null };
 const clockEvent = (tournamentId: string) => `sporos-clock:${tournamentId}`;
 
-// Master control: broadcasts start/pause/reset to every match clock on the page.
-export function MasterClock({ tournamentId, minutes }: { tournamentId: string; minutes: number }) {
+// Master control for ONE round: broadcasts start/pause/reset to that round's clocks only.
+// `round = null` would target every clock; we always scope to a round here.
+export function MasterClock({
+  tournamentId,
+  round,
+}: {
+  tournamentId: string;
+  round: number | null;
+}) {
   function send(action: ClockAction) {
-    window.dispatchEvent(new CustomEvent(clockEvent(tournamentId), { detail: action }));
+    const detail: ClockSignal = { action, round };
+    window.dispatchEvent(new CustomEvent(clockEvent(tournamentId), { detail }));
   }
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 px-3 py-2">
-      <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
-        Master clock · {minutes} min
-      </span>
+    <div className="flex items-center gap-1.5 shrink-0">
       <button
         type="button"
         onClick={() => send("start")}
@@ -29,15 +35,17 @@ export function MasterClock({ tournamentId, minutes }: { tournamentId: string; m
         type="button"
         onClick={() => send("pause")}
         className="text-xs px-2 py-1 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+        title="Pause this round's clocks"
       >
-        ⏸ Pause all
+        ⏸
       </button>
       <button
         type="button"
         onClick={() => send("reset")}
         className="text-xs px-2 py-1 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
+        title="Reset this round's clocks"
       >
-        ↺ Reset all
+        ↺
       </button>
     </div>
   );
@@ -45,7 +53,15 @@ export function MasterClock({ tournamentId, minutes }: { tournamentId: string; m
 
 // Countdown clock for timed games ("first to N points or M minutes").
 // Runs locally on the scorer's device; not synced.
-function MatchTimer({ minutes, tournamentId }: { minutes: number; tournamentId: string }) {
+function MatchTimer({
+  minutes,
+  tournamentId,
+  round,
+}: {
+  minutes: number;
+  tournamentId: string;
+  round: number;
+}) {
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
@@ -69,7 +85,8 @@ function MatchTimer({ minutes, tournamentId }: { minutes: number; tournamentId: 
   useEffect(() => {
     const name = clockEvent(tournamentId);
     const onMaster = (e: Event) => {
-      const action = (e as CustomEvent).detail as ClockAction;
+      const { action, round: target } = (e as CustomEvent).detail as ClockSignal;
+      if (target !== null && target !== round) return; // not this round — ignore
       if (action === "start") {
         if (leftRef.current <= 0) return; // already expired — don't restart/re-buzz
         unlockAudio(); // master tap is a user gesture; dispatch is synchronous
@@ -84,7 +101,7 @@ function MatchTimer({ minutes, tournamentId }: { minutes: number; tournamentId: 
     window.addEventListener(name, onMaster);
     return () => window.removeEventListener(name, onMaster);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId, total]);
+  }, [tournamentId, total, round]);
 
   // Three descending buzzer blasts when the clock hits zero.
   function buzz() {
@@ -271,7 +288,9 @@ export function MatchCard({
             {match.label}
             {match.label && match.court ? ` · Court ${match.court}` : ""}
           </span>
-          {showTimer && <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} />}
+          {showTimer && (
+            <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} round={match.round} />
+          )}
         </div>
       )}
       <div className="p-2.5 space-y-1.5">
