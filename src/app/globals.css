@@ -81,9 +81,12 @@ html,
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Kill horizontal panning on mobile — vertical scrolling only.
-     `clip` forbids all horizontal overflow scrolling (iOS ignores overflow-x on body alone). */
+  /* Vertical scrolling only. `hidden` is the universal fallback (older iOS Safari
+     ignores `clip`); modern browsers take the `clip` line below. overscroll-behavior
+     stops the horizontal rubber-band drift even when content fits. */
+  overflow-x: hidden;
   overflow-x: clip;
+  overscroll-behavior-x: none;
   max-width: 100%;
 }
 

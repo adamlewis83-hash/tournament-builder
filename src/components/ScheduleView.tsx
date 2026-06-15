@@ -33,7 +33,7 @@ export function ScheduleView({
         const showMaster = timeLimitMin > 0 && roundMatches.some(hasLiveTimer);
         return (
           <div key={r}>
-            <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold flex items-center gap-2">
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] text-xs font-bold">
                   {r}
