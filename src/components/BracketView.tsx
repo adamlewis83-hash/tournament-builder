@@ -138,6 +138,33 @@ export function BracketView({
     />
   );
 
+  // Double elimination: Winners / Losers / Grand Final are separate brackets with overlapping
+  // round numbers, so a single "current round" is meaningless. Show clear labeled sections.
+  if (hasLosers) {
+    return (
+      <div className="space-y-6">
+        <Section
+          label="Winners Bracket"
+          phaseMatches={winners}
+          participants={participants}
+          tournamentId={tournamentId}
+          roundLabel={(r) => `Winners R${r}`}
+        />
+        {losersSection}
+        {finals.length > 0 && (
+          <Section
+            label="Grand Final"
+            phaseMatches={finals}
+            participants={participants}
+            tournamentId={tournamentId}
+            roundLabel={(r) => (r === 1 ? "Grand Final" : "Reset (if needed)")}
+          />
+        )}
+        {placementSection}
+      </div>
+    );
+  }
+
   // No bracket tree (rare edge) — just show whatever exists as card sections.
   if (tree.length === 0) {
     return (
