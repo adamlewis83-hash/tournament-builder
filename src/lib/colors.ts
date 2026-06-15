@@ -29,6 +29,11 @@ export function colorFor(participants: Participant[], id: string): string {
   return colorForIndex(i < 0 ? 0 : i);
 }
 
+/** The player's photo thumbnail, if they uploaded one (else undefined → initials avatar). */
+export function photoFor(participants: Participant[], id: string): string | undefined {
+  return participants.find((p) => p.id === id)?.photo;
+}
+
 /** Stable color from a name (for cross-event records where ids differ). */
 export function colorForName(name: string): string {
   let h = 0;

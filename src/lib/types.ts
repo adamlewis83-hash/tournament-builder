@@ -34,6 +34,7 @@ export interface Participant {
   team?: 0 | 1; // Ryder Cup team assignment
   handicap?: number; // golf handicap (for net scoring)
   members?: string[]; // roster for fixed-doubles pairs & teams (the unit still competes as one)
+  photo?: string; // small inline data-URL thumbnail (shown instead of initials)
 }
 
 export type GolfMode =

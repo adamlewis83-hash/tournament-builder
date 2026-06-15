@@ -14,16 +14,28 @@ function initials(name: string): string {
   return (a + b).toUpperCase().slice(0, 2) || "?";
 }
 
-/** A circular initials avatar in the player's color (GRINT-style). */
+/** A circular avatar: the player's photo if they have one, else initials in their color. */
 export function Avatar({
   name,
   color,
+  photo,
   className = "h-7 w-7 text-[11px]",
 }: {
   name: string;
   color: string;
+  photo?: string;
   className?: string;
 }) {
+  if (photo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photo}
+        alt={name}
+        className={`inline-block rounded-full object-cover ring-1 ring-black/15 shrink-0 ${className}`}
+      />
+    );
+  }
   const dark = luminance(color) > 0.62;
   return (
     <span
