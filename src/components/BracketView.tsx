@@ -1,7 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
+import { BracketDiagram } from "./BracketDiagram";
+
+function ViewToggle({
+  view,
+  setView,
+}: {
+  view: "bracket" | "cards";
+  setView: (v: "bracket" | "cards") => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+      {(["bracket", "cards"] as const).map((v) => (
+        <button
+          key={v}
+          onClick={() => setView(v)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition ${
+            view === v
+              ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function Column({
   title,
@@ -84,8 +112,40 @@ export function BracketView({
   const winnerLabel = (_r: number, count: number) =>
     count === 1 ? "Final" : count === 2 ? "Semifinals" : count === 4 ? "Quarterfinals" : `Round of ${count * 2}`;
 
+  const hasTree = winners.length + finals.length > 0;
+  const [view, setView] = useState<"bracket" | "cards">("bracket");
+
+  // Visual bracket diagram (the winners/final tree). Losers + 3rd-place always show as cards below.
+  if (hasTree && view === "bracket") {
+    return (
+      <div className="space-y-5">
+        <ViewToggle view={view} setView={setView} />
+        <BracketDiagram matches={matches} participants={participants} />
+        {hasLosers && (
+          <Section
+            label="Losers Bracket"
+            phaseMatches={losers}
+            participants={participants}
+            tournamentId={tournamentId}
+            roundLabel={(r) => `Losers R${r}`}
+          />
+        )}
+        {placement.length > 0 && (
+          <Section
+            label="3rd-Place Game"
+            phaseMatches={placement}
+            participants={participants}
+            tournamentId={tournamentId}
+            roundLabel={() => "Bronze"}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {hasTree && <ViewToggle view={view} setView={setView} />}
       <Section
         label={hasLosers ? "Winners Bracket" : undefined}
         phaseMatches={winners}
