@@ -5,26 +5,27 @@ import { Match, Participant } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
 import { BracketDiagram } from "./BracketDiagram";
 
-function ViewToggle({
-  view,
-  setView,
+function ModeToggle({
+  mode,
+  setMode,
 }: {
-  view: "bracket" | "cards";
-  setView: (v: "bracket" | "cards") => void;
+  mode: "round" | "full";
+  setMode: (m: "round" | "full") => void;
 }) {
+  const labels: Record<"round" | "full", string> = { round: "This round", full: "Full bracket" };
   return (
     <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
-      {(["bracket", "cards"] as const).map((v) => (
+      {(["round", "full"] as const).map((m) => (
         <button
-          key={v}
-          onClick={() => setView(v)}
-          className={`px-3 py-1.5 text-sm font-medium rounded-md capitalize transition ${
-            view === v
+          key={m}
+          onClick={() => setMode(m)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${
+            mode === m
               ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
               : "text-[var(--muted)] hover:text-[var(--foreground)]"
           }`}
         >
-          {v}
+          {labels[m]}
         </button>
       ))}
     </div>
@@ -108,78 +109,99 @@ export function BracketView({
   const finals = matches.filter((m) => m.phase === "final" || m.phase === "championship");
   const placement = matches.filter((m) => m.phase === "placement");
   const hasLosers = losers.length > 0;
+  const tree = [...winners, ...finals]; // the single-elim winners → final tree
 
-  const winnerLabel = (_r: number, count: number) =>
+  const [mode, setMode] = useState<"round" | "full">("round");
+  const [pinnedRound, setPinnedRound] = useState<number | null>(null);
+
+  const decided = (m: Match) => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB;
+  const ready = (m: Match) => m.sideA.length > 0 && m.sideB.length > 0;
+  const roundName = (count: number) =>
     count === 1 ? "Final" : count === 2 ? "Semifinals" : count === 4 ? "Quarterfinals" : `Round of ${count * 2}`;
 
-  const hasTree = winners.length + finals.length > 0;
-  const [view, setView] = useState<"bracket" | "cards">("bracket");
+  const losersSection = hasLosers && (
+    <Section
+      label="Losers Bracket"
+      phaseMatches={losers}
+      participants={participants}
+      tournamentId={tournamentId}
+      roundLabel={(r) => `Losers R${r}`}
+    />
+  );
+  const placementSection = placement.length > 0 && (
+    <Section
+      label="3rd-Place Game"
+      phaseMatches={placement}
+      participants={participants}
+      tournamentId={tournamentId}
+      roundLabel={() => "Bronze"}
+    />
+  );
 
-  // Visual bracket diagram (the winners/final tree). Losers + 3rd-place always show as cards below.
-  if (hasTree && view === "bracket") {
+  // No bracket tree (rare edge) — just show whatever exists as card sections.
+  if (tree.length === 0) {
     return (
-      <div className="space-y-5">
-        <ViewToggle view={view} setView={setView} />
-        <BracketDiagram matches={matches} participants={participants} />
-        {hasLosers && (
-          <Section
-            label="Losers Bracket"
-            phaseMatches={losers}
-            participants={participants}
-            tournamentId={tournamentId}
-            roundLabel={(r) => `Losers R${r}`}
-          />
-        )}
-        {placement.length > 0 && (
-          <Section
-            label="3rd-Place Game"
-            phaseMatches={placement}
-            participants={participants}
-            tournamentId={tournamentId}
-            roundLabel={() => "Bronze"}
-          />
-        )}
+      <div className="space-y-6">
+        {losersSection}
+        {placementSection}
       </div>
     );
   }
 
+  const treeRounds = Array.from(new Set(tree.map((m) => m.round))).sort((a, b) => a - b);
+  // The live round: earliest round with a ready-but-undecided match; else the last round (champion).
+  const currentRound =
+    treeRounds.find((r) => tree.some((m) => m.round === r && ready(m) && !decided(m))) ??
+    treeRounds[treeRounds.length - 1];
+  // Auto-follow the live round unless the user has pinned one via the arrows.
+  const shownRound = pinnedRound != null && treeRounds.includes(pinnedRound) ? pinnedRound : currentRound;
+  const idx = treeRounds.indexOf(shownRound);
+  const shownMatches = tree.filter((m) => m.round === shownRound).sort((a, b) => a.order - b.order);
+
   return (
-    <div className="space-y-6">
-      {hasTree && <ViewToggle view={view} setView={setView} />}
-      <Section
-        label={hasLosers ? "Winners Bracket" : undefined}
-        phaseMatches={winners}
-        participants={participants}
-        tournamentId={tournamentId}
-        roundLabel={(r, c) => (hasLosers ? `Winners R${r}` : winnerLabel(r, c))}
-      />
-      {hasLosers && (
-        <Section
-          label="Losers Bracket"
-          phaseMatches={losers}
-          participants={participants}
-          tournamentId={tournamentId}
-          roundLabel={(r) => `Losers R${r}`}
-        />
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <ModeToggle mode={mode} setMode={setMode} />
+        {mode === "round" && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={idx <= 0}
+              onClick={() => setPinnedRound(treeRounds[idx - 1])}
+              className="h-7 w-7 grid place-items-center rounded-md border border-[var(--border)] text-[var(--muted)] disabled:opacity-30 hover:bg-[var(--hover)]"
+            >
+              ◀
+            </button>
+            <span className="text-sm font-semibold flex items-center gap-1.5">
+              {roundName(shownMatches.length)}
+              {shownRound === currentRound && (
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--win)] pulse-ring" title="Live round" />
+              )}
+            </span>
+            <button
+              type="button"
+              disabled={idx >= treeRounds.length - 1}
+              onClick={() => setPinnedRound(treeRounds[idx + 1])}
+              className="h-7 w-7 grid place-items-center rounded-md border border-[var(--border)] text-[var(--muted)] disabled:opacity-30 hover:bg-[var(--hover)]"
+            >
+              ▶
+            </button>
+          </div>
+        )}
+      </div>
+
+      {mode === "round" ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {shownMatches.map((m) => (
+            <MatchCard key={m.id} tournamentId={tournamentId} participants={participants} match={m} />
+          ))}
+        </div>
+      ) : (
+        <BracketDiagram matches={matches} participants={participants} />
       )}
-      {finals.length > 0 && (
-        <Section
-          label="Grand Final"
-          phaseMatches={finals}
-          participants={participants}
-          tournamentId={tournamentId}
-          roundLabel={(r) => (r === 1 ? "Grand Final" : "Reset (if needed)")}
-        />
-      )}
-      {placement.length > 0 && (
-        <Section
-          label="3rd-Place Game"
-          phaseMatches={placement}
-          participants={participants}
-          tournamentId={tournamentId}
-          roundLabel={() => "Bronze"}
-        />
-      )}
+
+      {losersSection}
+      {placementSection}
     </div>
   );
 }
