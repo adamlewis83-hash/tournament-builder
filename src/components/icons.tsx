@@ -20,6 +20,8 @@ import {
   Sun as PhSun,
   Flag as PhFlag,
   FloppyDisk,
+  Gear as PhGear,
+  Cards as PhCards,
   type Icon,
   type IconProps,
 } from "@phosphor-icons/react";
@@ -46,3 +48,5 @@ export const Moon = duo(PhMoon);
 export const Sun = duo(PhSun);
 export const Flag = duo(PhFlag);
 export const Save = duo(FloppyDisk);
+export const Settings = duo(PhGear);
+export const Cards = duo(PhCards);

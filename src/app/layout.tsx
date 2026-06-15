@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
-import { Trophy } from "@/components/icons";
-import { SporosMark } from "@/components/SporosMark";
 import "./globals.css";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
 
@@ -68,38 +65,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
         <CloudSync />
-        <header className="no-print sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/70 backdrop-blur-xl">
-          <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight">
-              <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-[0_0_20px_-4px_var(--glow)]">
-                <SporosMark className="h-7 w-7 text-[var(--on-brand)]" />
-              </span>
-              <span className="inline-flex items-start">
-                <span className="brand-text">Sporos</span>
-                <sup className="ml-px text-[0.5em] font-semibold text-[var(--muted)]">™</sup>
-              </span>
-            </Link>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <ThemeToggle />
-              <Link
-                href="/records"
-                className="flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
-              >
-                <Trophy className="h-4 w-4" /> Records
-              </Link>
-              <Link
-                href="/"
-                className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition"
-              >
-                My Tournaments
-              </Link>
-            </div>
-          </div>
-        </header>
-        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24 sm:pb-6">
+        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24">
           {children}
         </main>
-        <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 sm:pb-4 text-center text-xs text-[var(--muted)]">
+        <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 text-center text-xs text-[var(--muted)]">
           Sporos · plays offline · saved on your device ·{" "}
           <Link href="/privacy" className="hover:underline">
             Privacy
