@@ -171,8 +171,20 @@ export function SetupPanel({ t }: { t: Tournament }) {
     generate(t.id);
   }
 
-  if (t.format === "ryder") return <RyderSetup t={t} />;
-  if (t.format === "golf") return <GolfSetup t={t} />;
+  if (t.format === "ryder")
+    return (
+      <div className="space-y-5">
+        <RegistrationPanel t={t} />
+        <RyderSetup t={t} />
+      </div>
+    );
+  if (t.format === "golf")
+    return (
+      <div className="space-y-5">
+        <RegistrationPanel t={t} />
+        <GolfSetup t={t} />
+      </div>
+    );
 
   return (
     <div className="space-y-5">

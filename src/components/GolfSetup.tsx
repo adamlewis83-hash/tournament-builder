@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Course,
@@ -85,6 +85,14 @@ export function GolfSetup({ t }: { t: Tournament }) {
         { name: "", handicap: "0" },
       ];
   const [players, setPlayers] = useState<PlayerRow[]>(seed);
+
+  // When players self-register, mirror the pool into the rows (names + handicaps).
+  // Only fires once the pool is non-empty, so pure manual entry isn't disturbed.
+  useEffect(() => {
+    if (t.participants.length) {
+      setPlayers(t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0) })));
+    }
+  }, [t.participants]);
 
   function setHoleCount(n: number) {
     setHoles(n);

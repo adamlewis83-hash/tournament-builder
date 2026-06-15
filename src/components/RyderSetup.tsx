@@ -225,6 +225,51 @@ export function RyderSetup({ t }: { t: Tournament }) {
         </p>
       </Card>
 
+      {/* Registered players waiting to be assigned to a team */}
+      {(() => {
+        const assigned = new Set([...aRows, ...bRows].map((r) => r.name.toLowerCase()));
+        const pool = t.participants.filter(
+          (p) => p.id.startsWith("reg-") && !assigned.has(p.name.toLowerCase()),
+        );
+        if (pool.length === 0) return null;
+        const line = (p: { name: string; handicap?: number }) =>
+          p.handicap != null ? `${p.name}, ${p.handicap}` : p.name;
+        return (
+          <Card className="p-4">
+            <p className="text-sm font-semibold mb-2">
+              Registered players ({pool.length}) — tap to assign
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {pool.map((p) => (
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] pl-2.5 pr-1 py-1 text-sm"
+                >
+                  {p.name}
+                  {p.handicap != null ? (
+                    <span className="text-[var(--muted)]"> · {p.handicap}</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setAText((s) => (s.trim() ? s + "\n" : "") + line(p))}
+                    className="ml-1 rounded-md bg-[var(--brand-soft)] text-[var(--brand)] font-semibold px-2 py-0.5 text-xs"
+                  >
+                    → A
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBText((s) => (s.trim() ? s + "\n" : "") + line(p))}
+                    className="rounded-md bg-rose-400/15 text-rose-300 font-semibold px-2 py-0.5 text-xs"
+                  >
+                    → B
+                  </button>
+                </span>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Teams */}
       <div className="grid sm:grid-cols-2 gap-5">
         {[
