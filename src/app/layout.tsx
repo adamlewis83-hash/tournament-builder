@@ -46,6 +46,8 @@ export const viewport: Viewport = {
   themeColor: "#f5f6f8",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // lock zoom so the app can't be panned sideways (native-app feel)
   viewportFit: "cover",
 };
 
