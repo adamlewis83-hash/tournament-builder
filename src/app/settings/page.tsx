@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Sun, Moon, Settings as SettingsIcon } from "@/components/icons";
 import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
+import { SyncPanel } from "@/components/SyncPanel";
 
 function applyTheme(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -62,6 +63,10 @@ export default function SettingsPage() {
         </div>
         <ThemeSetting />
       </Card>
+
+      <div className="mt-4">
+        <SyncPanel />
+      </div>
 
       <Card className="p-5 mt-4">
         <h2 className="font-semibold">Home layout</h2>

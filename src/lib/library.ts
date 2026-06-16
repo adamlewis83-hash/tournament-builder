@@ -24,6 +24,22 @@ export function setLibraryKey(k: string) {
   if (typeof window !== "undefined") localStorage.setItem(KEY, k.trim().toUpperCase());
 }
 
+const ACCOUNT_EMAIL_KEY = "sporos-recovery-email";
+
+/** The email this device is signed in as, if any. */
+export function getAccountEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCOUNT_EMAIL_KEY);
+}
+
+/** Sign out: forget the email and detach to a fresh anonymous library.
+ *  Synced data stays on the server — sign back in with the same email to pull it. */
+export function signOut() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(ACCOUNT_EMAIL_KEY);
+  localStorage.setItem(KEY, randomKey());
+}
+
 export async function fetchLibrary(owner: string): Promise<Tournament[]> {
   try {
     const res = await fetch(`/api/library?owner=${encodeURIComponent(owner)}`, { cache: "no-store" });

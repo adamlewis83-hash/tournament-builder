@@ -46,7 +46,7 @@ export function EmailBackup({
     } else {
       setStage("email");
       setCode("");
-      setMsg(`✓ Backed up to ${email.trim()}. Enter this email on any device to restore.`);
+      setMsg(`✓ Signed in as ${email.trim()}. Use this email on any device to sync.`);
       onBackedUp?.();
     }
   }
@@ -56,11 +56,11 @@ export function EmailBackup({
       {!compact && (
         <>
           <div className="text-sm font-semibold flex items-center gap-2">
-            <Mail className="h-4 w-4 text-[var(--brand)]" /> Back up / restore by email
+            <Mail className="h-4 w-4 text-[var(--brand)]" /> Sign in with email
           </div>
           <p className="text-xs text-[var(--muted)] mt-0.5 mb-2">
-            No password. Enter your email here to back up, or on a new device to restore — we email a
-            one-time code.
+            No password — we email you a 6-digit code. Use the same email on any device to sync your
+            tournaments.
           </p>
         </>
       )}
