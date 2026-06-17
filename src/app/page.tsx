@@ -12,6 +12,8 @@ import { SporosMark } from "@/components/SporosMark";
 import { DeviceShowcase } from "@/components/DeviceShowcase";
 import { SignInCTA } from "@/components/SignInCTA";
 import { GetTheApp } from "@/components/GetTheApp";
+import { TournamentList } from "@/components/TournamentList";
+import { getAccountEmail } from "@/lib/library";
 
 function useSharedImport() {
   const router = useRouter();
@@ -48,12 +50,49 @@ export default function Home() {
       >
         <SporosMark className="h-[55vmin] w-[55vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
       </div>
+      <HomeBody />
+    </HydrationGate>
+  );
+}
+
+// Renders only after hydration (inside HydrationGate), so reading sign-in state is safe.
+function HomeBody() {
+  const router = useRouter();
+  const email = getAccountEmail();
+  if (email) return <SignedInHome />;
+  return (
+    <>
       <Hero onCreate={() => router.push("/new")} />
       <SignInCTA />
       <JoinByCode />
       <DeviceShowcase />
       <GetTheApp />
-    </HydrationGate>
+    </>
+  );
+}
+
+// Signed-in dashboard: welcome + quick actions + your tournaments (no marketing pitch).
+function SignedInHome() {
+  const router = useRouter();
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--brand)] font-bold">
+            Welcome back
+          </p>
+          <h1 className="text-2xl font-display font-bold">Your tournaments</h1>
+        </div>
+        <Button
+          onClick={() => router.push("/new")}
+          className="inline-flex items-center gap-2 shrink-0"
+        >
+          <Plus className="h-5 w-5" weight="bold" /> New Tournament
+        </Button>
+      </div>
+      <JoinByCode />
+      <TournamentList />
+    </div>
   );
 }
 

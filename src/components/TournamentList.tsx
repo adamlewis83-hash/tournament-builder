@@ -97,7 +97,7 @@ export function TournamentList() {
           {shown.map(({ t, res }) => {
             const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
             return (
-              <Card key={t.id} bare className="basis-full sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] p-4 flex flex-col rounded-2xl hover:bg-[var(--surface)]/70 transition">
+              <Card key={t.id} bare className="basis-full sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] p-4 flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 shadow-sm hover:bg-[var(--surface)]/80 hover:border-[var(--brand)]/40 transition">
                 <Link href={`/t/${t.id}`} className="flex-1 block group">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
