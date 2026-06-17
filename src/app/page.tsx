@@ -10,6 +10,8 @@ import { HydrationGate } from "@/components/HydrationGate";
 import { SportBackdrop } from "@/components/SportBackdrop";
 import { SporosMark } from "@/components/SporosMark";
 import { DeviceShowcase } from "@/components/DeviceShowcase";
+import { SignInCTA } from "@/components/SignInCTA";
+import { GetTheApp } from "@/components/GetTheApp";
 
 function useSharedImport() {
   const router = useRouter();
@@ -47,8 +49,10 @@ export default function Home() {
         <SporosMark className="h-[55vmin] w-[55vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
       </div>
       <Hero onCreate={() => router.push("/new")} />
+      <SignInCTA />
       <JoinByCode />
       <DeviceShowcase />
+      <GetTheApp />
     </HydrationGate>
   );
 }
