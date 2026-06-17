@@ -10,7 +10,7 @@ import { GolfSetup } from "./GolfSetup";
 import { RegistrationPanel } from "./RegistrationPanel";
 
 const SAMPLE_PLAYERS = Array.from({ length: 12 }, (_, i) => `Player ${i + 1}`);
-const SAMPLE_TEAMS = ["Net Ninjas", "Dink Dynasty", "Smash Bros", "Paddle Pirates", "Court Kings", "Spin Doctors"];
+const SAMPLE_TEAMS = Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`);
 
 function NumberField({
   label,
@@ -298,7 +298,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
             : isDoubles
               ? "Individuals — partners rotate each round."
               : isTeams
-                ? "Name each team (e.g. “Net Ninjas” or “Player 1 & Player 2”)."
+                ? "Name each team (e.g. “Team 1” or “Player 1 & Player 2”)."
                 : "Each line is a player."}
         </p>
         <textarea
@@ -306,7 +306,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
           onChange={(e) => setText(e.target.value)}
           onBlur={commitNames}
           rows={10}
-          placeholder={isTeams ? "Net Ninjas\nDink Dynasty\nSmash Bros\n…" : "Player 1\nPlayer 2\nPlayer 3\nPlayer 4\n…"}
+          placeholder={isTeams ? "Team 1\nTeam 2\nTeam 3\n…" : "Player 1\nPlayer 2\nPlayer 3\nPlayer 4\n…"}
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
         />
         <p className="text-sm text-[var(--muted)] mt-2">{count} entered</p>
