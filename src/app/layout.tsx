@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./globals.css";
 import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
+import { PullToRefresh } from "@/components/PullToRefresh";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden">
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
+        <PullToRefresh />
         <CloudSync />
         <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24">
           {children}
