@@ -445,7 +445,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
             </p>
             {teamMode && (
               <p className="text-xs text-[var(--muted)] mb-3">
-                Enter your teams above (e.g. <span className="font-medium">Cody &amp; Adam</span>) —
+                Enter your teams above (e.g. <span className="font-medium">Player 1 &amp; Player 2</span>) —
                 one score per team per hole.
               </p>
             )}

@@ -9,10 +9,7 @@ import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
 import { RegistrationPanel } from "./RegistrationPanel";
 
-const SAMPLE_PLAYERS = [
-  "Cody", "Adam", "Logan", "Brittany", "Joe", "Tyler",
-  "Ashley", "Dustin", "Davis", "Richard", "Ryan", "Matt",
-];
+const SAMPLE_PLAYERS = Array.from({ length: 12 }, (_, i) => `Player ${i + 1}`);
 const SAMPLE_TEAMS = ["Net Ninjas", "Dink Dynasty", "Smash Bros", "Paddle Pirates", "Court Kings", "Spin Doctors"];
 
 function NumberField({
@@ -301,7 +298,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
             : isDoubles
               ? "Individuals — partners rotate each round."
               : isTeams
-                ? "Name each team (e.g. “Net Ninjas” or “Cody & Adam”)."
+                ? "Name each team (e.g. “Net Ninjas” or “Player 1 & Player 2”)."
                 : "Each line is a player."}
         </p>
         <textarea
@@ -309,7 +306,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
           onChange={(e) => setText(e.target.value)}
           onBlur={commitNames}
           rows={10}
-          placeholder={isTeams ? "Net Ninjas\nDink Dynasty\nCody & Adam\n…" : "Cody\nAdam\nLogan\nBrittany\n…"}
+          placeholder={isTeams ? "Net Ninjas\nDink Dynasty\nSmash Bros\n…" : "Player 1\nPlayer 2\nPlayer 3\nPlayer 4\n…"}
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
         />
         <p className="text-sm text-[var(--muted)] mt-2">{count} entered</p>

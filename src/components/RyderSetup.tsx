@@ -286,7 +286,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
               value={team.text}
               onChange={(e) => team.setText(e.target.value)}
               rows={6}
-              placeholder={"Adam, 8\nTom, 14\nDad, 20\nJosh, 5"}
+              placeholder={"Player 1, 8\nPlayer 2, 14\nPlayer 3, 20\nPlayer 4, 5"}
               className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
             />
             <p className="text-sm text-[var(--muted)] mt-2">

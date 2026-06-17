@@ -19,7 +19,7 @@ const STYLES: PlayStyle[] = ["singles", "doubles", "doubles-fixed", "teams"];
 
 const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
   doubles: "Individuals enter; partners rotate each round and standings track per person — great for pickleball/tennis socials.",
-  "doubles-fixed": "Set pairs that stay together all event (e.g. Cody & Adam). Each pair competes as one.",
+  "doubles-fixed": "Set pairs that stay together all event (e.g. Player 1 & Player 2). Each pair competes as one.",
   teams: "Build teams with 2+ players each (e.g. volleyball). Each team competes as one unit.",
 };
 const OTHER = "__other__";
