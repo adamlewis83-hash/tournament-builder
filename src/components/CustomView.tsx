@@ -14,21 +14,31 @@ export function CustomView({ t }: { t: Tournament }) {
   const spectator = t.spectator === true;
 
   const [tab, setTab] = useState<"schedule" | "standings">("schedule");
-  const [a, setA] = useState("");
-  const [b, setB] = useState("");
+  // Each player can be assigned to Side A, Side B, or neither — so any pairing/matchup is possible.
+  const [assign, setAssign] = useState<Record<string, "A" | "B">>({});
 
-  const rounds = Array.from(new Set(t.matches.map((m) => m.round))).sort((a, b) => a - b);
+  const rounds = Array.from(new Set(t.matches.map((m) => m.round))).sort((x, y) => x - y);
   const maxRound = rounds.length ? rounds[rounds.length - 1] : 1;
   const [round, setRound] = useState(maxRound);
 
-  function add() {
-    if (!a || !b || a === b) return;
-    addCustomMatch(t.id, { sideA: [a], sideB: [b], round });
-    setA("");
-    setB("");
+  const aIds = t.participants.filter((p) => assign[p.id] === "A").map((p) => p.id);
+  const bIds = t.participants.filter((p) => assign[p.id] === "B").map((p) => p.id);
+  const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "";
+
+  function setSide(id: string, side: "A" | "B") {
+    setAssign((prev) => {
+      const next = { ...prev };
+      if (next[id] === side) delete next[id];
+      else next[id] = side;
+      return next;
+    });
   }
 
-  const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "";
+  function add() {
+    if (!aIds.length || !bIds.length) return;
+    addCustomMatch(t.id, { sideA: aIds, sideB: bIds, round });
+    setAssign({});
+  }
 
   return (
     <div className="space-y-4">
@@ -54,11 +64,59 @@ export function CustomView({ t }: { t: Tournament }) {
         <>
           {!spectator && (
             <Card className="p-4 space-y-3">
-              <h3 className="font-semibold text-sm">Add a match</h3>
-              <div className="flex flex-wrap items-end gap-2">
-                <PlayerPick label="Player / team" value={a} exclude={b} options={t.participants} onChange={setA} />
-                <span className="pb-2 text-[var(--muted)]">vs</span>
-                <PlayerPick label="" value={b} exclude={a} options={t.participants} onChange={setB} />
+              <h3 className="font-semibold text-sm">Build a match</h3>
+              <p className="text-xs text-[var(--muted)]">
+                Tap each player onto <b className="text-[var(--brand)]">A</b> or{" "}
+                <b className="text-rose-400">B</b> — any singles, doubles, or team combination.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {t.participants.map((p) => (
+                  <span
+                    key={p.id}
+                    className={`inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-1 text-sm ${
+                      assign[p.id] === "A"
+                        ? "border-[var(--brand)] bg-[var(--brand-soft)]"
+                        : assign[p.id] === "B"
+                          ? "border-rose-400/60 bg-rose-400/10"
+                          : "border-[var(--border)]"
+                    }`}
+                  >
+                    <span className="font-medium">{p.name}</span>
+                    <button
+                      onClick={() => setSide(p.id, "A")}
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                        assign[p.id] === "A"
+                          ? "bg-[var(--brand)] text-[var(--on-brand)]"
+                          : "text-[var(--muted)] hover:bg-[var(--hover)]"
+                      }`}
+                    >
+                      A
+                    </button>
+                    <button
+                      onClick={() => setSide(p.id, "B")}
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                        assign[p.id] === "B"
+                          ? "bg-rose-400 text-white"
+                          : "text-[var(--muted)] hover:bg-[var(--hover)]"
+                      }`}
+                    >
+                      B
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <span>
+                  <b className="text-[var(--brand)]">Side A:</b> {aIds.map(nameOf).join(" / ") || "—"}
+                </span>
+                <span className="text-[var(--muted)]">vs</span>
+                <span>
+                  <b className="text-rose-400">Side B:</b> {bIds.map(nameOf).join(" / ") || "—"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <label className="block">
                   <span className="text-xs font-medium text-[var(--muted)]">Round</span>
                   <input
@@ -69,21 +127,16 @@ export function CustomView({ t }: { t: Tournament }) {
                     className="mt-1 w-16 rounded-lg border border-[var(--border)] px-2 py-2 text-sm bg-[var(--surface)]"
                   />
                 </label>
-                <Button onClick={add} disabled={!a || !b || a === b}>
+                <Button onClick={add} disabled={!aIds.length || !bIds.length} className="mt-auto">
                   Add match
                 </Button>
               </div>
-              {a && b && a !== b && (
-                <p className="text-xs text-[var(--muted)]">
-                  {nameOf(a)} vs {nameOf(b)} → Round {round}
-                </p>
-              )}
             </Card>
           )}
 
           {t.matches.length === 0 ? (
             <Card className="p-6 text-center text-sm text-[var(--muted)]">
-              No matches yet — {spectator ? "the host hasn't added any." : "add your first matchup above."}
+              No matches yet — {spectator ? "the host hasn't added any." : "build your first matchup above."}
             </Card>
           ) : (
             <div className="space-y-6">
@@ -144,39 +197,5 @@ function TabBtn({
     >
       {children}
     </button>
-  );
-}
-
-function PlayerPick({
-  label,
-  value,
-  exclude,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  exclude: string;
-  options: Tournament["participants"];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      {label && <span className="text-xs font-medium text-[var(--muted)]">{label}</span>}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block rounded-lg border border-[var(--border)] px-2 py-2 text-sm bg-[var(--surface)] max-w-[10rem]"
-      >
-        <option value="">Select…</option>
-        {options
-          .filter((p) => p.id !== exclude)
-          .map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-      </select>
-    </label>
   );
 }
