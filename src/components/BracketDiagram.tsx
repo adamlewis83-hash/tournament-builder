@@ -20,29 +20,47 @@ function name(ids: string[], label: string | undefined, participants: Participan
   );
 }
 
+const DEFAULT_FILTER = (m: Match) =>
+  m.phase === "winners" || m.phase === "final" || m.phase === "championship";
+
 export function BracketDiagram({
   matches,
   participants,
+  matchFilter = DEFAULT_FILTER,
 }: {
   matches: Match[];
   participants: Participant[];
+  // Which matches make up the tree. Defaults to the single-elim winners/final tree;
+  // the custom creator passes a permissive filter to lay its hand-built rounds out.
+  matchFilter?: (m: Match) => boolean;
 }) {
-  const tree = matches.filter(
-    (m) => m.phase === "winners" || m.phase === "final" || m.phase === "championship",
-  );
+  const tree = matches.filter(matchFilter);
   if (tree.length === 0) return null;
 
   const rounds = Array.from(new Set(tree.map((m) => m.round))).sort((a, b) => a - b);
   const byRound = rounds.map((r) => tree.filter((m) => m.round === r).sort((a, b) => a.order - b.order));
 
-  // Feeder graph from nextMatchId so byes/odd brackets still connect correctly.
+  // Feeder graph. Real brackets carry explicit nextMatchId links (handles byes/odd
+  // brackets). Hand-built custom events have none, so infer a binary tree by pairing
+  // each round's matches into the slot above them in the next round.
   const feedersOf = new Map<string, Match[]>();
-  for (const m of tree) {
-    if (m.nextMatchId) {
-      const arr = feedersOf.get(m.nextMatchId) ?? [];
-      arr.push(m);
-      feedersOf.set(m.nextMatchId, arr);
+  if (tree.some((m) => m.nextMatchId)) {
+    for (const m of tree) {
+      if (m.nextMatchId) {
+        const arr = feedersOf.get(m.nextMatchId) ?? [];
+        arr.push(m);
+        feedersOf.set(m.nextMatchId, arr);
+      }
     }
+  } else {
+    byRound.forEach((round, ri) => {
+      if (ri === 0) return;
+      const prev = byRound[ri - 1];
+      round.forEach((m, i) => {
+        const fs = [prev[2 * i], prev[2 * i + 1]].filter(Boolean);
+        if (fs.length) feedersOf.set(m.id, fs);
+      });
+    });
   }
 
   const unit = BOX_H + ROW_GAP;

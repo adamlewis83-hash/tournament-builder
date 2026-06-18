@@ -5,6 +5,7 @@ import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { MatchCard } from "./MatchCard";
 import { StandingsTable } from "./StandingsTable";
+import { BracketDiagram } from "./BracketDiagram";
 import { Champion } from "./Champion";
 import { Button, Card } from "./ui";
 
@@ -13,7 +14,7 @@ export function CustomView({ t }: { t: Tournament }) {
   const removeMatch = useStore((s) => s.removeMatch);
   const spectator = t.spectator === true;
 
-  const [tab, setTab] = useState<"schedule" | "standings">("schedule");
+  const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
   // Each player can be assigned to Side A, Side B, or neither — so any pairing/matchup is possible.
   const [assign, setAssign] = useState<Record<string, "A" | "B">>({});
 
@@ -48,6 +49,9 @@ export function CustomView({ t }: { t: Tournament }) {
         <TabBtn active={tab === "schedule"} onClick={() => setTab("schedule")}>
           Matches
         </TabBtn>
+        <TabBtn active={tab === "bracket"} onClick={() => setTab("bracket")}>
+          Bracket
+        </TabBtn>
         <TabBtn active={tab === "standings"} onClick={() => setTab("standings")}>
           Leaderboard
         </TabBtn>
@@ -60,6 +64,34 @@ export function CustomView({ t }: { t: Tournament }) {
           title="Leaderboard"
           tiebreaker={t.config.tiebreaker}
         />
+      ) : tab === "bracket" ? (
+        t.matches.length === 0 ? (
+          <Card className="p-6 text-center text-sm text-[var(--muted)]">
+            No matches yet —{" "}
+            {spectator
+              ? "the host hasn't added any."
+              : "build matchups in the Matches tab and they'll lay out here as a bracket."}
+          </Card>
+        ) : (
+          <Card className="p-5 space-y-3">
+            <p className="text-xs text-[var(--muted)]">
+              Your rounds laid out as a bracket — each round becomes a column. Add matchups and
+              enter scores in the{" "}
+              <button
+                onClick={() => setTab("schedule")}
+                className="text-[var(--brand)] underline underline-offset-2"
+              >
+                Matches
+              </button>{" "}
+              tab.
+            </p>
+            <BracketDiagram
+              matches={t.matches}
+              participants={t.participants}
+              matchFilter={() => true}
+            />
+          </Card>
+        )
       ) : (
         <>
           {!spectator && (
