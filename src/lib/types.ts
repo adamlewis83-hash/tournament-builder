@@ -12,7 +12,8 @@ export type Format =
   | "ryder"
   | "golf"
   | "custom"
-  | "score-challenge";
+  | "score-challenge"
+  | "ladder";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -220,6 +221,7 @@ export interface Tournament {
   golf?: GolfData;
   ryderGolf?: RyderGolf;
   scoreChallenge?: { scores: Record<string, (number | null)[]> }; // Score Challenge: per-round scores
+  ladder?: { order: string[] }; // Ladder: participant ids in rank order (index 0 = #1)
   config: TournamentConfig;
   createdAt: number;
   updatedAt: number;
@@ -242,6 +244,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   golf: "Golf",
   custom: "Custom (build your own)",
   "score-challenge": "Score Challenge",
+  ladder: "Ladder",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -266,6 +269,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
     "A blank slate — add players, then create each round's matchups yourself. The app tracks scores and the leaderboard. For events that don't fit a standard format.",
   "score-challenge":
     "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, darts, or disc golf. Pick whether highest or lowest total wins.",
+  ladder:
+    "An ongoing challenge ladder — players are ranked, and you challenge someone above you. Win and you swap spots. Great for club/ongoing play (tennis, pickleball, racquetball, pool, foosball, chess).",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added
@@ -308,6 +313,7 @@ export const ALL_FORMATS: Format[] = [
   "golf",
   "custom",
   "score-challenge",
+  "ladder",
 ];
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
@@ -324,6 +330,7 @@ export function formatsForSport(sport: string): Format[] {
     "pool-bracket",
     "americano",
     "mexicano",
+    "ladder",
     "score-challenge",
     "custom",
   ];

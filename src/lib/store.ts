@@ -80,6 +80,13 @@ interface State {
     round: number,
     value: number | null,
   ) => void;
+  recordLadderMatch: (
+    id: string,
+    aId: string,
+    bId: string,
+    scoreA: number,
+    scoreB: number,
+  ) => void;
   setTeams: (id: string, teams: { name: string; members: string[] }[]) => void;
   setRyderTeams: (
     id: string,
@@ -180,6 +187,9 @@ function buildMatches(t: Tournament): Match[] {
 
     case "score-challenge":
       return []; // cumulative scoring, not head-to-head matches
+
+    case "ladder":
+      return []; // ongoing challenge ladder; matches recorded as they happen
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -420,6 +430,41 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
+      recordLadderMatch: (id, aId, bId, scoreA, scoreB) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const round = t.matches.reduce((m, x) => Math.max(m, x.round), 0) + 1;
+            const match: Match = {
+              id: uid(),
+              phase: "rr",
+              round,
+              order: 0,
+              sideA: [aId],
+              sideB: [bId],
+              scoreA,
+              scoreB,
+            };
+            let order = t.ladder?.order ?? t.participants.map((p) => p.id);
+            if (scoreA !== scoreB) {
+              const winner = scoreA > scoreB ? aId : bId;
+              const loser = scoreA > scoreB ? bId : aId;
+              const wi = order.indexOf(winner);
+              const li = order.indexOf(loser);
+              // Winner currently ranked below the loser → upset → swap their spots.
+              if (wi > li && wi >= 0 && li >= 0) {
+                order = [...order];
+                order[wi] = loser;
+                order[li] = winner;
+              }
+            }
+            return { ...t, matches: [...t.matches, match], ladder: { order }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
       setTeams: (id, teams) =>
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
@@ -629,6 +674,9 @@ export const useStore = create<State>()(
                   matches: buildMatches(t),
                   ...(t.format === "score-challenge"
                     ? { scoreChallenge: t.scoreChallenge ?? { scores: {} } }
+                    : {}),
+                  ...(t.format === "ladder"
+                    ? { ladder: t.ladder ?? { order: t.participants.map((p) => p.id) } }
                     : {}),
                   generated: true,
                   updatedAt: Date.now(),

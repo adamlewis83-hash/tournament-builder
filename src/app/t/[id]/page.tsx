@@ -21,6 +21,7 @@ import { RyderView } from "@/components/RyderView";
 import { GolfView } from "@/components/GolfView";
 import { CustomView } from "@/components/CustomView";
 import { ScoreChallengeView } from "@/components/ScoreChallengeView";
+import { LadderView } from "@/components/LadderView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
@@ -173,6 +174,8 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && t.format === "custom" && <CustomView t={t} />}
 
       {t.generated && t.format === "score-challenge" && <ScoreChallengeView t={t} />}
+
+      {t.generated && t.format === "ladder" && <LadderView t={t} />}
 
       {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
     </div>

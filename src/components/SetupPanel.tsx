@@ -487,8 +487,10 @@ export function SetupPanel({ t }: { t: Tournament }) {
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
             {t.format === "custom"
               ? "Start — build matches →"
-              : t.format === "score-challenge"
-                ? "Start scoring →"
+              : t.format === "ladder"
+                ? "Start the ladder →"
+                : t.format === "score-challenge"
+                  ? "Start scoring →"
                 : t.format === "swiss" || isSocial
                 ? "Generate Round 1 →"
                 : t.format === "kotc"
