@@ -11,7 +11,8 @@ export type Format =
   | "mexicano"
   | "ryder"
   | "golf"
-  | "custom";
+  | "custom"
+  | "score-challenge";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -205,6 +206,7 @@ export interface TournamentConfig {
   ryderFourball: number; // Ryder Cup: # of Fourball (best ball) sessions
   ryderSingles: number; // Ryder Cup: # of Singles sessions
   golfMode: GolfMode; // golf scoring mode
+  scoreLowWins: boolean; // Score Challenge: lowest total wins (e.g. disc golf) vs highest
 }
 
 export interface Tournament {
@@ -217,6 +219,7 @@ export interface Tournament {
   matches: Match[];
   golf?: GolfData;
   ryderGolf?: RyderGolf;
+  scoreChallenge?: { scores: Record<string, (number | null)[]> }; // Score Challenge: per-round scores
   config: TournamentConfig;
   createdAt: number;
   updatedAt: number;
@@ -238,6 +241,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   ryder: "Ryder Cup (Team Match Play)",
   golf: "Golf",
   custom: "Custom (build your own)",
+  "score-challenge": "Score Challenge",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -260,6 +264,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
     "Hole-by-hole scorecard with handicaps. Score it as Stroke Play (gross/net), Stableford, Skins, or a team Scramble — switch anytime.",
   custom:
     "A blank slate — add players, then create each round's matchups yourself. The app tracks scores and the leaderboard. For events that don't fit a standard format.",
+  "score-challenge":
+    "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, darts, or disc golf. Pick whether highest or lowest total wins.",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added
@@ -301,13 +307,14 @@ export const ALL_FORMATS: Format[] = [
   "ryder",
   "golf",
   "custom",
+  "score-challenge",
 ];
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
 // formats; everything else gets the court/bracket/social formats. "custom"
 // (build-your-own) is offered everywhere as the catch-all.
 export function formatsForSport(sport: string): Format[] {
-  if (/golf/i.test(sport)) return ["golf", "ryder", "custom"];
+  if (/golf/i.test(sport)) return ["golf", "ryder", "score-challenge", "custom"];
   return [
     "round-robin",
     "swiss",
@@ -317,6 +324,7 @@ export function formatsForSport(sport: string): Format[] {
     "pool-bracket",
     "americano",
     "mexicano",
+    "score-challenge",
     "custom",
   ];
 }

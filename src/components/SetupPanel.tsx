@@ -332,15 +332,40 @@ export function SetupPanel({ t }: { t: Tournament }) {
       <Card className="p-5 flex flex-col">
         <h2 className="font-semibold mb-3">Settings</h2>
         <div className="grid grid-cols-2 gap-4">
-          {((t.format === "round-robin" && isDoubles) || t.format === "swiss" || isSocial) && (
+          {((t.format === "round-robin" && isDoubles) ||
+            t.format === "swiss" ||
+            isSocial ||
+            t.format === "score-challenge") && (
             <NumberField
-              label="Rounds"
+              label={t.format === "score-challenge" ? "Rounds / games" : "Rounds"}
               value={cfg.rounds}
               min={1}
               max={20}
               onChange={(v) => setCfg({ rounds: v })}
-              hint={t.format === "swiss" ? "Swiss rounds" : "Rounds everyone plays"}
+              hint={
+                t.format === "swiss"
+                  ? "Swiss rounds"
+                  : t.format === "score-challenge"
+                    ? "How many scores each player posts"
+                    : "Rounds everyone plays"
+              }
             />
+          )}
+          {t.format === "score-challenge" && (
+            <label className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">
+              <span className="text-sm">
+                <span className="font-medium">Lowest total wins</span>
+                <span className="block text-xs text-[var(--muted)]">
+                  On for disc golf / fewest-strokes; off = highest total wins (bowling, pop-a-shot).
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={cfg.scoreLowWins}
+                onChange={(e) => setCfg({ scoreLowWins: e.target.checked })}
+                className="h-5 w-5 shrink-0 accent-[var(--brand)]"
+              />
+            </label>
           )}
           {(t.format === "round-robin" ||
             t.format === "pool-bracket" ||
@@ -462,7 +487,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
             {t.format === "custom"
               ? "Start — build matches →"
-              : t.format === "swiss" || isSocial
+              : t.format === "score-challenge"
+                ? "Start scoring →"
+                : t.format === "swiss" || isSocial
                 ? "Generate Round 1 →"
                 : t.format === "kotc"
                   ? "Start — Game 1 →"

@@ -41,6 +41,7 @@ const DEFAULT_CONFIG: TournamentConfig = {
   ryderFourball: 0,
   ryderSingles: 0,
   golfMode: "stroke",
+  scoreLowWins: false,
 };
 
 export interface CreateInput {
@@ -73,6 +74,12 @@ interface State {
     m: { sideA: string[]; sideB: string[]; round: number; court?: number },
   ) => void;
   removeMatch: (id: string, matchId: string) => void;
+  setScoreChallengeScore: (
+    id: string,
+    participantId: string,
+    round: number,
+    value: number | null,
+  ) => void;
   setTeams: (id: string, teams: { name: string; members: string[] }[]) => void;
   setRyderTeams: (
     id: string,
@@ -170,6 +177,9 @@ function buildMatches(t: Tournament): Match[] {
 
     case "custom":
       return []; // freeform: the host builds matches by hand
+
+    case "score-challenge":
+      return []; // cumulative scoring, not head-to-head matches
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -393,6 +403,23 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
+      setScoreChallengeScore: (id, participantId, round, value) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const rounds = Math.max(1, t.config.rounds);
+            const scores = { ...(t.scoreChallenge?.scores ?? {}) };
+            const card = [...(scores[participantId] ?? Array(rounds).fill(null))];
+            while (card.length < rounds) card.push(null);
+            card[round] = value;
+            scores[participantId] = card;
+            return { ...t, scoreChallenge: { scores }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
       setTeams: (id, teams) =>
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
@@ -596,7 +623,17 @@ export const useStore = create<State>()(
       generate: (id) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
-            t.id === id ? { ...t, matches: buildMatches(t), generated: true, updatedAt: Date.now() } : t,
+            t.id === id
+              ? {
+                  ...t,
+                  matches: buildMatches(t),
+                  ...(t.format === "score-challenge"
+                    ? { scoreChallenge: t.scoreChallenge ?? { scores: {} } }
+                    : {}),
+                  generated: true,
+                  updatedAt: Date.now(),
+                }
+              : t,
           ),
         }));
         pushReplace(id);

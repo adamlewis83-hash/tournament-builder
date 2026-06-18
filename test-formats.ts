@@ -64,6 +64,7 @@ function cfg(over: Partial<TournamentConfig> = {}): TournamentConfig {
     ryderFourball: 0,
     ryderSingles: 0,
     golfMode: "stroke",
+    scoreLowWins: false,
     ...over,
   };
 }
