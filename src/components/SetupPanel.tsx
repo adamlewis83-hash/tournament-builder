@@ -460,13 +460,15 @@ export function SetupPanel({ t }: { t: Tournament }) {
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
-            {t.format === "swiss" || isSocial
-              ? "Generate Round 1 →"
-              : t.format === "kotc"
-                ? "Start — Game 1 →"
-                : t.format === "round-robin" || t.format === "pool-bracket"
-                  ? "Generate schedule →"
-                  : "Generate bracket →"}
+            {t.format === "custom"
+              ? "Start — build matches →"
+              : t.format === "swiss" || isSocial
+                ? "Generate Round 1 →"
+                : t.format === "kotc"
+                  ? "Start — Game 1 →"
+                  : t.format === "round-robin" || t.format === "pool-bracket"
+                    ? "Generate schedule →"
+                    : "Generate bracket →"}
           </Button>
         </div>
       </Card>

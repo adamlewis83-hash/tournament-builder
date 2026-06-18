@@ -10,7 +10,8 @@ export type Format =
   | "americano"
   | "mexicano"
   | "ryder"
-  | "golf";
+  | "golf"
+  | "custom";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -236,6 +237,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   mexicano: "Mexicano",
   ryder: "Ryder Cup (Team Match Play)",
   golf: "Golf",
+  custom: "Custom (build your own)",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -256,6 +258,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
     "Two teams face off in pairs + singles matches. Each match is worth a point (½ for a tie); first team past half the points wins the cup. Great for golf.",
   golf:
     "Hole-by-hole scorecard with handicaps. Score it as Stroke Play (gross/net), Stableford, Skins, or a team Scramble — switch anytime.",
+  custom:
+    "A blank slate — add players, then create each round's matchups yourself. The app tracks scores and the leaderboard. For events that don't fit a standard format.",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added
@@ -296,12 +300,14 @@ export const ALL_FORMATS: Format[] = [
   "mexicano",
   "ryder",
   "golf",
+  "custom",
 ];
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
-// formats; everything else gets the court/bracket/social formats.
+// formats; everything else gets the court/bracket/social formats. "custom"
+// (build-your-own) is offered everywhere as the catch-all.
 export function formatsForSport(sport: string): Format[] {
-  if (/golf/i.test(sport)) return ["golf", "ryder"];
+  if (/golf/i.test(sport)) return ["golf", "ryder", "custom"];
   return [
     "round-robin",
     "swiss",
@@ -311,6 +317,7 @@ export function formatsForSport(sport: string): Format[] {
     "pool-bracket",
     "americano",
     "mexicano",
+    "custom",
   ];
 }
 

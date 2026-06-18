@@ -19,6 +19,7 @@ import { FormatInfo } from "@/components/FormatInfo";
 import { CommentsPanel } from "@/components/CommentsPanel";
 import { RyderView } from "@/components/RyderView";
 import { GolfView } from "@/components/GolfView";
+import { CustomView } from "@/components/CustomView";
 import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
@@ -167,6 +168,8 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && t.format === "ryder" && <RyderView t={t} />}
 
       {t.generated && t.format === "golf" && <GolfView t={t} />}
+
+      {t.generated && t.format === "custom" && <CustomView t={t} />}
 
       {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
     </div>

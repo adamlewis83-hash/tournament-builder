@@ -68,6 +68,11 @@ interface State {
     id: string,
     regs: { id: string; name: string; handicap: number | null; photo: string | null }[],
   ) => void;
+  addCustomMatch: (
+    id: string,
+    m: { sideA: string[]; sideB: string[]; round: number; court?: number },
+  ) => void;
+  removeMatch: (id: string, matchId: string) => void;
   setTeams: (id: string, teams: { name: string; members: string[] }[]) => void;
   setRyderTeams: (
     id: string,
@@ -162,6 +167,9 @@ function buildMatches(t: Tournament): Match[] {
 
     case "golf":
       return []; // golf uses the scorecard model, not matches
+
+    case "custom":
+      return []; // freeform: the host builds matches by hand
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -349,6 +357,41 @@ export const useStore = create<State>()(
             return { ...t, participants, updatedAt: Date.now() };
           }),
         })),
+
+      addCustomMatch: (id, m) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const order = t.matches.filter((x) => x.round === m.round).length;
+            const match: Match = {
+              id: uid(),
+              phase: "rr",
+              round: m.round,
+              order,
+              sideA: m.sideA,
+              sideB: m.sideB,
+              scoreA: null,
+              scoreB: null,
+              ...(m.court != null ? { court: m.court } : {}),
+            };
+            return { ...t, matches: [...t.matches, match], updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      removeMatch: (id, matchId) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? { ...t, matches: t.matches.filter((x) => x.id !== matchId), updatedAt: Date.now() }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
 
       setTeams: (id, teams) =>
         set((s) => ({
