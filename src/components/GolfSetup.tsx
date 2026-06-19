@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Course,
+  GOLF_MODE_BLURBS,
   GOLF_MODE_LABELS,
   GolfMode,
   GolfSegment,
@@ -144,6 +145,24 @@ export function GolfSetup({ t }: { t: Tournament }) {
       pars: pars.slice(0, holes),
       strokeIndex: si.slice(0, holes),
     });
+  }
+
+  // Drop in sample players/teams with varied handicaps so a format can be tested quickly.
+  function fillSample() {
+    const sample: PlayerRow[] = teamsMode
+      ? [
+          { name: "Team 1", handicap: "2" },
+          { name: "Team 2", handicap: "6" },
+          { name: "Team 3", handicap: "9" },
+          { name: "Team 4", handicap: "13" },
+        ]
+      : [
+          { name: "Player 1", handicap: "4" },
+          { name: "Player 2", handicap: "10" },
+          { name: "Player 3", handicap: "16" },
+          { name: "Player 4", handicap: "22" },
+        ];
+    setPlayers(sample);
   }
 
   const valid = players.filter((p) => p.name.trim()).length >= 1;
@@ -344,7 +363,16 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
       {/* Players + handicaps */}
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-semibold">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
+          <button
+            type="button"
+            onClick={fillSample}
+            className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+          >
+            Fill sample
+          </button>
+        </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           {isScramble
             ? "One team per line; handicap optional (one ball per team)."
@@ -414,6 +442,10 @@ export function GolfSetup({ t }: { t: Tournament }) {
               {GOLF_MODE_LABELS[m]}
             </button>
           ))}
+        </div>
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+          <span className="font-semibold">{GOLF_MODE_LABELS[mode]}:</span>{" "}
+          <span className="text-[var(--muted)]">{GOLF_MODE_BLURBS[mode]}</span>
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">
           Stroke / Stableford / Skins / Nassau share one scorecard — switch views anytime while you
