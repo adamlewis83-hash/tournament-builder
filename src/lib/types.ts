@@ -136,6 +136,7 @@ export interface Course {
 
 export interface GolfData {
   holes: number; // 9 or 18
+  startHole?: number; // first hole number played (1 for front/18-hole, 10 for back 9) — display only
   courseName?: string; // name of the course being played
   pars: number[]; // par for each hole
   strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)

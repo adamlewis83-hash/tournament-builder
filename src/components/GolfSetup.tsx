@@ -61,6 +61,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   );
   const isScramble = mode === "scramble";
   const [holes, setHoles] = useState<number>(t.golf?.holes ?? 18);
+  const [nine, setNine] = useState<"front" | "back">(
+    (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
+  );
   const [courseName, setCourseName] = useState(t.golf?.courseName ?? "");
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
@@ -97,9 +100,12 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
   function setHoleCount(n: number) {
     setHoles(n);
-    const c = defaultCourse(n);
-    setPars(c.pars);
-    setSi(c.strokeIndex);
+    // Always keep a full 18-hole par/SI set so both Front 9 and Back 9 are available.
+    if (pars.length < 18) {
+      const c = defaultCourse(18);
+      setPars(c.pars);
+      setSi(c.strokeIndex);
+    }
     setSegments(defaultSegments(n, teamMode));
   }
 
@@ -166,7 +172,23 @@ export function GolfSetup({ t }: { t: Tournament }) {
   }
 
   const valid = players.filter((p) => p.name.trim()).length >= 1;
-  const totalPar = pars.slice(0, holes).reduce((a, b) => a + b, 0);
+
+  // Front/Back 9 selection. Back 9 needs a full 18-hole course to slice from.
+  const has18 = pars.length >= 18;
+  const isBack = holes === 9 && nine === "back" && has18;
+  const offset = isBack ? 9 : 0;
+  // Re-rank a nine's stroke indexes to 1..9 so net handicap strokes allocate correctly.
+  const rerank = (vals: number[]) => {
+    const order = vals.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
+    const out = new Array<number>(vals.length);
+    order.forEach((o, r) => (out[o.i] = r + 1));
+    return out;
+  };
+  const activePars = pars.slice(offset, offset + holes);
+  const rawSi = si.slice(offset, offset + holes);
+  const activeSi = holes === 9 ? rerank(rawSi) : rawSi;
+  const startHole = offset + 1;
+  const totalPar = activePars.reduce((a, b) => a + b, 0);
 
   function handleGenerate() {
     patch(t.id, { config: { ...t.config, golfMode: mode } });
@@ -175,15 +197,17 @@ export function GolfSetup({ t }: { t: Tournament }) {
         .filter((p) => p.name.trim())
         .map((p) => ({ name: p.name.trim(), handicap: Number(p.handicap) || 0 })),
       holes,
-      pars: pars.slice(0, holes),
-      strokeIndex: si.slice(0, holes),
+      startHole,
+      pars: activePars,
+      strokeIndex: activeSi,
       courseName,
       segments: mode === "mixed" ? segments : undefined,
       teams: mode === "mixed" && teamMode,
     });
   }
 
-  const holeIdx = Array.from({ length: holes }, (_, i) => i);
+  // Editor columns map display position → full-array index (so Back 9 edits holes 10–18).
+  const holeIdx = Array.from({ length: holes }, (_, i) => offset + i);
 
   return (
     <div className="space-y-5">
@@ -291,6 +315,37 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 </button>
               ))}
             </div>
+            {holes === 9 && (
+              <div className="mt-2">
+                <div className="flex gap-2">
+                  {(
+                    [
+                      ["front", "Front 9", "Holes 1–9"],
+                      ["back", "Back 9", "Holes 10–18"],
+                    ] as const
+                  ).map(([val, label, sub]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setNine(val)}
+                      disabled={val === "back" && !has18}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition disabled:opacity-40 ${
+                        nine === val
+                          ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                          : "border-[var(--border)] hover:bg-[var(--hover)]"
+                      }`}
+                      title={val === "back" && !has18 ? "Needs an 18-hole course" : sub}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {nine === "back" ? "Playing holes 10–18" : "Playing holes 1–9"} — pars and stroke
+                  index match that nine.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

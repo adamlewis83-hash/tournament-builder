@@ -109,6 +109,7 @@ interface State {
     input: {
       players: { name: string; handicap: number }[];
       holes: number;
+      startHole?: number;
       pars?: number[];
       strokeIndex?: number[];
       courseName?: string;
@@ -593,6 +594,7 @@ export const useStore = create<State>()(
             if (input.pars && input.pars.length === golf.holes) golf.pars = input.pars;
             if (input.strokeIndex && input.strokeIndex.length === golf.holes)
               golf.strokeIndex = input.strokeIndex;
+            if (input.startHole && input.startHole > 1) golf.startHole = input.startHole;
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
             if (input.segments?.length) golf.segments = input.segments;
             if (input.teams) golf.teams = true;

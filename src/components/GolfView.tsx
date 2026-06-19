@@ -43,6 +43,8 @@ export function GolfView({ t }: { t: Tournament }) {
     `px-2 py-2 text-center tabular-nums font-bold ${on && v === best ? "text-[var(--win)]" : ""}`;
   const holes = Array.from({ length: g.holes }, (_, i) => i);
   const totalPar = g.pars.reduce((a, b) => a + b, 0);
+  const startHole = g.startHole ?? 1; // 10 for a back-9 round, else 1
+  const holeNo = (i: number) => startHole + i; // display hole number
 
   return (
     <div className="space-y-5">
@@ -89,7 +91,8 @@ export function GolfView({ t }: { t: Tournament }) {
               </Button>
               <div className="text-center">
                 <div className="text-xs text-[var(--muted)]">
-                  {g.courseName ? `${g.courseName} · ` : ""}Hole {h + 1} of {g.holes}
+                  {g.courseName ? `${g.courseName} · ` : ""}Hole {holeNo(h)}
+                  {startHole > 1 ? "" : ` of ${g.holes}`}
                 </div>
                 <div className="text-lg font-bold">
                   Par {g.pars[h]} <span className="text-[var(--muted)] font-normal text-sm">· SI {g.strokeIndex[h]}</span>
@@ -236,7 +239,7 @@ export function GolfView({ t }: { t: Tournament }) {
               </th>
               {holes.map((h) => (
                 <th key={h} className="px-1 py-1.5 text-center w-9 text-xs text-[var(--muted)]">
-                  {h + 1}
+                  {holeNo(h)}
                 </th>
               ))}
               <th className="px-2 py-1.5 text-center text-xs text-[var(--muted)]">Tot</th>
