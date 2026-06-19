@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FORMAT_BLURBS,
   FORMAT_LABELS,
@@ -53,7 +53,26 @@ const PLAYSTYLE_BLURBS: Record<string, string> = {
 
 export function FormatInfo({ t }: { t: Tournament }) {
   const [open, setOpen] = useState(false);
+  const [shift, setShift] = useState(0);
+  const popRef = useRef<HTMLDivElement>(null);
   const items = definitions(t);
+
+  // Nudge the popover horizontally so it never runs off either edge of the screen.
+  useEffect(() => {
+    if (!open) {
+      setShift(0);
+      return;
+    }
+    const el = popRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const m = 8;
+    let dx = 0;
+    if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right;
+    if (r.left + dx < m) dx = m - r.left;
+    if (dx) setShift(dx);
+  }, [open]);
+
   return (
     <span className="relative inline-flex">
       <button
@@ -67,7 +86,11 @@ export function FormatInfo({ t }: { t: Tournament }) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-7 z-40 w-72 max-w-[80vw] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm shadow-xl">
+          <div
+            ref={popRef}
+            style={shift ? { transform: `translateX(${shift}px)` } : undefined}
+            className="absolute right-0 top-7 z-40 w-72 max-w-[85vw] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm shadow-xl"
+          >
             {items.map((it, i) => (
               <div
                 key={i}

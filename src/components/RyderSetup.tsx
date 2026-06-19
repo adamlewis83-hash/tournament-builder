@@ -86,6 +86,17 @@ export function RyderSetup({ t }: { t: Tournament }) {
     }
   }
 
+  // Drop in two sample teams (with handicaps) and a few sessions so a cup can be tested fast.
+  function fillSample() {
+    setNameA("Team A");
+    setNameB("Team B");
+    setAText("Player 1, 8\nPlayer 2, 14\nPlayer 3, 20\nPlayer 4, 5");
+    setBText("Player 5, 6\nPlayer 6, 12\nPlayer 7, 18\nPlayer 8, 10");
+    setFoursomes(1);
+    setFourball(1);
+    setSingles(2);
+  }
+
   function handleGenerate() {
     patch(t.id, {
       config: {
@@ -271,7 +282,18 @@ export function RyderSetup({ t }: { t: Tournament }) {
       })()}
 
       {/* Teams */}
-      <div className="grid sm:grid-cols-2 gap-5">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold">Teams</h2>
+          <button
+            type="button"
+            onClick={fillSample}
+            className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+          >
+            Fill sample
+          </button>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-5">
         {[
           { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-[var(--brand)]", rows: aRows },
           { name: nameB, setName: setNameB, text: bText, setText: setBText, ring: "ring-rose-400/40", rows: bRows },
@@ -294,6 +316,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
             </p>
           </Card>
         ))}
+        </div>
       </div>
 
       <Card className="p-5">
