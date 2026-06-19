@@ -20,7 +20,9 @@ export function CustomView({ t }: { t: Tournament }) {
 
   const rounds = Array.from(new Set(t.matches.map((m) => m.round))).sort((x, y) => x - y);
   const maxRound = rounds.length ? rounds[rounds.length - 1] : 1;
-  const [round, setRound] = useState(maxRound);
+  // Keep the round field as raw text so it can be cleared/retyped; clamp to a real round only when used.
+  const [roundStr, setRoundStr] = useState(String(maxRound));
+  const round = Math.max(1, Number(roundStr) || 1);
 
   const aIds = t.participants.filter((p) => assign[p.id] === "A").map((p) => p.id);
   const bIds = t.participants.filter((p) => assign[p.id] === "B").map((p) => p.id);
@@ -172,8 +174,9 @@ export function CustomView({ t }: { t: Tournament }) {
                   <input
                     type="number"
                     min={1}
-                    value={round}
-                    onChange={(e) => setRound(Math.max(1, Number(e.target.value) || 1))}
+                    value={roundStr}
+                    onChange={(e) => setRoundStr(e.target.value)}
+                    onBlur={() => setRoundStr(String(round))}
                     className="mt-1 w-16 rounded-lg border border-[var(--border)] px-2 py-2 text-sm bg-[var(--surface)]"
                   />
                 </label>
