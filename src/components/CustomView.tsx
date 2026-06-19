@@ -26,6 +26,14 @@ export function CustomView({ t }: { t: Tournament }) {
   const bIds = t.participants.filter((p) => assign[p.id] === "B").map((p) => p.id);
   const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "";
 
+  // Players already scheduled in the selected round, and those still free.
+  const inRound = new Set(
+    t.matches.filter((m) => m.round === round).flatMap((m) => [...m.sideA, ...m.sideB]),
+  );
+  const remaining = t.participants.filter((p) => !inRound.has(p.id));
+  const roundMatchCount = t.matches.filter((m) => m.round === round).length;
+  const autoPairCount = Math.floor(remaining.length / 2);
+
   function setSide(id: string, side: "A" | "B") {
     setAssign((prev) => {
       const next = { ...prev };
@@ -38,6 +46,15 @@ export function CustomView({ t }: { t: Tournament }) {
   function add() {
     if (!aIds.length || !bIds.length) return;
     addCustomMatch(t.id, { sideA: aIds, sideB: bIds, round });
+    setAssign({});
+  }
+
+  // Pair every still-free player into 1v1 matchups in the current round.
+  function autoPair() {
+    const ids = remaining.map((p) => p.id);
+    for (let i = 0; i + 1 < ids.length; i += 2) {
+      addCustomMatch(t.id, { sideA: [ids[i]], sideB: [ids[i + 1]], round });
+    }
     setAssign({});
   }
 
@@ -99,7 +116,8 @@ export function CustomView({ t }: { t: Tournament }) {
               <h3 className="font-semibold text-sm">Build a match</h3>
               <p className="text-xs text-[var(--muted)]">
                 Tap each player onto <b className="text-[var(--brand)]">A</b> or{" "}
-                <b className="text-rose-400">B</b> — any singles, doubles, or team combination.
+                <b className="text-rose-400">B</b> — any singles, doubles, or team combination —
+                then <b>Add match</b>. Add as many matchups as you want to the same round.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {t.participants.map((p) => (
@@ -148,7 +166,7 @@ export function CustomView({ t }: { t: Tournament }) {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-end gap-2">
                 <label className="block">
                   <span className="text-xs font-medium text-[var(--muted)]">Round</span>
                   <input
@@ -159,10 +177,21 @@ export function CustomView({ t }: { t: Tournament }) {
                     className="mt-1 w-16 rounded-lg border border-[var(--border)] px-2 py-2 text-sm bg-[var(--surface)]"
                   />
                 </label>
-                <Button onClick={add} disabled={!aIds.length || !bIds.length} className="mt-auto">
+                <Button onClick={add} disabled={!aIds.length || !bIds.length}>
                   Add match
                 </Button>
+                {autoPairCount > 0 && (
+                  <Button variant="outline" onClick={autoPair}>
+                    Auto-pair {autoPairCount} more 1v1{autoPairCount > 1 ? "s" : ""}
+                  </Button>
+                )}
               </div>
+
+              <p className="text-xs text-[var(--muted)]">
+                <b>Round {round}:</b> {roundMatchCount} matchup{roundMatchCount === 1 ? "" : "s"} so far
+                {remaining.length > 0 &&
+                  ` · ${remaining.length} player${remaining.length === 1 ? "" : "s"} not yet playing this round`}
+              </p>
             </Card>
           )}
 
