@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Trophy } from "@/components/icons";
+import { Plus, Trophy } from "@/components/icons";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { sportEmoji } from "@/lib/sportEmoji";
@@ -29,28 +29,36 @@ export function TournamentList() {
 
   if (tournaments.length === 0) {
     return (
-      <Card bare className="p-10 text-center">
-        <div className="mb-3 flex justify-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
-            <Trophy className="h-7 w-7" />
+      <Card bare className="px-5 py-12 text-center">
+        <div className="mb-4 flex justify-center">
+          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-lg shadow-[var(--brand)]/25">
+            <Trophy className="h-8 w-8" />
           </span>
         </div>
-        <p className="font-semibold">No tournaments yet</p>
-        <p className="text-sm text-[var(--muted)]">
-          Hit <span className="text-[var(--brand)] font-medium">New</span> to get started —
-          here&apos;s how it works:
+        <h2 className="text-xl font-display font-bold">Start your first tournament</h2>
+        <p className="mx-auto mt-1.5 max-w-sm text-sm text-[var(--muted)]">
+          Any sport, any format — set it up in under a minute and score it live on every phone.
         </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3 max-w-xl mx-auto text-left">
+        <div className="mt-5 flex justify-center">
+          <Link
+            href="/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] px-6 py-3 font-semibold text-[var(--on-brand)] shadow-sm transition hover:opacity-95"
+          >
+            <Plus className="h-5 w-5" weight="bold" /> New Tournament
+          </Link>
+        </div>
+        <div className="mx-auto mt-9 grid max-w-2xl gap-3 text-left sm:grid-cols-3">
           {[
-            ["1", "Pick a sport & format"],
-            ["2", "Add players, share a code"],
-            ["3", "Score live, crown a champion"],
-          ].map(([n, t]) => (
-            <div key={n} className="rounded-xl bg-[var(--subtle)] p-3">
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--brand)] text-xs font-bold text-[var(--on-brand)]">
+            ["1", "Pick a sport & format", "Pickleball, golf, cornhole — 15+ formats built in."],
+            ["2", "Add players or share a code", "Type names, or let everyone self-register from their own phone."],
+            ["3", "Score live, crown a champion", "Brackets, standings and the winner update in real time."],
+          ].map(([n, title, desc]) => (
+            <div key={n} className="rounded-xl border border-[var(--border)] bg-[var(--subtle)] p-4">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--brand)] text-sm font-bold text-[var(--on-brand)]">
                 {n}
               </span>
-              <p className="mt-2 text-sm font-medium">{t}</p>
+              <p className="mt-2.5 text-sm font-semibold">{title}</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{desc}</p>
             </div>
           ))}
         </div>
