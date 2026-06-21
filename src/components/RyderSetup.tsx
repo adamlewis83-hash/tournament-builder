@@ -24,9 +24,14 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
-  const [foursomes, setFoursomes] = useState(t.config.ryderFoursomes ?? 0);
-  const [fourball, setFourball] = useState(t.config.ryderFourball ?? 0);
-  const [singles, setSingles] = useState(t.config.ryderSingles ?? 0);
+  // Session counts as raw text so a field can be cleared and retyped; clamp to 0–6 when used.
+  const [foursomes, setFoursomes] = useState(String(t.config.ryderFoursomes ?? 0));
+  const [fourball, setFourball] = useState(String(t.config.ryderFourball ?? 0));
+  const [singles, setSingles] = useState(String(t.config.ryderSingles ?? 0));
+  const clampN = (s: string) => Math.max(0, Math.min(6, Math.floor(Number(s) || 0)));
+  const nFoursomes = clampN(foursomes);
+  const nFourball = clampN(fourball);
+  const nSingles = clampN(singles);
 
   const toText = (team: 0 | 1) =>
     t.participants
@@ -86,24 +91,22 @@ export function RyderSetup({ t }: { t: Tournament }) {
     }
   }
 
-  // Drop in two sample teams (with handicaps) and a few sessions so a cup can be tested fast.
+  // Drop in two sample teams (with handicaps) so a cup can be tested fast.
+  // Sessions are left alone — the host chooses those (or builds them as the cup unfolds).
   function fillSample() {
     setNameA("Team A");
     setNameB("Team B");
     setAText("Player 1, 8\nPlayer 2, 14\nPlayer 3, 20\nPlayer 4, 5");
     setBText("Player 5, 6\nPlayer 6, 12\nPlayer 7, 18\nPlayer 8, 10");
-    setFoursomes(1);
-    setFourball(1);
-    setSingles(2);
   }
 
   function handleGenerate() {
     patch(t.id, {
       config: {
         ...t.config,
-        ryderFoursomes: foursomes,
-        ryderFourball: fourball,
-        ryderSingles: singles,
+        ryderFoursomes: nFoursomes,
+        ryderFourball: nFourball,
+        ryderSingles: nSingles,
       },
     });
     setRyderTeams(
@@ -330,9 +333,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
         </p>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Foursomes", value: foursomes, set: setFoursomes },
-            { label: "Fourball", value: fourball, set: setFourball },
-            { label: "Singles", value: singles, set: setSingles },
+            { label: "Foursomes", value: foursomes, set: setFoursomes, num: nFoursomes },
+            { label: "Fourball", value: fourball, set: setFourball, num: nFourball },
+            { label: "Singles", value: singles, set: setSingles, num: nSingles },
           ].map((s) => (
             <label key={s.label} className="block">
               <span className="text-sm font-medium">{s.label}</span>
@@ -341,7 +344,8 @@ export function RyderSetup({ t }: { t: Tournament }) {
                 min={0}
                 max={6}
                 value={s.value}
-                onChange={(e) => s.set(Math.max(0, Math.min(6, Number(e.target.value) || 0)))}
+                onChange={(e) => s.set(e.target.value)}
+                onBlur={() => s.set(String(s.num))}
                 className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-center bg-[var(--surface)]"
               />
             </label>
@@ -351,7 +355,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
       <div className="flex justify-end">
         <Button onClick={handleGenerate} disabled={!canGenerate} className="px-6 py-3">
-          {foursomes + fourball + singles === 0 ? "Start the cup →" : "Generate matches →"}
+          {nFoursomes + nFourball + nSingles === 0 ? "Start the cup →" : "Generate matches →"}
         </Button>
       </div>
     </div>
