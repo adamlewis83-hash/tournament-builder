@@ -277,6 +277,7 @@ export const FORMAT_BLURBS: Record<Format, string> = {
 // Common tournament-able sports/activities for the picklist. "Other…" is added
 // by the UI to allow any custom sport or non-sport bracket.
 export const SPORTS: string[] = [
+  "Golf",
   "Pickleball",
   "Tennis",
   "Table Tennis (Ping Pong)",
@@ -287,7 +288,6 @@ export const SPORTS: string[] = [
   "Volleyball",
   "Soccer",
   "Flag Football",
-  "Golf",
   "Disc Golf",
   "Darts",
   "Pool / Billiards",

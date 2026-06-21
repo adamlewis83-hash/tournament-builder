@@ -29,7 +29,7 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const router = useRouter();
   const createTournament = useStore((s) => s.createTournament);
   const [name, setName] = useState("");
-  const [sportChoice, setSportChoice] = useState<string>("Pickleball");
+  const [sportChoice, setSportChoice] = useState<string>("Golf");
   const [customSport, setCustomSport] = useState("");
   const [format, setFormat] = useState<Format>("round-robin");
   const [playStyle, setPlayStyle] = useState<PlayStyle>("doubles");
