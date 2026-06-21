@@ -3,12 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, Trophy } from "@/components/icons";
+import { SportIcon } from "@/components/SportIcon";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
-import { sportEmoji } from "@/lib/sportEmoji";
 import { getResult } from "@/lib/result";
 import { Badge, Button, Card } from "@/components/ui";
-import { Emoji } from "@/components/Emoji";
 
 const FORMAT_COLOR: Record<string, string> = {
   "round-robin": "blue",
@@ -31,8 +30,8 @@ export function TournamentList() {
     return (
       <Card bare className="px-5 py-12 text-center">
         <div className="mb-4 flex justify-center">
-          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)] shadow-lg shadow-[var(--brand)]/25">
-            <Trophy className="h-8 w-8" />
+          <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] shadow-lg shadow-[var(--brand)]/25">
+            <Trophy className="h-8 w-8 text-amber-300" />
           </span>
         </div>
         <h2 className="text-xl font-display font-bold">Start your first tournament</h2>
@@ -113,7 +112,9 @@ export function TournamentList() {
                     {res.complete && <Badge color="green">✓ Complete</Badge>}
                   </div>
                   <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
-                    <Emoji e={sportEmoji(t.sport)} className="h-5 w-5" />
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+                      <SportIcon sport={t.sport} className="h-5 w-5" />
+                    </span>
                     {t.name}
                   </h3>
                   <p className="text-sm text-[var(--muted)]">
