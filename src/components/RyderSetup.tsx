@@ -32,6 +32,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
   const nFoursomes = clampN(foursomes);
   const nFourball = clampN(fourball);
   const nSingles = clampN(singles);
+  const [courseSaved, setCourseSaved] = useState(false);
 
   const toText = (team: 0 | 1) =>
     t.participants
@@ -218,18 +219,20 @@ export function RyderSetup({ t }: { t: Tournament }) {
           </span>
           {course.courseName && (
             <Button
-              variant="outline"
-              className="px-2 py-1 text-xs inline-flex items-center gap-1.5"
-              onClick={() =>
+              variant="primary"
+              className="px-2.5 py-1 text-xs inline-flex items-center gap-1.5"
+              onClick={() => {
                 saveCourse({
                   name: course.courseName!,
                   holes: course.holes,
                   pars: course.pars.slice(0, course.holes),
                   strokeIndex: course.strokeIndex.slice(0, course.holes),
-                })
-              }
+                });
+                setCourseSaved(true);
+                setTimeout(() => setCourseSaved(false), 1800);
+              }}
             >
-              <Save className="h-3.5 w-3.5" /> Save
+              {courseSaved ? <>✓ Saved</> : <><Save className="h-3.5 w-3.5" /> Save</>}
             </Button>
           )}
         </div>

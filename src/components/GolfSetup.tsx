@@ -68,6 +68,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
   const [showCourse, setShowCourse] = useState(false);
+  const [courseSaved, setCourseSaved] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CourseSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -151,6 +152,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
       pars: pars.slice(0, holes),
       strokeIndex: si.slice(0, holes),
     });
+    setCourseSaved(true);
+    setTimeout(() => setCourseSaved(false), 1800);
   }
 
   // Drop in sample players/teams with varied handicaps so a format can be tested quickly.
@@ -405,12 +408,18 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
         <div className="mt-4 pt-3 border-t border-[var(--border)] flex items-center gap-3">
           <Button
-            variant="outline"
+            variant="primary"
             className="px-3 py-1.5 inline-flex items-center gap-1.5"
             onClick={saveCurrentCourse}
             disabled={!courseName.trim()}
           >
-            <Save className="h-4 w-4" /> Save course
+            {courseSaved ? (
+              <>✓ Saved</>
+            ) : (
+              <>
+                <Save className="h-4 w-4" /> Save course
+              </>
+            )}
           </Button>
           <span className="text-xs text-[var(--muted)]">Reuse its pars &amp; stroke index next time.</span>
         </div>
