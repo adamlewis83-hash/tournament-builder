@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESC,
   manifest: "/manifest.webmanifest",
+  verification: { google: "HhI-lAzcVQDgHEWOnGXaoGGytlrn5aO_77luWR1DNGU" },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Sporos" },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
