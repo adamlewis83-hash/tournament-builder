@@ -48,7 +48,7 @@ export default function Home() {
         aria-hidden
         className="pointer-events-none fixed inset-x-0 bottom-0 z-0 flex justify-center overflow-hidden pb-[10vh]"
       >
-        <SporosMark className="h-[55vmin] w-[55vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
+        <SporosMark className="h-[78vmin] w-[78vmin] max-w-none text-[var(--brand)] opacity-[0.05]" />
       </div>
       <HomeBody />
     </HydrationGate>
@@ -71,25 +71,35 @@ function HomeBody() {
   );
 }
 
-// Signed-in dashboard: welcome + quick actions + your tournaments (no marketing pitch).
+// Signed-in dashboard: a compact sport-photo banner + quick actions + your tournaments.
 function SignedInHome() {
   const router = useRouter();
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--brand)] font-bold">
-            Welcome back
-          </p>
-          <h1 className="text-2xl font-display font-bold">Your tournaments</h1>
-        </div>
-        <Button
-          onClick={() => router.push("/new")}
-          className="inline-flex items-center gap-2 shrink-0"
+      <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-1 overflow-hidden">
+        <SportBackdrop />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/20" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
+        <div
+          className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-12 sm:pt-14 sm:pb-14 text-white"
+          style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
         >
-          <Plus className="h-5 w-5" weight="bold" /> New Tournament
-        </Button>
-      </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-emerald-200 font-bold">
+                Welcome back
+              </p>
+              <h1 className="text-2xl sm:text-4xl font-display font-bold">Your tournaments</h1>
+            </div>
+            <Button
+              onClick={() => router.push("/new")}
+              className="inline-flex items-center gap-2 shrink-0"
+            >
+              <Plus className="h-5 w-5" weight="bold" /> New Tournament
+            </Button>
+          </div>
+        </div>
+      </section>
       <JoinByCode />
       <TournamentList />
     </div>
