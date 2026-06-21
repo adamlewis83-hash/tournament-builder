@@ -76,12 +76,12 @@ function SignedInHome() {
   const router = useRouter();
   return (
     <div className="space-y-6">
-      <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-1 overflow-hidden">
+      <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[46vh] w-screen -mt-6 mb-1 flex-col justify-end overflow-hidden sm:min-h-0">
         <SportBackdrop />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/20" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
         <div
-          className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-10 pb-12 sm:pt-14 sm:pb-14 text-white"
+          className="relative z-10 mx-auto w-full max-w-6xl px-5 sm:px-8 pt-10 pb-12 sm:pt-14 sm:pb-14 text-white"
           style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
         >
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -108,12 +108,12 @@ function SignedInHome() {
 
 function Hero({ onCreate }: { onCreate: () => void }) {
   return (
-    <section className="relative left-1/2 right-1/2 -mx-[50vw] w-screen -mt-6 mb-6 overflow-hidden">
+    <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[52vh] w-screen -mt-6 mb-6 flex-col justify-end overflow-hidden sm:min-h-0">
       <SportBackdrop />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/15" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
       <div
-        className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 pt-16 pb-14 sm:pt-24 sm:pb-20 text-white"
+        className="relative z-10 mx-auto w-full max-w-6xl px-5 sm:px-8 pt-16 pb-14 sm:pt-24 sm:pb-20 text-white"
         style={{ textShadow: "0 2px 16px rgba(0,0,0,0.55)" }}
       >
         <span className="inline-flex items-center gap-2 text-sm sm:text-base font-bold tracking-[0.22em] text-emerald-200">
