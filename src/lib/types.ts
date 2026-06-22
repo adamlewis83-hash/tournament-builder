@@ -343,3 +343,27 @@ export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {
   "doubles-fixed": "Doubles — fixed partners",
   teams: "Teams",
 };
+
+// Which play styles actually fit a given format. Only formats that pair up
+// fresh partners each round (round robin / pool play, and the always-doubles
+// social mixers) can honor "doubles — rotating partners". Every other format is
+// head-to-head between a fixed unit (a person, a fixed pair, or a team), so
+// rotating doubles is meaningless there and must NOT be offered — e.g. King of
+// the Court can't rotate partners mid-rally. Golf & Ryder Cup run their own
+// player/team setup and have no play-style picker.
+export function playStylesForFormat(format: Format): PlayStyle[] {
+  switch (format) {
+    case "golf":
+    case "ryder":
+      return [];
+    case "americano":
+    case "mexicano":
+      return ["doubles"]; // social mixers are always rotating-partner doubles
+    case "round-robin":
+    case "pool-bracket":
+      return ["singles", "doubles", "doubles-fixed", "teams"];
+    default:
+      // swiss, kotc, single-elim, double-elim, ladder, score-challenge, custom
+      return ["singles", "doubles-fixed", "teams"];
+  }
+}

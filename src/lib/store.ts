@@ -143,7 +143,7 @@ interface State {
 const isFinalsPhase = (m: Match) =>
   m.phase === "winners" || m.phase === "losers" || m.phase === "final" || m.phase === "championship";
 
-function buildMatches(t: Tournament): Match[] {
+export function buildMatches(t: Tournament): Match[] {
   const ids = t.participants.map((p) => p.id);
   const { rounds, courts, poolCount } = t.config;
 
@@ -904,7 +904,9 @@ export const useStore = create<State>()(
     },
     {
       name: "tournament-builder-v1",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage !== "undefined" ? localStorage : (undefined as unknown as Storage),
+      ),
       partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
