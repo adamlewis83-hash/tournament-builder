@@ -420,10 +420,31 @@ for (const sport of [...SPORTS, "Mario Kart", "Chili Cook-off", "Quidditch"]) {
     assert(typeof sportEmoji(sport) === "string" && sportEmoji(sport).length > 0, "no emoji");
     const fmts = formatsForSport(sport);
     assert(fmts.length > 0, "no formats");
-    if (/golf/i.test(sport)) assert(fmts.includes("golf"), "golf sport missing golf format");
-    else assert(fmts.includes("round-robin") && fmts.includes("americano"), "missing court formats");
+    if (/golf/i.test(sport))
+      assert(fmts.includes("golf"), "golf sport missing golf format");
+    else
+      // Universal base every non-golf sport must offer.
+      assert(
+        fmts.includes("round-robin") && fmts.includes("single-elim") && fmts.includes("custom"),
+        "missing base formats",
+      );
   });
 }
+
+// ---- Specialist formats are only offered where they fit ----
+const SPECIALIST_FIT: Record<string, { has: Format[]; lacks: Format[] }> = {
+  Pickleball: { has: ["americano", "mexicano", "kotc"], lacks: ["score-challenge"] },
+  "Pop-A-Shot": { has: ["score-challenge"], lacks: ["americano", "mexicano", "kotc"] },
+  Bowling: { has: ["score-challenge"], lacks: ["americano", "kotc"] },
+  Basketball: { has: ["kotc"], lacks: ["americano", "mexicano"] },
+  Chess: { has: [], lacks: ["americano", "mexicano", "kotc", "score-challenge"] },
+};
+for (const [sport, { has, lacks }] of Object.entries(SPECIALIST_FIT))
+  check(`format fit for "${sport}"`, () => {
+    const fmts = formatsForSport(sport);
+    for (const f of has) assert(fmts.includes(f), `${sport} should offer ${f}`);
+    for (const f of lacks) assert(!fmts.includes(f), `${sport} should NOT offer ${f}`);
+  });
 
 // ---- Semantic checks (would have caught past regressions) ----
 check("handicap stroke allocation", () => {

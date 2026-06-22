@@ -317,24 +317,59 @@ export const ALL_FORMATS: Format[] = [
   "ladder",
 ];
 
+// Specialist formats only fit certain kinds of sport, so they're layered onto a
+// universal base instead of shown everywhere:
+//  - kotc (winner-stays-on): fast games you "hold" a court/table/screen at.
+//  - americano/mexicano (rotating-partner 2v2): doubles-capable point games only.
+//  - score-challenge (post a number, high/low wins): solo-score games, not head-to-head.
+const KOTC_SPORTS = new Set([
+  "Pickleball",
+  "Tennis",
+  "Table Tennis (Ping Pong)",
+  "Badminton",
+  "Racquetball",
+  "Spikeball",
+  "Cornhole",
+  "Beer Pong",
+  "Foosball",
+  "Basketball",
+  "Volleyball",
+  "Soccer",
+  "Flag Football",
+  "Pool / Billiards",
+  "Video Games / Esports",
+]);
+const AMERICANO_SPORTS = new Set([
+  "Pickleball",
+  "Tennis",
+  "Table Tennis (Ping Pong)",
+  "Badminton",
+  "Racquetball",
+  "Spikeball",
+  "Cornhole",
+  "Beer Pong",
+  "Foosball",
+]);
+const SCORE_CHALLENGE_SPORTS = new Set([
+  "Bowling",
+  "Pop-A-Shot",
+  "Darts",
+  "Video Games / Esports",
+]);
+
 // Which formats make sense for a given sport. Golf-type sports get the golf
-// formats; everything else gets the court/bracket/social formats. "custom"
-// (build-your-own) is offered everywhere as the catch-all.
+// formats; everything else gets the universal bracket/round-robin base plus any
+// specialist formats that fit. "custom" (build-your-own) is offered everywhere.
 export function formatsForSport(sport: string): Format[] {
   if (/golf/i.test(sport)) return ["golf", "ryder", "score-challenge", "custom"];
-  return [
-    "round-robin",
-    "swiss",
-    "kotc",
-    "single-elim",
-    "double-elim",
-    "pool-bracket",
-    "americano",
-    "mexicano",
-    "ladder",
-    "score-challenge",
-    "custom",
-  ];
+  const out: Format[] = ["round-robin", "swiss"];
+  if (KOTC_SPORTS.has(sport)) out.push("kotc");
+  out.push("single-elim", "double-elim", "pool-bracket");
+  if (AMERICANO_SPORTS.has(sport)) out.push("americano", "mexicano");
+  out.push("ladder");
+  if (SCORE_CHALLENGE_SPORTS.has(sport)) out.push("score-challenge");
+  out.push("custom");
+  return out;
 }
 
 export const PLAYSTYLE_LABELS: Record<PlayStyle, string> = {
