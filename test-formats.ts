@@ -2,6 +2,7 @@
    Run: npx tsx test-formats.ts                                                            */
 import { genSinglesRR, genDoublesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./src/lib/schedule";
 import { genSingleElim, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
+import { buildMatches } from "./src/lib/store";
 import { genRyder, genRyderSession, ryderScore, RyderSessionType } from "./src/lib/ryder";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
@@ -23,6 +24,10 @@ import {
   Tournament,
   TournamentConfig,
   SegmentFormat,
+  PlayStyle,
+  Format,
+  ALL_FORMATS,
+  playStylesForFormat,
 } from "./src/lib/types";
 import { sportEmoji } from "./src/lib/sportEmoji";
 
@@ -225,6 +230,44 @@ for (const n of COUNTS)
     getResult(t);
   });
 
+// Fixed-doubles King of the Court: each side is a fixed PAIR (one unit id with
+// two members). The winning pair stays on, the losing pair rotates out, and a
+// champion pair is crowned — proving the option works end to end.
+for (const pairCount of [3, 4, 6])
+  check(`kotc fixed-doubles pairs=${pairCount}`, () => {
+    const P: Participant[] = Array.from({ length: pairCount }, (_, i) => ({
+      id: `u${i}`,
+      name: `Pair ${i + 1}`,
+      members: [`P${i * 2 + 1}`, `P${i * 2 + 2}`],
+    }));
+    const ids = P.map((p) => p.id);
+    const advanceCount = 3;
+    const ms: Match[] = [];
+    const first = genKotcNext(ids, [], 1);
+    if (first) ms.push(first);
+    for (let guard = 0; guard < 500; guard++) {
+      scorePlayable(ms);
+      // every game is a pair vs a pair — one unit id per side
+      ms.forEach((m) => assert(m.sideA.length === 1 && m.sideB.length === 1, "kotc side not a single unit"));
+      const standings = computeStandings(P, ms, "diff");
+      if (standings.reduce((mx, s) => Math.max(mx, s.wins), 0) >= advanceCount) break;
+      const g = genKotcNext(ids, ms, 1);
+      if (!g) break;
+      ms.push(g);
+      assert(guard < 499, "kotc fixed-doubles infinite loop");
+    }
+    validIds(ms, new Set(ids));
+    const t = tour({
+      format: "kotc",
+      playStyle: "doubles-fixed",
+      participants: P,
+      matches: ms,
+      config: cfg({ advanceCount }),
+    });
+    const r = getResult(t);
+    assert(r.complete && !!r.winner, "no champion pair crowned");
+  });
+
 // ---- Single & double elimination (incl. byes) ----
 for (const n of COUNTS.filter((n) => n >= 2)) {
   for (const tp of [false, true]) {
@@ -416,6 +459,60 @@ check("stroke winner is by net not gross", () => {
   const r = getResult(t);
   assert(r.winner === "Hacker", `net should win: got ${r.winner}`);
 });
+
+// ---- Format × play-style: only valid combinations are offered, and each one
+//      the create screen exposes actually produces correctly-shaped matches. ----
+// Rotating-partner "doubles" can only be honored where partners are re-drawn
+// each round; everywhere else a side is a fixed unit (person/pair/team).
+for (const fmt of ALL_FORMATS) {
+  check(`play styles offered for ${fmt}`, () => {
+    const opts = playStylesForFormat(fmt);
+    const rotating =
+      fmt === "round-robin" || fmt === "pool-bracket" || fmt === "americano" || fmt === "mexicano";
+    assert(
+      opts.includes("doubles") === rotating,
+      `${fmt}: rotating-doubles offered=${opts.includes("doubles")}, expected=${rotating}`,
+    );
+    if (fmt === "golf" || fmt === "ryder")
+      assert(opts.length === 0, `${fmt} should not show a play-style picker`);
+    else if (fmt === "americano" || fmt === "mexicano")
+      assert(opts.length === 1 && opts[0] === "doubles", `${fmt} is rotating-doubles only`);
+    else assert(opts.length >= 1 && opts.includes("singles"), `${fmt} should always allow singles`);
+  });
+}
+
+// Formats whose schedule is built up-front by the store's buildMatches().
+const MATCH_FORMATS: Format[] = [
+  "round-robin",
+  "swiss",
+  "kotc",
+  "single-elim",
+  "double-elim",
+  "pool-bracket",
+  "americano",
+  "mexicano",
+];
+for (const fmt of MATCH_FORMATS)
+  for (const style of playStylesForFormat(fmt) as PlayStyle[])
+    for (const n of [8, 12])
+      check(`buildMatches ${fmt} / ${style} n=${n}`, () => {
+        const P = players(n);
+        const t = tour({
+          format: fmt,
+          playStyle: style,
+          participants: P,
+          config: cfg({ rounds: 3, courts: 2, poolCount: 2 }),
+        });
+        const ms = buildMatches(t);
+        assert(ms.length > 0, "no matches generated");
+        validIds(ms.filter((m) => m.sideA.length && m.sideB.length), new Set(P.map((p) => p.id)));
+        // Rotating doubles puts two people on a side; every other style is 1 unit/side.
+        const want = style === "doubles" ? 2 : 1;
+        for (const m of ms) {
+          if (m.sideA.length) assert(m.sideA.length === want, `${fmt}/${style} sideA=${m.sideA.length}, want ${want}`);
+          if (m.sideB.length) assert(m.sideB.length === want, `${fmt}/${style} sideB=${m.sideB.length}, want ${want}`);
+        }
+      });
 
 // ---- Summary ----
 console.log(`\n${"=".repeat(50)}`);

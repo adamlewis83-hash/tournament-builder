@@ -11,11 +11,10 @@ import {
   formatsForSport,
   PlayStyle,
   PLAYSTYLE_LABELS,
+  playStylesForFormat,
   SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
-
-const STYLES: PlayStyle[] = ["singles", "doubles", "doubles-fixed", "teams"];
 
 const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
   doubles: "Individuals enter; partners rotate each round and standings track per person — great for pickleball/tennis socials.",
@@ -37,6 +36,12 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const sport =
     sportChoice === OTHER ? customSport.trim() || "Custom Tournament" : sportChoice;
   const available = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
+  const styleOptions = playStylesForFormat(format);
+
+  // Keep the play style valid for the chosen format (e.g. switching to King of
+  // the Court drops "rotating doubles", which it can't honor). Adjusting state
+  // during render is the React-recommended way to react to a derived change.
+  if (styleOptions.length && !styleOptions.includes(playStyle)) setPlayStyle(styleOptions[0]);
 
   // Keep the selected format valid for the chosen sport.
   useEffect(() => {
@@ -116,16 +121,10 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
         </div>
       </div>
 
-      <div
-        className={
-          format === "ryder" || format === "golf" || format === "americano" || format === "mexicano"
-            ? "hidden"
-            : ""
-        }
-      >
+      <div className={styleOptions.length <= 1 ? "hidden" : ""}>
         <span className="text-sm font-medium">Play style</span>
         <div className="mt-2 flex flex-wrap gap-2">
-          {STYLES.map((s) => (
+          {styleOptions.map((s) => (
             <button
               key={s}
               type="button"
