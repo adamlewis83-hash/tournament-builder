@@ -230,6 +230,44 @@ for (const n of COUNTS)
     getResult(t);
   });
 
+// Fixed-doubles King of the Court: each side is a fixed PAIR (one unit id with
+// two members). The winning pair stays on, the losing pair rotates out, and a
+// champion pair is crowned — proving the option works end to end.
+for (const pairCount of [3, 4, 6])
+  check(`kotc fixed-doubles pairs=${pairCount}`, () => {
+    const P: Participant[] = Array.from({ length: pairCount }, (_, i) => ({
+      id: `u${i}`,
+      name: `Pair ${i + 1}`,
+      members: [`P${i * 2 + 1}`, `P${i * 2 + 2}`],
+    }));
+    const ids = P.map((p) => p.id);
+    const advanceCount = 3;
+    const ms: Match[] = [];
+    const first = genKotcNext(ids, [], 1);
+    if (first) ms.push(first);
+    for (let guard = 0; guard < 500; guard++) {
+      scorePlayable(ms);
+      // every game is a pair vs a pair — one unit id per side
+      ms.forEach((m) => assert(m.sideA.length === 1 && m.sideB.length === 1, "kotc side not a single unit"));
+      const standings = computeStandings(P, ms, "diff");
+      if (standings.reduce((mx, s) => Math.max(mx, s.wins), 0) >= advanceCount) break;
+      const g = genKotcNext(ids, ms, 1);
+      if (!g) break;
+      ms.push(g);
+      assert(guard < 499, "kotc fixed-doubles infinite loop");
+    }
+    validIds(ms, new Set(ids));
+    const t = tour({
+      format: "kotc",
+      playStyle: "doubles-fixed",
+      participants: P,
+      matches: ms,
+      config: cfg({ advanceCount }),
+    });
+    const r = getResult(t);
+    assert(r.complete && !!r.winner, "no champion pair crowned");
+  });
+
 // ---- Single & double elimination (incl. byes) ----
 for (const n of COUNTS.filter((n) => n >= 2)) {
   for (const tp of [false, true]) {

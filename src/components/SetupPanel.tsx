@@ -143,14 +143,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const minNeeded =
     t.format === "double-elim"
       ? 4
-      : teamMode
-        ? 2
-        : isSocial
-          ? 4
-          : t.format === "round-robin" && isDoubles
+      : t.format === "kotc"
+        ? 3 // winner stays on, loser rotates out, next challenges — needs ≥3 sides
+        : teamMode
+          ? 2
+          : isSocial
             ? 4
-            : t.format === "kotc"
-              ? 3
+            : t.format === "round-robin" && isDoubles
+              ? 4
               : 2;
   const showThirdPlace =
     t.format === "single-elim" ||
@@ -481,7 +481,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
             <p className="text-sm text-amber-500 mb-2">
               {t.format === "double-elim"
                 ? `Double elimination needs at least 4 ${teamMode ? "teams" : "players"} — try Single Elimination for a smaller field.`
-                : `Add at least ${minNeeded} ${teamMode ? "teams" : "participants"} to generate.`}
+                : `Add at least ${minNeeded} ${isFixed ? "pairs" : teamMode ? "teams" : "participants"} to generate.`}
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
