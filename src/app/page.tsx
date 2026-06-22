@@ -76,7 +76,7 @@ function SignedInHome() {
   const router = useRouter();
   return (
     <div className="space-y-6">
-      <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[46vh] w-screen -mt-6 mb-1 flex-col justify-end overflow-hidden sm:min-h-0">
+      <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[46vh] w-screen -mt-6 mb-1 flex-col justify-end overflow-hidden sm:min-h-[300px]">
         <SportBackdrop />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/20" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
@@ -108,7 +108,7 @@ function SignedInHome() {
 
 function Hero({ onCreate }: { onCreate: () => void }) {
   return (
-    <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[52vh] w-screen -mt-6 mb-6 flex-col justify-end overflow-hidden sm:min-h-0">
+    <section className="relative left-1/2 right-1/2 -mx-[50vw] flex min-h-[52vh] w-screen -mt-6 mb-6 flex-col justify-end overflow-hidden sm:min-h-[360px]">
       <SportBackdrop />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/15" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[var(--background)]" />
