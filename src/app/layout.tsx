@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./globals.css";
 import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
+import { TopBar } from "@/components/TopBar";
 import { PullToRefresh } from "@/components/PullToRefresh";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
         <PullToRefresh />
         <CloudSync />
+        <TopBar />
         <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24">
           {children}
         </main>
