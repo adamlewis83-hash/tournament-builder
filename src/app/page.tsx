@@ -90,6 +90,9 @@ function SignedInHome() {
                 Welcome back
               </p>
               <h1 className="text-2xl sm:text-4xl font-display font-bold">Your tournaments</h1>
+              <p className="mt-1 text-sm font-display font-medium text-white/75">
+                Where competition takes root
+              </p>
             </div>
             <Button
               onClick={() => router.push("/new")}
