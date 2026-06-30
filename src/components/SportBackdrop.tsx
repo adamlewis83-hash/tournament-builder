@@ -1,23 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FALLBACK_BG_PHOTOS, type BgPhoto } from "@/lib/bgPhotos";
 
-interface BgPhoto {
-  url: string;
-  credit: string;
-  creditUrl: string;
-}
+const CACHE_KEY = "sporos-bg-v1";
 
 // Cycling sport photos that fill their (relatively-positioned) parent.
+// Starts from a baked-in set so the hero paints INSTANTLY (no waiting on /api/bg),
+// then refreshes with fresh, properly-credited photos in the background.
 export function SportBackdrop() {
-  const [photos, setPhotos] = useState<BgPhoto[]>([]);
+  const [photos, setPhotos] = useState<BgPhoto[]>(FALLBACK_BG_PHOTOS);
   const [i, setI] = useState(0);
+  const [loaded, setLoaded] = useState(2); // load images progressively, not all at once
 
   useEffect(() => {
+    // Prefer last session's photos (already in the browser cache → instant), then
+    // refresh from the API and re-cache.
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      if (Array.isArray(cached) && cached.length) setPhotos(cached);
+    } catch {}
     fetch("/api/bg")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.photos?.length) setPhotos(d.photos);
+        if (d?.photos?.length) {
+          setPhotos(d.photos);
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(d.photos));
+          } catch {}
+        }
       })
       .catch(() => {});
   }, []);
@@ -27,6 +38,12 @@ export function SportBackdrop() {
     const id = setInterval(() => setI((v) => (v + 1) % photos.length), 5000);
     return () => clearInterval(id);
   }, [photos.length]);
+
+  // Grow the loaded set just ahead of the current slide so the first image paints
+  // without competing with the other ten for bandwidth.
+  useEffect(() => {
+    setLoaded((l) => Math.max(l, i + 2));
+  }, [i]);
 
   if (!photos.length) return <div className="absolute inset-0 bg-[var(--brand-strong)]" />;
   const cur = photos[i];
@@ -40,7 +57,7 @@ export function SportBackdrop() {
           className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[2000ms] ${
             idx === i ? "opacity-100" : "opacity-0"
           }`}
-          style={{ backgroundImage: `url(${p.url})` }}
+          style={idx < loaded ? { backgroundImage: `url(${p.url})` } : undefined}
         />
       ))}
       <a
