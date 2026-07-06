@@ -1,22 +1,24 @@
 "use client";
 
 import { Match, Participant } from "@/lib/types";
+import { colorFor } from "@/lib/colors";
 
 // A classic visual bracket: boxes per match, connector lines feeding the next round.
 // Read-only (score in the Cards view). Handles the single-elim winners/final tree;
 // any losers/placement matches are shown by the card view instead.
-const BOX_W = 168;
-const BOX_H = 56;
-const COL_GAP = 44;
-const ROW_GAP = 18;
+const BOX_W = 200;
+const BOX_H = 64;
+const COL_GAP = 48;
+const ROW_GAP = 20;
+const HEADER_H = 30; // round-name row above each column
 
 function name(ids: string[], label: string | undefined, participants: Participant[]): string {
-  if (!ids.length) return label || "—";
+  if (!ids.length) return label || "TBD";
   return (
     ids
       .map((id) => participants.find((p) => p.id === id)?.name)
       .filter(Boolean)
-      .join(" / ") || label || "—"
+      .join(" / ") || label || "TBD"
   );
 }
 
@@ -81,11 +83,32 @@ export function BracketDiagram({
 
   const colX = (c: number) => c * (BOX_W + COL_GAP);
   const totalW = colX(byRound.length - 1) + BOX_W;
-  const totalH = Math.max(...[...yMid.values()]) + BOX_H / 2 + ROW_GAP;
+  const totalH = HEADER_H + Math.max(...[...yMid.values()]) + BOX_H / 2 + ROW_GAP;
+
+  // Name columns from the end of the tree so byes/odd first rounds don't mislabel.
+  const roundTitle = (ri: number) => {
+    const fromEnd = byRound.length - 1 - ri;
+    if (fromEnd === 0) return "Final";
+    if (fromEnd === 1) return "Semifinals";
+    if (fromEnd === 2) return "Quarterfinals";
+    const n = byRound[ri].length * 2;
+    return Number.isInteger(Math.log2(n)) ? `Round of ${n}` : `Round ${rounds[ri]}`;
+  };
 
   return (
     <div className="overflow-x-auto pb-2">
       <div className="relative" style={{ width: totalW, height: totalH }}>
+        {/* Round headers */}
+        {byRound.map((_, ri) => (
+          <div
+            key={ri}
+            className="absolute top-0 text-center text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]"
+            style={{ left: colX(ri), width: BOX_W }}
+          >
+            {roundTitle(ri)}
+          </div>
+        ))}
+
         <svg className="absolute inset-0 pointer-events-none" width={totalW} height={totalH}>
           {byRound.map((round, ri) =>
             ri === 0
@@ -95,9 +118,9 @@ export function BracketDiagram({
                   const px = colX(ri);
                   const fx = colX(ri - 1) + BOX_W;
                   const midx = (fx + px) / 2;
-                  const py = yMid.get(m.id)!;
+                  const py = yMid.get(m.id)! + HEADER_H;
                   const d = feeders
-                    .map((f) => `M ${fx} ${yMid.get(f.id)!} H ${midx} V ${py}`)
+                    .map((f) => `M ${fx} ${yMid.get(f.id)! + HEADER_H} H ${midx} V ${py}`)
                     .join(" ");
                   return (
                     <path
@@ -117,39 +140,65 @@ export function BracketDiagram({
             const decided = m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB;
             const aWin = decided && (m.scoreA as number) > (m.scoreB as number);
             const bWin = decided && (m.scoreB as number) > (m.scoreA as number);
+            const isFinal = ri === byRound.length - 1;
             const Row = ({
               ids,
               label,
               score,
               win,
+              lose,
             }: {
               ids: string[];
               label?: string;
               score: number | null;
               win: boolean;
-            }) => (
-              <div
-                className={`flex items-center justify-between gap-1 px-2 h-[27px] text-xs ${
-                  win ? "font-bold text-[var(--win)]" : "text-[var(--foreground)]"
-                }`}
-              >
-                <span className="truncate">{name(ids, label, participants)}</span>
-                <span className="tabular-nums shrink-0">{score ?? ""}</span>
-              </div>
-            );
+              lose: boolean;
+            }) => {
+              const display = name(ids, label, participants);
+              const pending = !ids.length;
+              return (
+                <div
+                  className={`flex flex-1 items-center justify-between gap-1.5 px-2.5 text-xs ${
+                    win
+                      ? "bg-[var(--brand-soft)] font-bold text-[var(--win)]"
+                      : lose
+                        ? "text-[var(--muted)]"
+                        : pending
+                          ? "italic text-[var(--muted)]"
+                          : "text-[var(--foreground)]"
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {ids.length > 0 && (
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: colorFor(participants, ids[0]) }}
+                      />
+                    )}
+                    <span className="truncate">
+                      {win && isFinal ? "🏆 " : ""}
+                      {display}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums">{score ?? ""}</span>
+                </div>
+              );
+            };
             return (
               <div
                 key={m.id}
-                className="absolute rounded-md border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex flex-col justify-center divide-y divide-[var(--border)]"
+                className={`absolute flex flex-col justify-center divide-y divide-[var(--border)] overflow-hidden rounded-xl border bg-[var(--surface)] shadow-sm ${
+                  isFinal && decided ? "border-[var(--brand)]/50 ring-1 ring-[var(--brand)]/30" : "border-[var(--border)]"
+                }`}
                 style={{
                   left: colX(ri),
-                  top: yMid.get(m.id)! - BOX_H / 2,
+                  top: HEADER_H + yMid.get(m.id)! - BOX_H / 2,
                   width: BOX_W,
                   height: BOX_H,
                 }}
               >
-                <Row ids={m.sideA} label={m.sideALabel} score={m.scoreA} win={aWin} />
-                <Row ids={m.sideB} label={m.sideBLabel} score={m.scoreB} win={bWin} />
+                <Row ids={m.sideA} label={m.sideALabel} score={m.scoreA} win={aWin} lose={bWin} />
+                <Row ids={m.sideB} label={m.sideBLabel} score={m.scoreB} win={bWin} lose={aWin} />
               </div>
             );
           }),
