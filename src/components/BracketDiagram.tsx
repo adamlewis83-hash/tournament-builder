@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { colorFor } from "@/lib/colors";
 
@@ -85,6 +86,21 @@ export function BracketDiagram({
   const totalW = colX(byRound.length - 1) + BOX_W;
   const totalH = HEADER_H + Math.max(...[...yMid.values()]) + BOX_H / 2 + ROW_GAP;
 
+  // On narrow screens the tree is wider than the viewport and iOS hides scrollbars,
+  // which reads as "later rounds are missing." Default to scaling the whole bracket
+  // to fit the container, with a toggle to full size (scrollable) for detail.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  useEffect(() => {
+    const measure = () => setContainerW(wrapRef.current?.clientWidth ?? 0);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  const overflows = containerW > 0 && totalW > containerW;
+  const scale = overflows && !zoomed ? containerW / totalW : 1;
+
   // Name columns from the end of the tree so byes/odd first rounds don't mislabel.
   const roundTitle = (ri: number) => {
     const fromEnd = byRound.length - 1 - ri;
@@ -96,8 +112,24 @@ export function BracketDiagram({
   };
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="relative" style={{ width: totalW, height: totalH }}>
+    <div ref={wrapRef}>
+      {overflows && (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setZoomed((z) => !z)}
+            className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--muted)] hover:bg-[var(--hover)]"
+          >
+            {zoomed ? "Fit to screen" : "Zoom in 🔍"}
+          </button>
+        </div>
+      )}
+      <div className={zoomed ? "overflow-x-auto pb-2" : "overflow-hidden"}>
+        <div style={{ width: totalW * scale, height: totalH * scale }}>
+          <div
+            className="relative origin-top-left"
+            style={{ width: totalW, height: totalH, transform: scale !== 1 ? `scale(${scale})` : undefined }}
+          >
         {/* Round headers */}
         {byRound.map((_, ri) => (
           <div
@@ -203,6 +235,8 @@ export function BracketDiagram({
             );
           }),
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
