@@ -48,7 +48,7 @@ export function ShareBar({ t }: { t: Tournament }) {
   }
 
   return (
-    <div className="no-print flex items-center gap-2">
+    <div className="no-print flex flex-wrap items-center gap-2">
       {msg && <span className="text-xs font-medium text-[var(--win)]">{msg}</span>}
       <ScorePhotoButton t={t} />
       <Button

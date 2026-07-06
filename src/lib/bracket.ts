@@ -124,9 +124,10 @@ export function bracketChampion(matches: Match[]): string[] | null {
     if ((grandFinal.scoreB as number) > (grandFinal.scoreA as number)) return null;
     return grandFinal.sideA;
   }
-  // Single elim: the lone match nothing feeds out of, in the last winners round.
-  const fedFrom = new Set(matches.map((m) => m.nextMatchId).filter(Boolean));
-  const terminal = matches.filter((m) => m.phase === "winners" && !fedFrom.has(m.id));
+  // Single elim: the match that feeds into nothing (the final), in the last winners round.
+  // (Testing for "no feeders into it" instead would match FIRST-round games and crown a
+  // champion the moment any opening match was scored.)
+  const terminal = matches.filter((m) => m.phase === "winners" && !m.nextMatchId);
   const finalM = terminal.sort((a, b) => b.round - a.round)[0];
   if (!finalM || !decided(finalM)) return null;
   return (finalM.scoreA as number) > (finalM.scoreB as number) ? finalM.sideA : finalM.sideB;

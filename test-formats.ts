@@ -447,6 +447,21 @@ for (const [sport, { has, lacks }] of Object.entries(SPECIALIST_FIT))
   });
 
 // ---- Semantic checks (would have caught past regressions) ----
+// bracketChampion once matched matches with no FEEDERS (first-round games) instead of
+// no NEXT match (the final) — crowning a champion the moment an opening game was scored.
+check("no premature champion from a first-round result", () => {
+  const P = players(8);
+  const ms = genSingleElim(P.map((p) => p.id), "winners", {});
+  const r1 = ms.filter((m) => m.round === 1 && m.sideA.length && m.sideB.length);
+  assert(r1.length > 0, "no round-1 matches");
+  r1[0].scoreA = 11;
+  r1[0].scoreB = 5;
+  const t = tour({ format: "single-elim", participants: P, matches: ms });
+  const r = getResult(t);
+  assert(!r.complete && !r.winner, "champion crowned from a first-round result");
+  assert(bracketChampion(ms) === null, "bracketChampion returned a champion prematurely");
+});
+
 check("handicap stroke allocation", () => {
   for (let si = 1; si <= 18; si++) assert(holeStrokes(18, si, 18) === 1, `hcp18 si${si} should be 1`);
   assert(holeStrokes(0, 1, 18) === 0, "hcp0 should give no strokes");
