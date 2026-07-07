@@ -6,6 +6,10 @@ import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SyncPanel } from "@/components/SyncPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
+import { getProfile, setProfile, type Profile } from "@/lib/profile";
+import { resizePhoto } from "@/lib/image";
+import { colorForName } from "@/lib/colors";
+import { Avatar } from "@/components/Avatar";
 
 function applyTheme(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -43,6 +47,64 @@ function ThemeSetting() {
           <Icon className="h-5 w-5" /> {label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function ProfileSetting() {
+  const [prof, setProf] = useState<Profile>(getProfile);
+  function save(next: Profile) {
+    setProf(next);
+    setProfile(next);
+  }
+  async function pick(file: File | null) {
+    if (!file) return;
+    try {
+      save({ ...prof, photo: await resizePhoto(file) });
+    } catch {
+      /* unreadable image */
+    }
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <label className="cursor-pointer shrink-0" title="Set your photo">
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            pick(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+        <Avatar
+          name={prof.name || "?"}
+          color={colorForName(prof.name || "?")}
+          photo={prof.photo ?? undefined}
+          className="h-14 w-14 text-lg"
+        />
+      </label>
+      <div className="flex-1 min-w-0">
+        <input
+          value={prof.name}
+          onChange={(e) => save({ ...prof, name: e.target.value })}
+          placeholder="Your player name"
+          className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+        />
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Tap the circle to set your photo. It auto-loads onto you (matched by this name) in
+          tournaments you start, and pre-fills when you join by code.
+        </p>
+      </div>
+      {prof.photo && (
+        <button
+          type="button"
+          onClick={() => save({ ...prof, photo: null })}
+          className="text-xs text-[var(--muted)] hover:text-rose-400 shrink-0"
+        >
+          Remove
+        </button>
+      )}
     </div>
   );
 }
@@ -100,6 +162,14 @@ export default function SettingsPage() {
       </h1>
 
       <Card className="p-5 space-y-3">
+        <div>
+          <h2 className="font-semibold">Your profile</h2>
+          <p className="text-sm text-[var(--muted)]">Your name and photo, everywhere you play.</p>
+        </div>
+        <ProfileSetting />
+      </Card>
+
+      <Card className="p-5 mt-4 space-y-3">
         <div>
           <h2 className="font-semibold">Appearance</h2>
           <p className="text-sm text-[var(--muted)]">Choose light or dark mode.</p>

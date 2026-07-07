@@ -201,14 +201,25 @@ function Side({
   const members = ps.flatMap((p) => p.members ?? []);
   return (
     <span className="flex items-center gap-1.5 min-w-0">
-      <span className="flex -space-x-1 shrink-0">
-        {ids.map((id) => (
-          <span
-            key={id}
-            className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40"
-            style={{ background: colorFor(participants, id) }}
-          />
-        ))}
+      <span className="flex -space-x-1 items-center shrink-0">
+        {ids.map((id) => {
+          const photo = participants.find((p) => p.id === id)?.photo;
+          return photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={id}
+              src={photo}
+              alt=""
+              className="h-5 w-5 rounded-full object-cover ring-1 ring-black/30"
+            />
+          ) : (
+            <span
+              key={id}
+              className="h-2.5 w-2.5 rounded-full ring-1 ring-black/40"
+              style={{ background: colorFor(participants, id) }}
+            />
+          );
+        })}
       </span>
       <span className="min-w-0">
         <span className="block text-sm truncate">{ps.map((p) => p.name).join(" / ")}</span>

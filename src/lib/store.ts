@@ -23,6 +23,7 @@ import {
   propagateBracket,
 } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
+import { applyProfilePhoto } from "./profile";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 const DEFAULT_CONFIG: TournamentConfig = {
@@ -347,10 +348,12 @@ export const useStore = create<State>()(
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
             const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
-            const participants: Participant[] = names
-              .map((n) => n.trim())
-              .filter(Boolean)
-              .map((n) => existing.get(n.toLowerCase()) ?? { id: uid(), name: n });
+            const participants: Participant[] = applyProfilePhoto(
+              names
+                .map((n) => n.trim())
+                .filter(Boolean)
+                .map((n) => existing.get(n.toLowerCase()) ?? { id: uid(), name: n }),
+            );
             return { ...t, participants, updatedAt: Date.now() };
           }),
         })),
@@ -503,7 +506,7 @@ export const useStore = create<State>()(
                   team,
                   handicap: r.handicap,
                 }));
-            const participants = [...build(teamA, 0), ...build(teamB, 1)];
+            const participants = applyProfilePhoto([...build(teamA, 0), ...build(teamB, 1)]);
             const ryderGolf = {
               holes: course.holes,
               pars: course.pars,
@@ -581,13 +584,15 @@ export const useStore = create<State>()(
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
             const existing = new Map(t.participants.map((p) => [p.name.toLowerCase(), p]));
-            const participants: Participant[] = input.players
-              .filter((p) => p.name.trim())
-              .map((p) => ({
-                ...(existing.get(p.name.trim().toLowerCase()) ?? { id: uid(), name: p.name.trim() }),
-                name: p.name.trim(),
-                handicap: p.handicap,
-              }));
+            const participants: Participant[] = applyProfilePhoto(
+              input.players
+                .filter((p) => p.name.trim())
+                .map((p) => ({
+                  ...(existing.get(p.name.trim().toLowerCase()) ?? { id: uid(), name: p.name.trim() }),
+                  name: p.name.trim(),
+                  handicap: p.handicap,
+                })),
+            );
             const golf = defaultGolf(
               input.holes,
               participants.map((p) => p.id),

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchLive, registerPlayer } from "@/lib/live";
 import { resizePhoto } from "@/lib/image";
+import { getProfile } from "@/lib/profile";
 import { Button, Card } from "@/components/ui";
 import { Tournament } from "@/lib/types";
 
@@ -24,6 +25,14 @@ export default function JoinPage() {
     if (!code) return;
     fetchLive(code).then((s) => setTourney(s ? (s.data as Tournament) : null));
   }, [code]);
+
+  // Pre-fill from the saved profile (Settings → Your profile) — after mount to
+  // keep server and first client render identical.
+  useEffect(() => {
+    const prof = getProfile();
+    if (prof.name) setName((n) => n || prof.name);
+    if (prof.photo) setPhoto((p) => p || prof.photo);
+  }, []);
 
   const isGolf = tourney?.format === "golf";
 
