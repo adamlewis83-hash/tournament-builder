@@ -5,6 +5,7 @@ import { Sun, Moon, Settings as SettingsIcon } from "@/components/icons";
 import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SyncPanel } from "@/components/SyncPanel";
+import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
 
 function applyTheme(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -46,6 +47,48 @@ function ThemeSetting() {
   );
 }
 
+function HomeLayoutSetting() {
+  const [prefs, setPrefs] = useState<HomePrefs>(getHomePrefs);
+  function toggle(k: keyof HomePrefs) {
+    const next = { ...prefs, [k]: !prefs[k] };
+    setPrefs(next);
+    setHomePrefs(next);
+  }
+  const rows: [keyof HomePrefs, string, string][] = [
+    ["banner", "Sports photo banner", "The rotating sports photos at the top of Home."],
+    ["join", "Join a live tournament", "The join-by-code card for hopping into live events."],
+  ];
+  return (
+    <div className="divide-y divide-[var(--border)]">
+      {rows.map(([k, title, desc]) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => toggle(k)}
+          className="flex w-full items-center justify-between gap-3 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">{title}</span>
+            <span className="block text-xs text-[var(--muted)]">{desc}</span>
+          </span>
+          <span
+            className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+              prefs[k] ? "bg-[var(--brand)]" : "bg-[var(--border)]"
+            }`}
+            aria-hidden
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                prefs[k] ? "left-[22px]" : "left-0.5"
+              }`}
+            />
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <HydrationGate>
@@ -68,11 +111,12 @@ export default function SettingsPage() {
         <SyncPanel />
       </div>
 
-      <Card className="p-5 mt-4">
-        <h2 className="font-semibold">Home layout</h2>
-        <p className="text-sm text-[var(--muted)]">
-          More controls coming soon — you&apos;ll be able to choose what shows on your Home screen.
-        </p>
+      <Card className="p-5 mt-4 space-y-3">
+        <div>
+          <h2 className="font-semibold">Home layout</h2>
+          <p className="text-sm text-[var(--muted)]">Choose what shows on your Home screen.</p>
+        </div>
+        <HomeLayoutSetting />
       </Card>
     </HydrationGate>
   );

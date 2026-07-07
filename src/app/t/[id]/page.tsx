@@ -26,6 +26,7 @@ import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
 import { LivePanel } from "@/components/LivePanel";
+import { PlayerPhotos } from "@/components/PlayerPhotos";
 import { useLiveSync } from "@/hooks/useLiveSync";
 
 export default function TournamentPage() {
@@ -178,6 +179,8 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && t.format === "ladder" && <LadderView t={t} />}
 
       {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
+
+      {t.generated && !t.spectator && <PlayerPhotos t={t} />}
     </div>
   );
 }
