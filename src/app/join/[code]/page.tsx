@@ -34,6 +34,13 @@ export default function JoinPage() {
     if (prof.photo) setPhoto((p) => p || prof.photo);
   }, []);
 
+  // Golf events also pre-fill your saved handicap (once the tournament loads).
+  useEffect(() => {
+    const prof = getProfile();
+    if (tourney?.format === "golf" && prof.golfHandicap != null)
+      setHandicap((h) => (h === "" ? String(prof.golfHandicap) : h));
+  }, [tourney]);
+
   const isGolf = tourney?.format === "golf";
 
   const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);

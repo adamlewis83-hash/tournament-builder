@@ -227,6 +227,24 @@ export function RyderView({ t }: { t: Tournament }) {
   const winnerName = score.status === "a-wins" ? nameA : score.status === "b-wins" ? nameB : null;
   const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
 
+  // Live projection: official points plus in-progress matches counted as they stand
+  // now (leader gets the point, all-square splits) — updates hole by hole.
+  let liveA = score.a;
+  let liveB = score.b;
+  let inPlay = 0;
+  for (const m of ryder) {
+    if (m.scoreA !== null || m.scoreB !== null) continue; // decided → already counted
+    const st = matchStatus(t, m);
+    if (st.thru === 0) continue; // not started
+    inPlay++;
+    if (st.upA > st.upB) liveA += 1;
+    else if (st.upB > st.upA) liveB += 1;
+    else {
+      liveA += 0.5;
+      liveB += 0.5;
+    }
+  }
+
   return (
     <div className="space-y-5">
       {!editing && (winnerName || score.status === "tie") && (
@@ -266,6 +284,17 @@ export function RyderView({ t }: { t: Tournament }) {
         <div className="mt-3 h-2 rounded-full bg-rose-400/30 overflow-hidden">
           <div className="h-full bg-[var(--brand)]" style={{ width: `${score.total ? (score.a / score.total) * 100 : 50}%` }} />
         </div>
+        {inPlay > 0 && (
+          <p className="text-center text-sm mt-2.5 font-medium">
+            <span className="text-[var(--muted)]">On the course now:</span>{" "}
+            <span className="font-bold text-[var(--brand)] tabular-nums">{fmt(liveA)}</span>
+            <span className="text-[var(--muted)]"> – </span>
+            <span className="font-bold text-rose-300 tabular-nums">{fmt(liveB)}</span>{" "}
+            <span className="text-xs text-[var(--muted)]">
+              if the {inPlay} live match{inPlay > 1 ? "es hold" : " holds"}
+            </span>
+          </p>
+        )}
         <p className="text-center text-xs text-[var(--muted)] mt-2">
           {score.status === "in-progress"
             ? `${fmt(score.clinch)} points wins the cup · ${score.played}/${score.total} matches played`

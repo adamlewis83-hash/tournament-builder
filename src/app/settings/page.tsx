@@ -103,9 +103,27 @@ function ProfileSetting() {
           placeholder="Your player name"
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
         />
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs font-medium text-[var(--muted)]">Golf handicap</span>
+          <input
+            type="number"
+            step="0.1"
+            inputMode="decimal"
+            value={prof.golfHandicap ?? ""}
+            onChange={(e) =>
+              save({
+                ...prof,
+                golfHandicap: e.target.value === "" ? null : Number(e.target.value),
+              })
+            }
+            placeholder="—"
+            className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm text-center bg-[var(--surface)]"
+          />
+          <span className="text-[10px] text-[var(--muted)]">auto-fills golf events</span>
+        </div>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Tap the circle to pick your color or add a photo. It auto-loads onto you (matched by
-          this name) in tournaments you start, and pre-fills when you join by code.
+          Tap the circle to pick your color or add a photo. Everything here auto-loads onto you
+          (matched by this name) in tournaments you start, and pre-fills when you join by code.
         </p>
       </div>
       {prof.photo && (

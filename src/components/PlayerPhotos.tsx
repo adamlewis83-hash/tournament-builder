@@ -15,11 +15,13 @@ import { Card } from "./ui";
 export function PlayerPhotos({ t }: { t: Tournament }) {
   const setPhoto = useStore((s) => s.setParticipantPhoto);
   const setColor = useStore((s) => s.setParticipantColor);
+  const setHandicap = useStore((s) => s.setGolfHandicap);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<{ pid: string; file: File } | null>(null);
   const [choosing, setChoosing] = useState<string | null>(null); // participant id
   if (t.spectator || t.participants.length === 0) return null;
 
+  const golfy = t.format === "golf" || t.format === "ryder"; // handicaps apply
   const chooser = choosing ? t.participants.find((p) => p.id === choosing) : null;
 
   return (
@@ -55,16 +57,19 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between text-left"
       >
-        <span className="font-semibold text-sm">Player photos &amp; colors</span>
+        <span className="font-semibold text-sm">
+          {golfy ? "Players — photos, colors & handicaps" : "Player photos & colors"}
+        </span>
         <span className="text-xs text-[var(--muted)]">
-          {open ? "▾ Hide" : "▸ Customize player avatars"}
+          {open ? "▾ Hide" : "▸ Customize players"}
         </span>
       </button>
       {open && (
         <>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Tap a player to pick their circle color or add a photo — shown on match cards,
-            standings, and brackets.
+            Tap a player to pick their circle color or add a photo
+            {golfy ? "; edit handicaps here anytime — net scores update instantly" : ""} — shown
+            on match cards, standings, and brackets.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {t.participants.map((p) => (
@@ -86,6 +91,26 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                   />
                 </button>
                 <span className="text-sm font-medium">{p.name}</span>
+                {golfy && (
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--muted)]">
+                    hcp
+                    <input
+                      type="number"
+                      step="0.1"
+                      inputMode="decimal"
+                      value={p.handicap ?? ""}
+                      onChange={(e) =>
+                        setHandicap(
+                          t.id,
+                          p.id,
+                          e.target.value === "" ? 0 : Number(e.target.value),
+                        )
+                      }
+                      placeholder="0"
+                      className="w-12 rounded border border-[var(--border)] bg-[var(--input)] px-1 py-0.5 text-center text-xs tabular-nums outline-none focus:border-[var(--brand)]"
+                    />
+                  </span>
+                )}
                 {p.photo && (
                   <button
                     type="button"

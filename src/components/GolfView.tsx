@@ -255,6 +255,17 @@ export function GolfView({ t }: { t: Tournament }) {
               ))}
               <th className="px-2 py-1 text-center text-xs font-normal text-[var(--muted)]">{totalPar}</th>
             </tr>
+            <tr>
+              <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 text-left text-xs font-normal text-[var(--muted)]">
+                Hcp
+              </th>
+              {holes.map((h) => (
+                <th key={h} className="px-1 py-1 text-center text-[10px] font-normal text-[var(--muted)]/70">
+                  {g.strokeIndex[h]}
+                </th>
+              ))}
+              <th className="px-2 py-1"></th>
+            </tr>
           </thead>
           <tbody>
             {t.participants.map((p) => {

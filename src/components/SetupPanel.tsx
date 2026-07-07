@@ -391,12 +391,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
           )}
           {(t.format === "round-robin" || t.format === "pool-bracket") && (
             <NumberField
-              label="Bracket size"
+              label="Finals: top N advance"
               value={cfg.advanceCount}
               min={2}
               max={64}
               onChange={(v) => setCfg({ advanceCount: v })}
-              hint="How many make the bracket (caps at your field — leave high for the whole field)"
+              hint="Optional playoff after the rounds — the top N in the standings seed a knockout bracket (see the Bracket tab). Leave it at/above your player count to include everyone."
             />
           )}
           {t.format === "kotc" && (

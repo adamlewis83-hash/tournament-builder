@@ -507,7 +507,9 @@ export const useStore = create<State>()(
                   team,
                   handicap: r.handicap,
                 }));
-            const participants = applyProfilePhoto([...build(teamA, 0), ...build(teamB, 1)]);
+            const participants = applyProfilePhoto([...build(teamA, 0), ...build(teamB, 1)], {
+              golfHandicap: true,
+            });
             const ryderGolf = {
               holes: course.holes,
               pars: course.pars,
@@ -593,6 +595,7 @@ export const useStore = create<State>()(
                   name: p.name.trim(),
                   handicap: p.handicap,
                 })),
+              { golfHandicap: true },
             );
             const golf = defaultGolf(
               input.holes,
