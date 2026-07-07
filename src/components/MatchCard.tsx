@@ -282,11 +282,10 @@ export function MatchCard({
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/80">
-      {(match.label || showTimer) && (
+      {(match.label || match.court || showTimer) && (
         <div className="px-3 pt-2 flex items-center justify-between gap-2">
           <span className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
-            {match.label}
-            {match.label && match.court ? ` · Court ${match.court}` : ""}
+            {[match.label, match.court ? `Court ${match.court}` : null].filter(Boolean).join(" · ")}
           </span>
           {showTimer && (
             <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} round={match.round} />

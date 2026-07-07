@@ -166,7 +166,7 @@ export function GolfView({ t }: { t: Tournament }) {
               <th className="px-3 py-2 w-10">#</th>
               <th className="px-3 py-2">Player</th>
               <th className="px-2 py-2 text-center w-14">Thru</th>
-              {strokeLike && <th className="px-2 py-2 text-center w-16">To Par</th>}
+              {strokeLike && <th className="px-2 py-2 text-center w-16 whitespace-nowrap">To Par</th>}
               {mode === "stableford" && <th className="px-2 py-2 text-center w-16">Points</th>}
               {mode === "skins" && <th className="px-2 py-2 text-center w-14">Skins</th>}
               {isNassau && (
