@@ -10,6 +10,7 @@ import { getProfile, setProfile, type Profile } from "@/lib/profile";
 import { colorForName } from "@/lib/colors";
 import { Avatar } from "@/components/Avatar";
 import { PhotoCropper } from "@/components/PhotoCropper";
+import { AvatarStylePicker } from "@/components/AvatarStylePicker";
 
 function applyTheme(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -54,12 +55,29 @@ function ThemeSetting() {
 function ProfileSetting() {
   const [prof, setProf] = useState<Profile>(getProfile);
   const [pending, setPending] = useState<File | null>(null);
+  const [choosing, setChoosing] = useState(false);
   function save(next: Profile) {
     setProf(next);
     setProfile(next);
   }
   return (
     <div className="flex items-center gap-3">
+      {choosing && (
+        <AvatarStylePicker
+          name={prof.name || "?"}
+          color={prof.color ?? undefined}
+          hasPhoto={!!prof.photo}
+          onCancel={() => setChoosing(false)}
+          onColor={(hex) => {
+            save({ ...prof, color: hex, photo: null });
+            setChoosing(false);
+          }}
+          onFile={(f) => {
+            setChoosing(false);
+            setPending(f);
+          }}
+        />
+      )}
       {pending && (
         <PhotoCropper
           file={pending}
@@ -70,23 +88,14 @@ function ProfileSetting() {
           }}
         />
       )}
-      <label className="cursor-pointer shrink-0" title="Set your photo">
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            setPending(e.target.files?.[0] ?? null);
-            e.target.value = "";
-          }}
-        />
+      <button type="button" className="shrink-0" title="Avatar style" onClick={() => setChoosing(true)}>
         <Avatar
           name={prof.name || "?"}
-          color={colorForName(prof.name || "?")}
+          color={prof.color || colorForName(prof.name || "?")}
           photo={prof.photo ?? undefined}
           className="h-14 w-14 text-lg"
         />
-      </label>
+      </button>
       <div className="flex-1 min-w-0">
         <input
           value={prof.name}
@@ -95,8 +104,8 @@ function ProfileSetting() {
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
         />
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Tap the circle to set your photo. It auto-loads onto you (matched by this name) in
-          tournaments you start, and pre-fills when you join by code.
+          Tap the circle to pick your color or add a photo. It auto-loads onto you (matched by
+          this name) in tournaments you start, and pre-fills when you join by code.
         </p>
       </div>
       {prof.photo && (

@@ -26,7 +26,8 @@ export function colorForIndex(i: number): string {
 
 export function colorFor(participants: Participant[], id: string): string {
   const i = participants.findIndex((p) => p.id === id);
-  return colorForIndex(i < 0 ? 0 : i);
+  const chosen = i >= 0 ? participants[i].color : undefined;
+  return chosen || colorForIndex(i < 0 ? 0 : i);
 }
 
 /** The player's photo thumbnail, if they uploaded one (else undefined → initials avatar). */

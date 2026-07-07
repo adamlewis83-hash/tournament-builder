@@ -119,6 +119,7 @@ interface State {
     },
   ) => void;
   setParticipantPhoto: (id: string, participantId: string, photo: string | null) => void;
+  setParticipantColor: (id: string, participantId: string, color: string) => void;
   setGolfHandicap: (id: string, participantId: string, handicap: number) => void;
   setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
   setGolfAward: (
@@ -619,6 +620,25 @@ export const useStore = create<State>()(
                   ...t,
                   participants: t.participants.map((p) =>
                     p.id === participantId ? { ...p, photo: photo ?? undefined } : p,
+                  ),
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
+      setParticipantColor: (id, participantId, color) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  // choosing a color means "initials style" — the photo comes off
+                  participants: t.participants.map((p) =>
+                    p.id === participantId ? { ...p, color, photo: undefined } : p,
                   ),
                   updatedAt: Date.now(),
                 }

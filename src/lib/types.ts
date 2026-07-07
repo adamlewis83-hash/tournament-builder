@@ -38,6 +38,7 @@ export interface Participant {
   handicap?: number; // golf handicap (for net scoring)
   members?: string[]; // roster for fixed-doubles pairs & teams (the unit still competes as one)
   photo?: string; // small inline data-URL thumbnail (shown instead of initials)
+  color?: string; // chosen avatar/jersey color (overrides the palette assignment)
 }
 
 export type GolfMode =
