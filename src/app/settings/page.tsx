@@ -7,9 +7,9 @@ import { HydrationGate } from "@/components/HydrationGate";
 import { SyncPanel } from "@/components/SyncPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
 import { getProfile, setProfile, type Profile } from "@/lib/profile";
-import { resizePhoto } from "@/lib/image";
 import { colorForName } from "@/lib/colors";
 import { Avatar } from "@/components/Avatar";
+import { PhotoCropper } from "@/components/PhotoCropper";
 
 function applyTheme(t: "light" | "dark") {
   document.documentElement.setAttribute("data-theme", t);
@@ -53,27 +53,30 @@ function ThemeSetting() {
 
 function ProfileSetting() {
   const [prof, setProf] = useState<Profile>(getProfile);
+  const [pending, setPending] = useState<File | null>(null);
   function save(next: Profile) {
     setProf(next);
     setProfile(next);
   }
-  async function pick(file: File | null) {
-    if (!file) return;
-    try {
-      save({ ...prof, photo: await resizePhoto(file) });
-    } catch {
-      /* unreadable image */
-    }
-  }
   return (
     <div className="flex items-center gap-3">
+      {pending && (
+        <PhotoCropper
+          file={pending}
+          onCancel={() => setPending(null)}
+          onDone={(dataUrl) => {
+            save({ ...prof, photo: dataUrl });
+            setPending(null);
+          }}
+        />
+      )}
       <label className="cursor-pointer shrink-0" title="Set your photo">
         <input
           type="file"
           accept="image/*"
           className="hidden"
           onChange={(e) => {
-            pick(e.target.files?.[0] ?? null);
+            setPending(e.target.files?.[0] ?? null);
             e.target.value = "";
           }}
         />

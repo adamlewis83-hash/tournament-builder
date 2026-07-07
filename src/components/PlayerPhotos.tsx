@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { resizePhoto } from "@/lib/image";
 import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
+import { PhotoCropper } from "./PhotoCropper";
 import { Card } from "./ui";
 
 // Host tool: tap any player's avatar to add/replace a photo (it then shows instead
@@ -14,24 +14,21 @@ import { Card } from "./ui";
 export function PlayerPhotos({ t }: { t: Tournament }) {
   const setPhoto = useStore((s) => s.setParticipantPhoto);
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ pid: string; file: File } | null>(null);
   if (t.spectator || t.participants.length === 0) return null;
-
-  async function pick(participantId: string, file: File | null) {
-    if (!file) return;
-    setBusy(participantId);
-    try {
-      const dataUrl = await resizePhoto(file);
-      setPhoto(t.id, participantId, dataUrl);
-    } catch {
-      /* unreadable image — leave as-is */
-    } finally {
-      setBusy(null);
-    }
-  }
 
   return (
     <Card className="p-4">
+      {pending && (
+        <PhotoCropper
+          file={pending.file}
+          onCancel={() => setPending(null)}
+          onDone={(dataUrl) => {
+            setPhoto(t.id, pending.pid, dataUrl);
+            setPending(null);
+          }}
+        />
+      )}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -60,7 +57,8 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
-                      pick(p.id, e.target.files?.[0] ?? null);
+                      const f = e.target.files?.[0];
+                      if (f) setPending({ pid: p.id, file: f });
                       e.target.value = "";
                     }}
                   />
@@ -68,7 +66,7 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                     name={p.name}
                     color={colorFor(t.participants, p.id)}
                     photo={p.photo}
-                    className={`h-8 w-8 text-[11px] ${busy === p.id ? "opacity-40" : ""}`}
+                    className="h-8 w-8 text-[11px]"
                   />
                 </label>
                 <span className="text-sm font-medium">{p.name}</span>

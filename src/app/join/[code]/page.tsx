@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchLive, registerPlayer } from "@/lib/live";
-import { resizePhoto } from "@/lib/image";
 import { getProfile } from "@/lib/profile";
+import { PhotoCropper } from "@/components/PhotoCropper";
 import { Button, Card } from "@/components/ui";
 import { Tournament } from "@/lib/types";
 
@@ -36,14 +36,11 @@ export default function JoinPage() {
 
   const isGolf = tourney?.format === "golf";
 
-  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
+  function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
-    if (!f) return;
-    try {
-      setPhoto(await resizePhoto(f));
-    } catch {
-      /* ignore unreadable image */
-    }
+    if (f) setPendingPhoto(f);
+    e.target.value = "";
   }
 
   async function submit(e: React.FormEvent) {
@@ -103,6 +100,16 @@ export default function JoinPage() {
 
   return (
     <Card className="p-6 space-y-4 max-w-md mx-auto">
+      {pendingPhoto && (
+        <PhotoCropper
+          file={pendingPhoto}
+          onCancel={() => setPendingPhoto(null)}
+          onDone={(dataUrl) => {
+            setPhoto(dataUrl);
+            setPendingPhoto(null);
+          }}
+        />
+      )}
       <div className="text-center">
         <p className="text-xs uppercase tracking-widest text-[var(--muted)] font-bold">
           Join tournament
