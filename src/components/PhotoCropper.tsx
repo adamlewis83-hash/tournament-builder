@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./ui";
 
 // Zoom-and-position cropper for player photos: drag to move, slide to zoom, and the
@@ -90,8 +91,10 @@ export function PhotoCropper({
     onDone(canvas.toDataURL("image/jpeg", 0.7));
   }
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onCancel}>
+  // Portal to <body> so no parent card/stacking context can paint over the dialog.
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4" onClick={onCancel}>
       <div
         className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3"
         onClick={(e) => e.stopPropagation()}
@@ -145,6 +148,7 @@ export function PhotoCropper({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

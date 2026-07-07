@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { PALETTE } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Button } from "./ui";
@@ -22,8 +23,10 @@ export function AvatarStylePicker({
   onFile: (file: File) => void;
   onCancel: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onCancel}>
+  // Portal to <body> so no parent card/stacking context can paint over the dialog.
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4" onClick={onCancel}>
       <div
         className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4"
         onClick={(e) => e.stopPropagation()}
@@ -80,6 +83,7 @@ export function AvatarStylePicker({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
