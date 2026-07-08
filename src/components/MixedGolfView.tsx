@@ -8,6 +8,7 @@ import {
   computeBbb,
   computeGolf,
   computeMixedOverall,
+  effectiveHandicap,
   formatToPar,
   holeStrokes,
   mixedComplete,
@@ -143,7 +144,7 @@ function ScorecardTable({ t, segments }: { t: Tournament; segments: GolfSegment[
                 </td>
                 {holes.map((hh) => (
                   <td key={hh} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
-                    <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[hh], g.holes)} />
+                    <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[hh], g.holes)} />
                     <input
                       type="number"
                       inputMode="numeric"
@@ -303,9 +304,9 @@ export function MixedGolfView({ t }: { t: Tournament }) {
                   <span className="flex items-center gap-2 min-w-0">
                     <Avatar name={p.name} color={colorFor(t.participants, p.id)} photo={photoFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
                     <span className="truncate">{p.name}</span>
-                    {(p.handicap ?? 0) > 0 && <span className="text-xs text-[var(--muted)]">({p.handicap})</span>}
-                    {holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes) > 0 && (
-                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
+                    {effectiveHandicap(g, p) > 0 && <span className="text-xs text-[var(--muted)]">({effectiveHandicap(g, p)})</span>}
+                    {holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes) > 0 && (
+                      <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes)} />
                     )}
                   </span>
                   <span className="flex items-center gap-2 shrink-0">

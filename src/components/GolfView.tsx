@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeGolf, formatToPar, holeStrokes } from "@/lib/golf";
+import { computeGolf, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -116,8 +116,8 @@ export function GolfView({ t }: { t: Tournament }) {
                     <span className="flex items-center gap-2 min-w-0">
                       <Avatar name={p.name} color={colorFor(t.participants, p.id)} photo={photoFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
                       <span className="truncate">{p.name}</span>
-                      {(p.handicap ?? 0) > 0 && (
-                        <span className="text-xs text-[var(--muted)]">({p.handicap})</span>
+                      {effectiveHandicap(g, p) > 0 && (
+                        <span className="text-xs text-[var(--muted)]">({effectiveHandicap(g, p)})</span>
                       )}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
@@ -284,7 +284,7 @@ export function GolfView({ t }: { t: Tournament }) {
                   </td>
                   {holes.map((h) => (
                     <td key={h} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
-                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
+                      <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes)} />
                       <input
                         type="number"
                         inputMode="numeric"

@@ -4,12 +4,15 @@ export interface CourseSearchResult {
   location: string;
 }
 
+import type { TeeSet } from "./types";
+
 export interface ImportedCourse {
   id: number;
   name: string;
   holes: number;
   pars: number[];
   strokeIndex: number[];
+  tees?: TeeSet[]; // rating/slope per tee set (drives course-handicap math)
 }
 
 export async function searchCourses(

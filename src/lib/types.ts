@@ -39,6 +39,7 @@ export interface Participant {
   members?: string[]; // roster for fixed-doubles pairs & teams (the unit still competes as one)
   photo?: string; // small inline data-URL thumbnail (shown instead of initials)
   color?: string; // chosen avatar/jersey color (overrides the palette assignment)
+  tee?: string; // golf: name of the tee set they play (drives course-handicap math)
 }
 
 export type GolfMode =
@@ -126,6 +127,17 @@ export interface WolfData {
   partner: (string | "lone" | null)[];
 }
 
+// One set of tees at a course. Rating/slope drive the USGA course-handicap math:
+// course handicap = round(index × slope/113 + (rating − par)).
+export interface TeeSet {
+  name: string; // e.g. "Blue", "White (M)"
+  gender?: "M" | "F";
+  rating: number; // course rating for these tees
+  slope: number; // slope rating (55–155, 113 = standard)
+  par: number; // total par from these tees
+  yards?: number;
+}
+
 // A reusable course saved to the library (pars + stroke index per hole).
 export interface Course {
   id: string;
@@ -133,6 +145,7 @@ export interface Course {
   holes: number;
   pars: number[];
   strokeIndex: number[];
+  tees?: TeeSet[]; // available tee sets (for course-handicap adjustment)
 }
 
 export interface GolfData {
@@ -141,6 +154,7 @@ export interface GolfData {
   courseName?: string; // name of the course being played
   pars: number[]; // par for each hole
   strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)
+  tees?: TeeSet[]; // tee sets at this course; players' `tee` picks drive course handicaps
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices

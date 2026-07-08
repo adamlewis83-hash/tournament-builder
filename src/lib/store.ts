@@ -108,12 +108,13 @@ interface State {
   setGolfPlayers: (
     id: string,
     input: {
-      players: { name: string; handicap: number }[];
+      players: { name: string; handicap: number; tee?: string }[];
       holes: number;
       startHole?: number;
       pars?: number[];
       strokeIndex?: number[];
       courseName?: string;
+      tees?: import("./types").TeeSet[];
       segments?: import("./types").GolfSegment[];
       teams?: boolean;
     },
@@ -594,6 +595,7 @@ export const useStore = create<State>()(
                   ...(existing.get(p.name.trim().toLowerCase()) ?? { id: uid(), name: p.name.trim() }),
                   name: p.name.trim(),
                   handicap: p.handicap,
+                  tee: p.tee,
                 })),
               { golfHandicap: true },
             );
@@ -606,6 +608,7 @@ export const useStore = create<State>()(
               golf.strokeIndex = input.strokeIndex;
             if (input.startHole && input.startHole > 1) golf.startHole = input.startHole;
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
+            if (input.tees?.length) golf.tees = input.tees;
             if (input.segments?.length) golf.segments = input.segments;
             if (input.teams) golf.teams = true;
             return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };

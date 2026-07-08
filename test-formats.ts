@@ -12,6 +12,8 @@ import {
   computeWolf,
   computeMixedOverall,
   holeStrokes,
+  courseHandicap,
+  effectiveHandicap,
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { getRanking, getFinalRows } from "./src/lib/records";
@@ -460,6 +462,21 @@ check("no premature champion from a first-round result", () => {
   const r = getResult(t);
   assert(!r.complete && !r.winner, "champion crowned from a first-round result");
   assert(bracketChampion(ms) === null, "bracketChampion returned a champion prematurely");
+});
+
+check("course handicap math (tees)", () => {
+  // USGA: round(index × slope/113 + (rating − par))
+  assert(courseHandicap(8.4, { name: "Blue", rating: 71.8, slope: 130, par: 72 }) === 9, "8.4 @ 130/71.8/72 should be 9");
+  assert(courseHandicap(10, { name: "Std", rating: 72, slope: 113, par: 72 }) === 10, "standard slope keeps the index");
+  assert(courseHandicap(20, { name: "Tips", rating: 74.5, slope: 145, par: 72 }) === 28, "20 @ 145/74.5/72 should be 28");
+  const g18 = { holes: 18, pars: [], strokeIndex: [], scores: {}, tees: [{ name: "Blue", rating: 71.8, slope: 130, par: 72 }] };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assert(effectiveHandicap(g18 as any, { id: "x", name: "X", handicap: 8.4, tee: "Blue" }) === 9, "18-hole effective = CH");
+  const g9 = { ...g18, holes: 9 };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assert(effectiveHandicap(g9 as any, { id: "x", name: "X", handicap: 8.4, tee: "Blue" }) === 5, "9-hole effective = half CH rounded");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assert(effectiveHandicap({ ...g18, tees: undefined } as any, { id: "x", name: "X", handicap: 8.4 }) === 8.4, "no tees → raw index");
 });
 
 check("handicap stroke allocation", () => {

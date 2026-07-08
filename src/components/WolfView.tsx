@@ -2,7 +2,7 @@
 
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeWolf, wolfForHole, holeStrokes } from "@/lib/golf";
+import { computeWolf, wolfForHole, holeStrokes, effectiveHandicap } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { StrokeDots } from "./StrokeDots";
@@ -77,7 +77,7 @@ export function WolfView({ t }: { t: Tournament }) {
                   <td className="px-1 py-1 text-center text-[var(--muted)] border-t border-[var(--border)]">{g.pars[h]}</td>
                   {t.participants.map((p) => (
                     <td key={p.id} className={`px-0.5 py-1 align-bottom text-center border-t border-[var(--border)] ${p.id === wolf ? "bg-amber-400/10" : ""}`}>
-                      <StrokeDots n={holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes)} />
+                      <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes)} />
                       <input
                         type="number"
                         inputMode="numeric"

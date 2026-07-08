@@ -12,10 +12,11 @@ import {
   SEGMENT_LABELS,
   SOLO_SEGMENT_FORMATS,
   TEAM_SEGMENT_FORMATS,
+  TeeSet,
   Tournament,
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { defaultCourse } from "@/lib/golf";
+import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
@@ -48,6 +49,7 @@ function defaultSegments(holes: number, teams = false): GolfSegment[] {
 interface PlayerRow {
   name: string;
   handicap: string;
+  tee?: string;
 }
 
 export function GolfSetup({ t }: { t: Tournament }) {
@@ -67,6 +69,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [courseName, setCourseName] = useState(t.golf?.courseName ?? "");
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
+  const [tees, setTees] = useState<TeeSet[]>(t.golf?.tees ?? []);
   const [showCourse, setShowCourse] = useState(false);
   const [courseSaved, setCourseSaved] = useState(false);
   const [query, setQuery] = useState("");
@@ -95,7 +98,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // Only fires once the pool is non-empty, so pure manual entry isn't disturbed.
   useEffect(() => {
     if (t.participants.length) {
-      setPlayers(t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0) })));
+      setPlayers(t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0), tee: p.tee })));
     }
   }, [t.participants]);
 
@@ -112,6 +115,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
   function loadCourse(c: Course) {
     setCourseName(c.name);
+    setTees(c.tees ?? []);
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
@@ -120,6 +124,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
   function applyCourse(c: ImportedCourse) {
     setCourseName(c.name);
+    setTees(c.tees ?? []);
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
@@ -151,6 +156,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       holes,
       pars: pars.slice(0, holes),
       strokeIndex: si.slice(0, holes),
+      tees: tees.length ? tees : undefined,
     });
     setCourseSaved(true);
     setTimeout(() => setCourseSaved(false), 1800);
@@ -198,12 +204,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setGolfPlayers(t.id, {
       players: players
         .filter((p) => p.name.trim())
-        .map((p) => ({ name: p.name.trim(), handicap: Number(p.handicap) || 0 })),
+        .map((p) => ({ name: p.name.trim(), handicap: Number(p.handicap) || 0, tee: p.tee })),
       holes,
       startHole,
       pars: activePars,
       strokeIndex: activeSi,
       courseName,
+      tees: tees.length ? tees : undefined,
       segments: mode === "mixed" ? segments : undefined,
       teams: mode === "mixed" && teamMode,
     });
@@ -352,6 +359,27 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </div>
         </div>
 
+        {tees.length > 0 && (
+          <div className="mt-3">
+            <span className="text-xs font-medium text-[var(--muted)]">
+              Tees loaded — pick each player&apos;s tees below and handicaps adjust automatically
+            </span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {tees.map((tee) => (
+                <span
+                  key={tee.name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2.5 py-1 text-xs"
+                >
+                  <span className="font-semibold">{tee.name}</span>
+                  <span className="text-[var(--muted)] tabular-nums">
+                    {tee.rating.toFixed(1)} / {tee.slope}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => setShowCourse((v) => !v)}
@@ -443,41 +471,74 @@ export function GolfSetup({ t }: { t: Tournament }) {
             : "Add each player and their handicap — net scores adjust automatically."}
         </p>
         <div className="space-y-2">
-          {players.map((p, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                value={p.name}
-                onChange={(e) => {
-                  const next = [...players];
-                  next[i] = { ...next[i], name: e.target.value };
-                  setPlayers(next);
-                }}
-                placeholder={teamsMode ? `Team ${i + 1}` : `Player ${i + 1}`}
-                className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
-              />
-              <label className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
-                Hcp
+          {players.map((p, i) => {
+            const idx = Number(p.handicap) || 0;
+            const teeSet = tees.length
+              ? tees.find((x) => x.name === p.tee) ?? tees[0]
+              : undefined;
+            const ch = teeSet && idx ? Math.max(0, courseHandicap(idx, teeSet)) : null;
+            return (
+              <div key={i} className="flex flex-wrap items-center gap-2">
                 <input
-                  type="number"
-                  value={p.handicap}
+                  value={p.name}
                   onChange={(e) => {
                     const next = [...players];
-                    next[i] = { ...next[i], handicap: e.target.value };
+                    next[i] = { ...next[i], name: e.target.value };
                     setPlayers(next);
                   }}
-                  className="w-14 rounded-lg border border-[var(--border)] px-2 py-2 text-sm text-center bg-[var(--surface)]"
+                  placeholder={teamsMode ? `Team ${i + 1}` : `Player ${i + 1}`}
+                  className="flex-1 min-w-[8rem] rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
                 />
-              </label>
-              <button
-                type="button"
-                onClick={() => setPlayers(players.filter((_, j) => j !== i))}
-                className="text-[var(--muted)] hover:text-rose-400 px-1"
-                aria-label="Remove"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+                <label className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+                  {tees.length ? "Index" : "Hcp"}
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={p.handicap}
+                    onChange={(e) => {
+                      const next = [...players];
+                      next[i] = { ...next[i], handicap: e.target.value };
+                      setPlayers(next);
+                    }}
+                    className="w-14 rounded-lg border border-[var(--border)] px-2 py-2 text-sm text-center bg-[var(--surface)]"
+                  />
+                </label>
+                {tees.length > 0 && !teamsMode && (
+                  <>
+                    <select
+                      value={p.tee ?? tees[0].name}
+                      onChange={(e) => {
+                        const next = [...players];
+                        next[i] = { ...next[i], tee: e.target.value };
+                        setPlayers(next);
+                      }}
+                      className="rounded-lg border border-[var(--border)] px-1.5 py-2 text-xs bg-[var(--surface)] max-w-[7rem]"
+                    >
+                      {tees.map((x) => (
+                        <option key={x.name} value={x.name}>
+                          {x.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span
+                      className="text-xs font-semibold text-[var(--brand)] tabular-nums w-12"
+                      title="Course handicap from these tees"
+                    >
+                      {ch != null ? `→ ${ch}` : ""}
+                    </span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPlayers(players.filter((_, j) => j !== i))}
+                  className="text-[var(--muted)] hover:text-rose-400 px-1"
+                  aria-label="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
         </div>
         <button
           type="button"

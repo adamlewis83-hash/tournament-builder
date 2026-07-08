@@ -1,4 +1,21 @@
-import { GolfData, GolfMode, GolfSegment, Participant, SegmentFormat, Tournament } from "./types";
+import { GolfData, GolfMode, GolfSegment, Participant, SegmentFormat, TeeSet, Tournament } from "./types";
+
+/** USGA course handicap for a tee set: index × slope/113 + (rating − par), rounded. */
+export function courseHandicap(index: number, tee: TeeSet): number {
+  if (!tee.slope || !tee.rating || !tee.par) return Math.round(index);
+  return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
+}
+
+/** The handicap used for stroke allocation: the player's index adjusted for the tee
+ *  set they play (when the course has tees), else the raw index. Clamped at 0. */
+export function effectiveHandicap(g: GolfData | undefined, p: Participant): number {
+  const idx = p.handicap ?? 0;
+  if (!idx || !g?.tees?.length) return idx;
+  const tee = g.tees.find((t) => t.name === p.tee) ?? g.tees[0];
+  const ch = courseHandicap(idx, tee);
+  // Tee ratings are 18-hole values — a 9-hole round plays off half the course handicap.
+  return Math.max(0, g.holes <= 9 ? Math.round(ch / 2) : ch);
+}
 
 export const isSideGame = (m: GolfMode) => m === "bingo" || m === "wolf";
 
@@ -169,7 +186,7 @@ export function computeGolf(
         const s = g.scores[p.id]?.[h];
         return {
           id: p.id,
-          v: s == null ? null : s - holeStrokes(p.handicap ?? 0, g.strokeIndex[h], g.holes),
+          v: s == null ? null : s - holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes),
         };
       });
       if (entries.some((e) => e.v === null)) break; // can't resolve this/later holes yet
@@ -186,7 +203,7 @@ export function computeGolf(
 
   const rows: GolfRow[] = players.map((p: Participant) => {
     const card = g.scores[p.id] ?? [];
-    const hcp = p.handicap ?? 0;
+    const hcp = effectiveHandicap(g, p); // tee-adjusted course handicap when tees are set
     let gross = 0;
     let net = 0;
     let parPlayed = 0;
