@@ -70,6 +70,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [pars, setPars] = useState<number[]>(t.golf?.pars ?? defaultCourse(18).pars);
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
   const [tees, setTees] = useState<TeeSet[]>(t.golf?.tees ?? []);
+  const [defaultTee, setDefaultTee] = useState<string | undefined>(undefined);
   const [showCourse, setShowCourse] = useState(false);
   const [courseSaved, setCourseSaved] = useState(false);
   const [query, setQuery] = useState("");
@@ -85,7 +86,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const segFormats = teamMode ? TEAM_SEGMENT_FORMATS : SOLO_SEGMENT_FORMATS;
 
   const seed: PlayerRow[] = t.participants.length
-    ? t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0) }))
+    ? t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0), tee: p.tee }))
     : [
         { name: "", handicap: "0" },
         { name: "", handicap: "0" },
@@ -98,7 +99,16 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // Only fires once the pool is non-empty, so pure manual entry isn't disturbed.
   useEffect(() => {
     if (t.participants.length) {
-      setPlayers(t.participants.map((p) => ({ name: p.name, handicap: String(p.handicap ?? 0), tee: p.tee })));
+      // Keep tee picks made in the rows: a registration poll can refresh participants
+      // (which don't carry a tee until the scorecard starts) — don't wipe local choices.
+      setPlayers((prev) => {
+        const prevTee = new Map(prev.map((r) => [r.name.trim().toLowerCase(), r.tee]));
+        return t.participants.map((p) => ({
+          name: p.name,
+          handicap: String(p.handicap ?? 0),
+          tee: p.tee ?? prevTee.get(p.name.trim().toLowerCase()),
+        }));
+      });
     }
   }, [t.participants]);
 
@@ -113,9 +123,19 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setSegments(defaultSegments(n, teamMode));
   }
 
+  // A different course means different tee names — reset the default and any
+  // per-player picks that don't exist at the new course.
+  function swapTees(next: TeeSet[]) {
+    setTees(next);
+    setDefaultTee(undefined);
+    setPlayers((prev) =>
+      prev.map((r) => (r.tee && !next.some((x) => x.name === r.tee) ? { ...r, tee: undefined } : r)),
+    );
+  }
+
   function loadCourse(c: Course) {
     setCourseName(c.name);
-    setTees(c.tees ?? []);
+    swapTees(c.tees ?? []);
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
@@ -124,7 +144,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
   function applyCourse(c: ImportedCourse) {
     setCourseName(c.name);
-    setTees(c.tees ?? []);
+    swapTees(c.tees ?? []);
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
@@ -204,7 +224,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setGolfPlayers(t.id, {
       players: players
         .filter((p) => p.name.trim())
-        .map((p) => ({ name: p.name.trim(), handicap: Number(p.handicap) || 0, tee: p.tee })),
+        .map((p) => ({ name: p.name.trim(), handicap: Number(p.handicap) || 0, tee: p.tee ?? defaultTee })),
       holes,
       startHole,
       pars: activePars,
@@ -362,20 +382,33 @@ export function GolfSetup({ t }: { t: Tournament }) {
         {tees.length > 0 && (
           <div className="mt-3">
             <span className="text-xs font-medium text-[var(--muted)]">
-              Tees loaded — pick each player&apos;s tees below and handicaps adjust automatically
+              Tap the tees everyone plays — or override per player below. Handicaps adjust
+              automatically.
             </span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {tees.map((tee) => (
-                <span
-                  key={tee.name}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2.5 py-1 text-xs"
-                >
-                  <span className="font-semibold">{tee.name}</span>
-                  <span className="text-[var(--muted)] tabular-nums">
-                    {tee.rating.toFixed(1)} / {tee.slope}
-                  </span>
-                </span>
-              ))}
+              {tees.map((tee) => {
+                const active = defaultTee === tee.name;
+                return (
+                  <button
+                    key={tee.name}
+                    type="button"
+                    onClick={() => {
+                      setDefaultTee(tee.name);
+                      setPlayers((prev) => prev.map((r) => ({ ...r, tee: tee.name })));
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                      active
+                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                        : "border-[var(--border)] bg-[var(--subtle)] hover:bg-[var(--hover)]"
+                    }`}
+                  >
+                    <span className="font-semibold">{tee.name}</span>
+                    <span className="text-[var(--muted)] tabular-nums">
+                      {tee.rating.toFixed(1)} / {tee.slope}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -474,7 +507,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
           {players.map((p, i) => {
             const idx = Number(p.handicap) || 0;
             const teeSet = tees.length
-              ? tees.find((x) => x.name === p.tee) ?? tees[0]
+              ? tees.find((x) => x.name === (p.tee ?? defaultTee)) ?? tees[0]
               : undefined;
             const ch = teeSet && idx ? Math.max(0, courseHandicap(idx, teeSet)) : null;
             return (
@@ -505,8 +538,10 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 </label>
                 {tees.length > 0 && !teamsMode && (
                   <>
+                    <label className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+                      Tee
                     <select
-                      value={p.tee ?? tees[0].name}
+                      value={p.tee ?? defaultTee ?? tees[0].name}
                       onChange={(e) => {
                         const next = [...players];
                         next[i] = { ...next[i], tee: e.target.value };
@@ -520,6 +555,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                         </option>
                       ))}
                     </select>
+                    </label>
                     <span
                       className="text-xs font-semibold text-[var(--brand)] tabular-nums w-12"
                       title="Course handicap from these tees"

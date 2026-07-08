@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { effectiveHandicap } from "@/lib/golf";
 import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { PhotoCropper } from "./PhotoCropper";
@@ -16,12 +17,14 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
   const setPhoto = useStore((s) => s.setParticipantPhoto);
   const setColor = useStore((s) => s.setParticipantColor);
   const setHandicap = useStore((s) => s.setGolfHandicap);
+  const setTee = useStore((s) => s.setGolfTee);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<{ pid: string; file: File } | null>(null);
   const [choosing, setChoosing] = useState<string | null>(null); // participant id
   if (t.spectator || t.participants.length === 0) return null;
 
   const golfy = t.format === "golf" || t.format === "ryder"; // handicaps apply
+  const tees = t.format === "golf" ? t.golf?.tees ?? [] : [];
   const chooser = choosing ? t.participants.find((p) => p.id === choosing) : null;
 
   return (
@@ -68,8 +71,12 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
         <>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Tap a player to pick their circle color or add a photo
-            {golfy ? "; edit handicaps here anytime — net scores update instantly" : ""} — shown
-            on match cards, standings, and brackets.
+            {golfy
+              ? tees.length
+                ? "; edit handicap index or tees here anytime — net scores update instantly"
+                : "; edit handicaps here anytime — net scores update instantly"
+              : ""}{" "}
+            — shown on match cards, standings, and brackets.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {t.participants.map((p) => (
@@ -93,7 +100,7 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                 <span className="text-sm font-medium">{p.name}</span>
                 {golfy && (
                   <span className="flex items-center gap-1 text-[10px] text-[var(--muted)]">
-                    hcp
+                    {tees.length ? "index" : "hcp"}
                     <input
                       type="number"
                       step="0.1"
@@ -109,6 +116,28 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                       placeholder="0"
                       className="w-12 rounded border border-[var(--border)] bg-[var(--input)] px-1 py-0.5 text-center text-xs tabular-nums outline-none focus:border-[var(--brand)]"
                     />
+                    {tees.length > 0 && (
+                      <>
+                        <select
+                          value={p.tee ?? tees[0].name}
+                          onChange={(e) => setTee(t.id, p.id, e.target.value)}
+                          title={`Tees for ${p.name} — course handicap updates instantly`}
+                          className="rounded border border-[var(--border)] bg-[var(--input)] px-1 py-0.5 text-xs outline-none focus:border-[var(--brand)] max-w-[6rem]"
+                        >
+                          {tees.map((x) => (
+                            <option key={x.name} value={x.name}>
+                              {x.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span
+                          className="font-semibold text-[var(--brand)] tabular-nums"
+                          title="Course handicap from these tees"
+                        >
+                          →{effectiveHandicap(t.golf, p)}
+                        </span>
+                      </>
+                    )}
                   </span>
                 )}
                 {p.photo && (

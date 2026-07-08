@@ -122,6 +122,7 @@ interface State {
   setParticipantPhoto: (id: string, participantId: string, photo: string | null) => void;
   setParticipantColor: (id: string, participantId: string, color: string) => void;
   setGolfHandicap: (id: string, participantId: string, handicap: number) => void;
+  setGolfTee: (id: string, participantId: string, tee: string) => void;
   setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
   setGolfAward: (
     id: string,
@@ -377,6 +378,7 @@ export const useStore = create<State>()(
               if (r.photo) p.photo = r.photo;
               if (old?.team !== undefined) p.team = old.team;
               if (old?.seed !== undefined) p.seed = old.seed;
+              if (old?.tee !== undefined) p.tee = old.tee;
               return p;
             });
             const participants = [...manual, ...regParts];
@@ -663,6 +665,24 @@ export const useStore = create<State>()(
                   ...t,
                   participants: t.participants.map((p) =>
                     p.id === participantId ? { ...p, handicap } : p,
+                  ),
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfTee: (id, participantId, tee) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  participants: t.participants.map((p) =>
+                    p.id === participantId ? { ...p, tee } : p,
                   ),
                   updatedAt: Date.now(),
                 }
