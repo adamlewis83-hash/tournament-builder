@@ -71,6 +71,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [si, setSi] = useState<number[]>(t.golf?.strokeIndex ?? defaultCourse(18).strokeIndex);
   const [tees, setTees] = useState<TeeSet[]>(t.golf?.tees ?? []);
   const [defaultTee, setDefaultTee] = useState<string | undefined>(undefined);
+  const [teeForm, setTeeForm] = useState<{ name: string; rating: string; slope: string } | null>(null);
   const [showCourse, setShowCourse] = useState(false);
   const [courseSaved, setCourseSaved] = useState(false);
   const [query, setQuery] = useState("");
@@ -131,6 +132,28 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setPlayers((prev) =>
       prev.map((r) => (r.tee && !next.some((x) => x.name === r.tee) ? { ...r, tee: undefined } : r)),
     );
+  }
+
+  // Manual tee entry — for when you didn't import a course from search but still
+  // want handicaps adjusted to the box you play. Rating/slope come off the scorecard;
+  // blanks fall back to neutral (rating = par, slope 113) so it degrades to a plain label.
+  function addTee() {
+    if (!teeForm) return;
+    const name = teeForm.name.trim();
+    if (!name || tees.some((x) => x.name.toLowerCase() === name.toLowerCase())) return;
+    const rating = Number(teeForm.rating) || totalPar;
+    const slope = Number(teeForm.slope) || 113;
+    const next = [...tees, { name, rating, slope, par: totalPar }];
+    setTees(next);
+    setDefaultTee(name);
+    setPlayers((prev) => prev.map((r) => ({ ...r, tee: r.tee ?? name })));
+    setTeeForm(null);
+  }
+
+  function removeTee(name: string) {
+    setTees((prev) => prev.filter((x) => x.name !== name));
+    if (defaultTee === name) setDefaultTee(undefined);
+    setPlayers((prev) => prev.map((r) => (r.tee === name ? { ...r, tee: undefined } : r)));
   }
 
   function loadCourse(c: Course) {
@@ -379,39 +402,117 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </div>
         </div>
 
-        {tees.length > 0 && (
-          <div className="mt-3">
+        {/* Tees — always available: importing a course fills these, or add your own. */}
+        <div className="mt-4 pt-3 border-t border-[var(--border)]">
+          <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-[var(--muted)]">
-              Tap the tees everyone plays — or override per player below. Handicaps adjust
-              automatically.
+              Tee boxes
+              {tees.length > 0 ? " — tap the set everyone plays, or override per player below" : ""}
             </span>
+            <button
+              type="button"
+              onClick={() => setTeeForm(teeForm ? null : { name: "", rating: "", slope: "" })}
+              className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+            >
+              {teeForm ? "Cancel" : "+ Add tee"}
+            </button>
+          </div>
+
+          {tees.length === 0 && !teeForm && (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Search &amp; import a real course above to load its tees automatically — or tap{" "}
+              <span className="text-[var(--brand)]">+ Add tee</span> to enter your own (name +
+              rating/slope from the scorecard) so handicaps adjust to the box you play.
+            </p>
+          )}
+
+          {tees.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {tees.map((tee) => {
                 const active = defaultTee === tee.name;
                 return (
-                  <button
+                  <span
                     key={tee.name}
-                    type="button"
-                    onClick={() => {
-                      setDefaultTee(tee.name);
-                      setPlayers((prev) => prev.map((r) => ({ ...r, tee: tee.name })));
-                    }}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                    className={`inline-flex items-center gap-1.5 rounded-full border pl-2.5 pr-1.5 py-1 text-xs transition ${
                       active
                         ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
-                        : "border-[var(--border)] bg-[var(--subtle)] hover:bg-[var(--hover)]"
+                        : "border-[var(--border)] bg-[var(--subtle)]"
                     }`}
                   >
-                    <span className="font-semibold">{tee.name}</span>
-                    <span className="text-[var(--muted)] tabular-nums">
-                      {tee.rating.toFixed(1)} / {tee.slope}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDefaultTee(tee.name);
+                        setPlayers((prev) => prev.map((r) => ({ ...r, tee: tee.name })));
+                      }}
+                      className="inline-flex items-center gap-1.5"
+                      title={`Play ${tee.name} for everyone`}
+                    >
+                      <span className="font-semibold">{tee.name}</span>
+                      <span className="text-[var(--muted)] tabular-nums">
+                        {tee.rating.toFixed(1)} / {tee.slope}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeTee(tee.name)}
+                      aria-label={`Remove ${tee.name}`}
+                      className="text-[var(--muted)] hover:text-rose-400 px-0.5"
+                    >
+                      ✕
+                    </button>
+                  </span>
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+
+          {teeForm && (
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <label className="text-xs text-[var(--muted)]">
+                Name
+                <input
+                  value={teeForm.name}
+                  onChange={(e) => setTeeForm({ ...teeForm, name: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTee())}
+                  placeholder="Blue"
+                  className="mt-0.5 block w-24 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm bg-[var(--surface)]"
+                />
+              </label>
+              <label className="text-xs text-[var(--muted)]">
+                Rating
+                <input
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={teeForm.rating}
+                  onChange={(e) => setTeeForm({ ...teeForm, rating: e.target.value })}
+                  placeholder={String(totalPar)}
+                  className="mt-0.5 block w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm bg-[var(--surface)] tabular-nums"
+                />
+              </label>
+              <label className="text-xs text-[var(--muted)]">
+                Slope
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={teeForm.slope}
+                  onChange={(e) => setTeeForm({ ...teeForm, slope: e.target.value })}
+                  placeholder="113"
+                  className="mt-0.5 block w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm bg-[var(--surface)] tabular-nums"
+                />
+              </label>
+              <Button
+                variant="outline"
+                className="px-3 py-1.5"
+                onClick={addTee}
+                disabled={!teeForm.name.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"
