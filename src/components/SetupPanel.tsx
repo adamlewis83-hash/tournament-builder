@@ -103,6 +103,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
       }))
       .filter((tm) => tm.name);
   const teamCount = build(teams).length;
+
+  // How many courts can actually run at once: each game needs 4 players in doubles/social
+  // (two 2-person sides) or 2 in singles/teams. Courts beyond floor(field / perGame) sit idle,
+  // so surface the real cap instead of silently generating fewer than the host picked.
+  const perGame = (t.format === "round-robin" && isDoubles) || isSocial ? 4 : 2;
+  const fieldSize = teamMode ? teamCount : count;
+  const maxCourts = Math.max(1, Math.floor(fieldSize / perGame));
+  const courtsCapped = fieldSize > 0 && cfg.courts > maxCourts;
   const update = (next: { name: string; members: string[] }[]) => {
     setLocalTeams(next);
     setTeamsStore(t.id, build(next));
@@ -379,6 +387,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
               onChange={(v) => setCfg({ courts: v })}
               hint="Games at once"
             />
+          )}
+          {(t.format === "round-robin" || t.format === "swiss" || isSocial) && courtsCapped && (
+            <p className="col-span-2 -mt-2 text-xs text-amber-500">
+              With {fieldSize} {teamMode ? "teams" : "players"} only {maxCourts}{" "}
+              {maxCourts === 1 ? "court runs" : "courts run"} at once ({perGame} per game) — the other{" "}
+              {cfg.courts - maxCourts} sit idle. Add {(maxCourts + 1) * perGame - fieldSize} more{" "}
+              {teamMode ? "teams" : "players"} to fill another court.
+            </p>
           )}
           {t.format === "pool-bracket" && (
             <NumberField
