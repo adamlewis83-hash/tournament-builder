@@ -9,8 +9,8 @@ import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
 import { RegistrationPanel } from "./RegistrationPanel";
 
-const SAMPLE_PLAYERS = Array.from({ length: 12 }, (_, i) => `Player ${i + 1}`);
-const SAMPLE_TEAMS = Array.from({ length: 12 }, (_, i) => `Team ${i + 1}`);
+// Sample data is generated on demand for however many entries the host wants to test with.
+const samplePlayers = (n: number) => Array.from({ length: n }, (_, i) => `Player ${i + 1}`);
 
 function NumberField({
   label,
@@ -67,6 +67,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const generate = useStore((s) => s.generate);
 
   const [text, setText] = useState(t.participants.map((p) => p.name).join("\n"));
+  const [sampleN, setSampleN] = useState(16); // how many sample entries "Fill sample" drops in
   const names = text
     .split(/[\n,]/)
     .map((n) => n.trim())
@@ -134,17 +135,10 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const addTeam = () => update([...teams, emptyTeam()]);
   const removeTeam = (ti: number) => update(teams.filter((_, i) => i !== ti));
   const fillSampleTeams = () => {
-    let next: { name: string; members: string[] }[];
-    if (isFixed) {
-      next = [];
-      for (let i = 0; i + 1 < SAMPLE_PLAYERS.length && next.length < 4; i += 2)
-        next.push({ name: "", members: [SAMPLE_PLAYERS[i], SAMPLE_PLAYERS[i + 1]] });
-    } else {
-      next = SAMPLE_TEAMS.slice(0, 4).map((n, i) => ({
-        name: n,
-        members: [SAMPLE_PLAYERS[i * 2] ?? "", SAMPLE_PLAYERS[i * 2 + 1] ?? ""],
-      }));
-    }
+    const next = Array.from({ length: sampleN }, (_, i) => ({
+      name: isFixed ? "" : `Team ${i + 1}`,
+      members: [`Player ${i * 2 + 1}`, `Player ${i * 2 + 2}`],
+    }));
     update(next);
   };
 
@@ -199,13 +193,26 @@ export function SetupPanel({ t }: { t: Tournament }) {
         <Card className="p-5">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-semibold">{isFixed ? "Pairs" : "Teams"}</h2>
-            <button
-              type="button"
-              onClick={fillSampleTeams}
-              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
-            >
-              Fill sample
-            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={2}
+                max={64}
+                value={sampleN}
+                onChange={(e) =>
+                  setSampleN(Math.max(2, Math.min(64, Math.round(Number(e.target.value) || 2))))
+                }
+                aria-label={isFixed ? "Number of sample pairs" : "Number of sample teams"}
+                className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
+              />
+              <button
+                type="button"
+                onClick={fillSampleTeams}
+                className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+              >
+                Fill sample
+              </button>
+            </div>
           </div>
           <p className="text-sm text-[var(--muted)] mb-3">
             {isFixed
@@ -291,13 +298,26 @@ export function SetupPanel({ t }: { t: Tournament }) {
         <Card className="p-5">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-semibold">Participants</h2>
-            <button
-              type="button"
-              onClick={() => setText(SAMPLE_PLAYERS.join("\n"))}
-              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
-            >
-              Fill sample
-            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={2}
+                max={64}
+                value={sampleN}
+                onChange={(e) =>
+                  setSampleN(Math.max(2, Math.min(64, Math.round(Number(e.target.value) || 2))))
+                }
+                aria-label="Number of sample players"
+                className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
+              />
+              <button
+                type="button"
+                onClick={() => setText(samplePlayers(sampleN).join("\n"))}
+                className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+              >
+                Fill sample
+              </button>
+            </div>
           </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           One per line.{" "}
