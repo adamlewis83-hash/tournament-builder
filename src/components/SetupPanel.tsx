@@ -67,7 +67,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const generate = useStore((s) => s.generate);
 
   const [text, setText] = useState(t.participants.map((p) => p.name).join("\n"));
-  const [sampleN, setSampleN] = useState(16); // how many sample entries "Fill sample" drops in
+  // Raw text so the box can be cleared/edited freely; clamped to 2–64 only when used.
+  const [sampleN, setSampleN] = useState("16");
+  const sampleCount = Math.max(2, Math.min(64, Math.round(Number(sampleN) || 2)));
   const names = text
     .split(/[\n,]/)
     .map((n) => n.trim())
@@ -135,7 +137,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const addTeam = () => update([...teams, emptyTeam()]);
   const removeTeam = (ti: number) => update(teams.filter((_, i) => i !== ti));
   const fillSampleTeams = () => {
-    const next = Array.from({ length: sampleN }, (_, i) => ({
+    const next = Array.from({ length: sampleCount }, (_, i) => ({
       name: isFixed ? "" : `Team ${i + 1}`,
       members: [`Player ${i * 2 + 1}`, `Player ${i * 2 + 2}`],
     }));
@@ -199,9 +201,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
                 min={2}
                 max={64}
                 value={sampleN}
-                onChange={(e) =>
-                  setSampleN(Math.max(2, Math.min(64, Math.round(Number(e.target.value) || 2))))
-                }
+                onChange={(e) => setSampleN(e.target.value)}
+                onBlur={() => setSampleN(String(sampleCount))}
                 aria-label={isFixed ? "Number of sample pairs" : "Number of sample teams"}
                 className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
               />
@@ -304,15 +305,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
                 min={2}
                 max={64}
                 value={sampleN}
-                onChange={(e) =>
-                  setSampleN(Math.max(2, Math.min(64, Math.round(Number(e.target.value) || 2))))
-                }
+                onChange={(e) => setSampleN(e.target.value)}
+                onBlur={() => setSampleN(String(sampleCount))}
                 aria-label="Number of sample players"
                 className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
               />
               <button
                 type="button"
-                onClick={() => setText(samplePlayers(sampleN).join("\n"))}
+                onClick={() => setText(samplePlayers(sampleCount).join("\n"))}
                 className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
               >
                 Fill sample
