@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Tiebreaker, TIEBREAKER_LABELS, Tournament, TournamentConfig } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { colorForIndex } from "@/lib/colors";
+import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
@@ -70,11 +72,32 @@ export function SetupPanel({ t }: { t: Tournament }) {
   // Raw text so the box can be cleared/edited freely; clamped to 2–64 only when used.
   const [sampleN, setSampleN] = useState("16");
   const sampleCount = Math.max(2, Math.min(64, Math.round(Number(sampleN) || 2)));
+
+  // Host isn't automatically a player — let them add themselves from their profile.
+  const [profileName, setProfileName] = useState("");
+  useEffect(() => setProfileName(getProfile().name.trim()), []);
   const names = text
     .split(/[\n,]/)
     .map((n) => n.trim())
     .filter(Boolean);
   const count = names.length;
+
+  const meAdded =
+    !!profileName && names.some((n) => n.toLowerCase() === profileName.toLowerCase());
+  const addMe = () => {
+    if (!profileName || meAdded) return;
+    setText((prev) => {
+      const cleaned = prev.replace(/\n+$/, "");
+      return cleaned ? `${cleaned}\n${profileName}` : profileName;
+    });
+  };
+  const removeMe = () =>
+    setText((prev) =>
+      prev
+        .split("\n")
+        .filter((l) => l.trim().toLowerCase() !== profileName.toLowerCase())
+        .join("\n"),
+    );
 
   const cfg = t.config;
   const setCfg = (patchCfg: Partial<TournamentConfig>) =>
@@ -297,8 +320,37 @@ export function SetupPanel({ t }: { t: Tournament }) {
         </Card>
       ) : (
         <Card className="p-5">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="font-semibold">Participants</h2>
+          <div className="flex items-center justify-between mb-1 gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold">Participants</h2>
+              {profileName && (
+                <button
+                  type="button"
+                  onClick={meAdded ? removeMe : addMe}
+                  title={
+                    meAdded
+                      ? `Remove ${profileName} from this tournament`
+                      : `Add ${profileName} (from your profile) as a player`
+                  }
+                  className={`rounded-full border px-2 py-0.5 text-xs font-medium transition ${
+                    meAdded
+                      ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                      : "border-[var(--border)] hover:bg-[var(--hover)]"
+                  }`}
+                >
+                  {meAdded ? "✓ You're in" : "+ Add me"}
+                </button>
+              )}
+              {!profileName && (
+                <Link
+                  href="/settings"
+                  title="Set your name in your profile, then add yourself as a player"
+                  className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs font-medium text-[var(--muted)] hover:bg-[var(--hover)]"
+                >
+                  + Add me
+                </Link>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               <input
                 type="number"

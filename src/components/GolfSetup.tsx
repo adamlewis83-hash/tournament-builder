@@ -16,6 +16,7 @@ import {
   Tournament,
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { getProfile } from "@/lib/profile";
 import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
@@ -95,6 +96,36 @@ export function GolfSetup({ t }: { t: Tournament }) {
         { name: "", handicap: "0" },
       ];
   const [players, setPlayers] = useState<PlayerRow[]>(seed);
+
+  // Host isn't automatically in the field — one tap adds them from their profile,
+  // carrying their saved golf handicap index.
+  const [profileName, setProfileName] = useState("");
+  const [profileHcp, setProfileHcp] = useState<number | null>(null);
+  useEffect(() => {
+    const p = getProfile();
+    setProfileName(p.name.trim());
+    setProfileHcp(p.golfHandicap);
+  }, []);
+  const meAdded =
+    !!profileName && players.some((r) => r.name.trim().toLowerCase() === profileName.toLowerCase());
+  const addMe = () => {
+    if (!profileName || meAdded) return;
+    const me: PlayerRow = { name: profileName, handicap: profileHcp != null ? String(profileHcp) : "0" };
+    setPlayers((prev) => {
+      const idx = prev.findIndex((r) => !r.name.trim());
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...me };
+        return next;
+      }
+      return [...prev, me];
+    });
+  };
+  const removeMe = () =>
+    setPlayers((prev) => {
+      const next = prev.filter((r) => r.name.trim().toLowerCase() !== profileName.toLowerCase());
+      return next.length ? next : [{ name: "", handicap: "0" }];
+    });
 
   // When players self-register, mirror the pool into the rows (names + handicaps).
   // Only fires once the pool is non-empty, so pure manual entry isn't disturbed.
@@ -589,8 +620,37 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
       {/* Players + handicaps */}
       <Card className="p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="font-semibold">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
+            {!teamsMode && profileName && (
+              <button
+                type="button"
+                onClick={meAdded ? removeMe : addMe}
+                title={
+                  meAdded
+                    ? `Remove ${profileName} from this round`
+                    : `Add ${profileName} (from your profile) with your handicap`
+                }
+                className={`rounded-full border px-2 py-0.5 text-xs font-medium transition ${
+                  meAdded
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : "border-[var(--border)] hover:bg-[var(--hover)]"
+                }`}
+              >
+                {meAdded ? "✓ You're in" : "+ Add me"}
+              </button>
+            )}
+            {!teamsMode && !profileName && (
+              <Link
+                href="/settings"
+                title="Set your name in your profile, then add yourself"
+                className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs font-medium text-[var(--muted)] hover:bg-[var(--hover)]"
+              >
+                + Add me
+              </Link>
+            )}
+          </div>
           <button
             type="button"
             onClick={fillSample}
