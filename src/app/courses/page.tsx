@@ -54,6 +54,20 @@ function Courses() {
                     <p className="text-sm text-[var(--muted)]">
                       {c.holes} holes · Par {par}
                     </p>
+                    <span
+                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        c.tees?.length
+                          ? "bg-[var(--brand-soft)] text-[var(--brand)]"
+                          : "bg-amber-500/15 text-amber-500"
+                      }`}
+                      title={
+                        c.tees?.length
+                          ? "Tee boxes saved — handicaps adjust per tee"
+                          : "No tee data — reload from setup with Find tees, then Save course again"
+                      }
+                    >
+                      {c.tees?.length ? `${c.tees.length} tees` : "No tee data"}
+                    </span>
                   </div>
                   <Button
                     variant="danger"

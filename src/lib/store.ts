@@ -264,6 +264,7 @@ export const useStore = create<State>()(
             holes: input.holes,
             pars: input.pars,
             strokeIndex: input.strokeIndex,
+            tees: input.tees,
           };
           id = course.id;
           return match
