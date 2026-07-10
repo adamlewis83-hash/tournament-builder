@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
+import { GOLF_MODE_BLURBS, GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeGolf, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
@@ -68,6 +68,17 @@ export function GolfView({ t }: { t: Tournament }) {
             </button>
           ))}
         </div>
+      )}
+
+      {!isScramble && (
+        <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">
+          <span className="font-semibold text-[var(--foreground)]">{GOLF_MODE_LABELS[mode]}</span> —{" "}
+          {GOLF_MODE_BLURBS[mode]}{" "}
+          <span className="opacity-80">
+            Enter each player&apos;s strokes once; all four scoring views track live from the same
+            card — switch tabs anytime.
+          </span>
+        </p>
       )}
 
       {/* Hole-by-hole entry */}

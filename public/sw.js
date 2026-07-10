@@ -1,5 +1,5 @@
 // Sporos service worker — offline app shell, network for live data.
-const CACHE = "sporos-v62";
+const CACHE = "sporos-v63";
 const PRECACHE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
