@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Sun, Moon, Settings as SettingsIcon } from "@/components/icons";
 import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -197,6 +198,27 @@ export default function SettingsPage() {
           <p className="text-sm text-[var(--muted)]">Your name and photo, everywhere you play.</p>
         </div>
         <ProfileSetting />
+      </Card>
+
+      <Card className="p-5 mt-4 space-y-3">
+        <div>
+          <h2 className="font-semibold">Your library</h2>
+          <p className="text-sm text-[var(--muted)]">Reuse your people and courses across events.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/friends"
+            className="rounded-xl border border-[var(--border)] px-4 py-3 text-center font-medium hover:bg-[var(--hover)]"
+          >
+            👥 Friends
+          </Link>
+          <Link
+            href="/courses"
+            className="rounded-xl border border-[var(--border)] px-4 py-3 text-center font-medium hover:bg-[var(--hover)]"
+          >
+            ⛳ Courses
+          </Link>
+        </div>
       </Card>
 
       <Card className="p-5 mt-4 space-y-3">

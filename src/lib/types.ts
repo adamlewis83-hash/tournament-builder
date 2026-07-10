@@ -148,6 +148,15 @@ export interface Course {
   tees?: TeeSet[]; // available tee sets (for course-handicap adjustment)
 }
 
+// A saved player you compete with often — pick them into a tournament instead of retyping.
+export interface Friend {
+  id: string;
+  name: string;
+  handicap?: number; // golf handicap index, carried into golf/Ryder events
+  photo?: string;
+  color?: string;
+}
+
 export interface GolfData {
   holes: number; // 9 or 18
   startHole?: number; // first hole number played (1 for front/18-hole, 10 for back 9) — display only

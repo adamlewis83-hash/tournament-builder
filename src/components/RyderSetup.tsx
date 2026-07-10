@@ -23,6 +23,8 @@ export function RyderSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const savedCourses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
+  const friends = useStore((s) => s.friends);
+  const saveFriend = useStore((s) => s.saveFriend);
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
@@ -107,6 +109,20 @@ export function RyderSetup({ t }: { t: Tournament }) {
     setAText(stripMe(aText));
     setBText(stripMe(bText));
   };
+
+  // Friends: pick a saved friend onto a side (with their handicap), or save both teams as friends.
+  const assignedNames = new Set([...aRows, ...bRows].map((r) => r.name.trim().toLowerCase()));
+  const availableFriends = friends.filter((f) => !assignedNames.has(f.name.trim().toLowerCase()));
+  const friendLine = (f: { name: string; handicap?: number }) =>
+    f.handicap != null ? `${f.name}, ${f.handicap}` : f.name;
+  const addFriendToTeam = (f: { name: string; handicap?: number }, team: 0 | 1) => {
+    const set = team === 0 ? setAText : setBText;
+    set((s) => (s.trim() ? s + "\n" : "") + friendLine(f));
+  };
+  const saveTeamsAsFriends = () =>
+    [...aRows, ...bRows]
+      .filter((r) => r.name.trim())
+      .forEach((r) => saveFriend({ name: r.name.trim(), handicap: r.handicap || undefined }));
 
   const totalPar = course.pars.slice(0, course.holes).reduce((x, y) => x + y, 0);
   const canGenerate = aRows.length >= 1 && bRows.length >= 1 && course.pars.length >= course.holes;
@@ -370,14 +386,68 @@ export function RyderSetup({ t }: { t: Tournament }) {
               </Link>
             )}
           </div>
-          <button
-            type="button"
-            onClick={fillSample}
-            className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
-          >
-            Fill sample
-          </button>
+          <div className="flex items-center gap-3">
+            {[...aRows, ...bRows].some((r) => r.name.trim()) && (
+              <button
+                type="button"
+                onClick={saveTeamsAsFriends}
+                title="Save both teams' players to your friends list"
+                className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+              >
+                Save as friends
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={fillSample}
+              className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+            >
+              Fill sample
+            </button>
+          </div>
         </div>
+
+        {friends.length > 0 && availableFriends.length > 0 && (
+          <div className="mb-3 rounded-lg border border-[var(--border)] p-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-[var(--muted)]">
+                Your friends — tap a side to add
+              </span>
+              <Link
+                href="/friends"
+                className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+              >
+                Manage
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableFriends.map((f) => (
+                <span
+                  key={f.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] pl-2.5 pr-1 py-1 text-sm"
+                >
+                  {f.name}
+                  {f.handicap != null && <span className="text-[var(--muted)]"> · {f.handicap}</span>}
+                  <button
+                    type="button"
+                    onClick={() => addFriendToTeam(f, 0)}
+                    className="ml-1 rounded-md bg-[var(--brand-soft)] text-[var(--brand)] font-semibold px-2 py-0.5 text-xs"
+                  >
+                    → A
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addFriendToTeam(f, 1)}
+                    className="rounded-md bg-rose-400/15 text-rose-300 font-semibold px-2 py-0.5 text-xs"
+                  >
+                    → B
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid sm:grid-cols-2 gap-5">
         {[
           { name: nameA, setName: setNameA, text: aText, setText: setAText, ring: "ring-[var(--brand)]", rows: aRows },

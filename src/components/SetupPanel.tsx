@@ -10,6 +10,7 @@ import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
 import { RegistrationPanel } from "./RegistrationPanel";
+import { FriendPicker } from "./FriendPicker";
 
 // Sample data is generated on demand for however many entries the host wants to test with.
 const samplePlayers = (n: number) => Array.from({ length: n }, (_, i) => `Player ${i + 1}`);
@@ -65,6 +66,7 @@ function NumberField({
 export function SetupPanel({ t }: { t: Tournament }) {
   const setParticipants = useStore((s) => s.setParticipants);
   const setTeamsStore = useStore((s) => s.setTeams);
+  const saveFriend = useStore((s) => s.saveFriend);
   const patch = useStore((s) => s.patchTournament);
   const generate = useStore((s) => s.generate);
 
@@ -98,6 +100,20 @@ export function SetupPanel({ t }: { t: Tournament }) {
         .filter((l) => l.trim().toLowerCase() !== profileName.toLowerCase())
         .join("\n"),
     );
+
+  // Friends: tap a saved friend to append them; save the current roster as friends.
+  const addFriendName = (name: string) =>
+    setText((prev) => {
+      if (
+        prev
+          .split(/[\n,]/)
+          .some((l) => l.trim().toLowerCase() === name.trim().toLowerCase())
+      )
+        return prev;
+      const cleaned = prev.replace(/\n+$/, "");
+      return cleaned ? `${cleaned}\n${name}` : name;
+    });
+  const saveNamesAsFriends = () => names.forEach((n) => saveFriend({ name: n }));
 
   const cfg = t.config;
   const setCfg = (patchCfg: Partial<TournamentConfig>) =>
@@ -381,6 +397,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
                 ? "Name each team (e.g. “Team 1” or “Player 1 & Player 2”)."
                 : "Each line is a player."}
         </p>
+        <div className="mb-3">
+          <FriendPicker
+            addedNames={new Set(names.map((n) => n.toLowerCase()))}
+            onAdd={(f) => addFriendName(f.name)}
+          />
+        </div>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -389,7 +411,19 @@ export function SetupPanel({ t }: { t: Tournament }) {
           placeholder={isTeams ? "Team 1\nTeam 2\nTeam 3\n…" : "Player 1\nPlayer 2\nPlayer 3\nPlayer 4\n…"}
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-mono bg-[var(--surface)]"
         />
-        <p className="text-sm text-[var(--muted)] mt-2">{count} entered</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-sm text-[var(--muted)]">{count} entered</p>
+          {count > 0 && (
+            <button
+              type="button"
+              onClick={saveNamesAsFriends}
+              title="Save everyone here to your friends list for next time"
+              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Save as friends
+            </button>
+          )}
+        </div>
         {count > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {names.slice(0, 40).map((n, i) => (

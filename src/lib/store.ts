@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import {
   Course,
   Format,
+  Friend,
   Match,
   Participant,
   PlayStyle,
@@ -56,9 +57,12 @@ export interface CreateInput {
 interface State {
   tournaments: Tournament[];
   courses: Course[];
+  friends: Friend[];
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
+  saveFriend: (input: Omit<Friend, "id"> & { id?: string }) => string;
+  removeFriend: (id: string) => void;
   createTournament: (input: CreateInput) => string;
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
@@ -250,7 +254,34 @@ export const useStore = create<State>()(
       return {
       tournaments: [],
       courses: [],
+      friends: [],
       hydrated: false,
+
+      saveFriend: (input) => {
+        let id = input.id ?? "";
+        set((s) => {
+          const match = input.id
+            ? s.friends.find((f) => f.id === input.id)
+            : s.friends.find((f) => f.name.trim().toLowerCase() === input.name.trim().toLowerCase());
+          const friend: Friend = {
+            // Keep any existing detail the input doesn't override (e.g. saving a name again
+            // shouldn't wipe a handicap set earlier), then apply the new values on top.
+            ...(match ?? {}),
+            id: match?.id ?? uid(),
+            name: input.name.trim(),
+            ...(input.handicap != null ? { handicap: input.handicap } : {}),
+            ...(input.photo ? { photo: input.photo } : {}),
+            ...(input.color ? { color: input.color } : {}),
+          };
+          id = friend.id;
+          return match
+            ? { friends: s.friends.map((f) => (f.id === match.id ? friend : f)) }
+            : { friends: [...s.friends, friend] };
+        });
+        return id;
+      },
+
+      removeFriend: (id) => set((s) => ({ friends: s.friends.filter((f) => f.id !== id) })),
 
       saveCourse: (input) => {
         let id = input.id ?? "";
@@ -1010,7 +1041,7 @@ export const useStore = create<State>()(
       storage: createJSONStorage(() =>
         typeof localStorage !== "undefined" ? localStorage : (undefined as unknown as Storage),
       ),
-      partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses }),
+      partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses, friends: s.friends }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },

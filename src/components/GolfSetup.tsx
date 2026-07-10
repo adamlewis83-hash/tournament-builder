@@ -21,6 +21,7 @@ import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
+import { FriendPicker } from "./FriendPicker";
 
 const MODES: GolfMode[] = [
   "stroke",
@@ -58,6 +59,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const setGolfPlayers = useStore((s) => s.setGolfPlayers);
   const courses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
+  const saveFriend = useStore((s) => s.saveFriend);
 
   const [mode, setMode] = useState<GolfMode>(
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
@@ -128,6 +130,28 @@ export function GolfSetup({ t }: { t: Tournament }) {
       const next = prev.filter((r) => r.name.trim().toLowerCase() !== profileName.toLowerCase());
       return next.length ? next : [{ name: "", handicap: "0" }];
     });
+
+  // Friends: tap a saved friend to add a player row (with their handicap); save the current
+  // named players back to your friends list (carrying whatever handicap is typed).
+  const addFriendPlayer = (name: string, handicap?: number) => {
+    const row: PlayerRow = { name, handicap: handicap != null ? String(handicap) : "0" };
+    setPlayers((prev) => {
+      if (prev.some((r) => r.name.trim().toLowerCase() === name.trim().toLowerCase())) return prev;
+      const idx = prev.findIndex((r) => !r.name.trim());
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...row };
+        return next;
+      }
+      return [...prev, row];
+    });
+  };
+  const savePlayersAsFriends = () =>
+    players
+      .filter((r) => r.name.trim())
+      .forEach((r) =>
+        saveFriend({ name: r.name.trim(), handicap: r.handicap === "" ? undefined : Number(r.handicap) }),
+      );
 
   // When players self-register, mirror the pool into the rows (names + handicaps).
   // Only fires once the pool is non-empty, so pure manual entry isn't disturbed.
@@ -703,6 +727,17 @@ export function GolfSetup({ t }: { t: Tournament }) {
             ? "One team per line; handicap optional (one ball per team)."
             : "Add each player and their handicap — net scores adjust automatically."}
         </p>
+        {!teamsMode && (
+          <div className="mb-3">
+            <FriendPicker
+              addedNames={
+                new Set(players.map((r) => r.name.trim().toLowerCase()).filter(Boolean))
+              }
+              onAdd={(f) => addFriendPlayer(f.name, f.handicap)}
+              showHandicap
+            />
+          </div>
+        )}
         <div className="space-y-2">
           {players.map((p, i) => {
             const idx = Number(p.handicap) || 0;
@@ -776,13 +811,25 @@ export function GolfSetup({ t }: { t: Tournament }) {
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={() => setPlayers([...players, { name: "", handicap: "0" }])}
-          className="mt-3 text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
-        >
-          + Add {teamsMode ? "team" : "player"}
-        </button>
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPlayers([...players, { name: "", handicap: "0" }])}
+            className="text-sm text-[var(--brand)] hover:text-[var(--brand-strong)]"
+          >
+            + Add {teamsMode ? "team" : "player"}
+          </button>
+          {!teamsMode && players.some((r) => r.name.trim()) && (
+            <button
+              type="button"
+              onClick={savePlayersAsFriends}
+              title="Save these players (with handicaps) to your friends list"
+              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Save as friends
+            </button>
+          )}
+        </div>
       </Card>
 
       {/* Scoring mode */}
