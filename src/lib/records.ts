@@ -13,6 +13,7 @@ const loseSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.
 export interface FinalRow {
   name: string;
   stat: string;
+  rank?: number; // finishing position — set for standings/bracket formats so co-champions share a rank
 }
 
 const fmtNum = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
@@ -56,18 +57,27 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     }));
   }
 
+  // Mirror the Record Book's placement grouping so the scorephoto agrees with it: a
+  // doubles/team champion is one row (both partners), co-champions share a rank, and the
+  // field keeps its round-robin position. W-L is shown when a row's people share a record.
   const s = computeStandings(
     t.participants,
     t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
     t.config.tiebreaker,
     t.config.rankByWinPct,
   );
-  let rows = s.map((r) => ({ name: r.name, stat: `${r.wins}–${r.losses}` }));
-  const champ = getResult(t).winner;
-  if (champ && rows.some((r) => r.name === champ)) {
-    rows = [rows.find((r) => r.name === champ)!, ...rows.filter((r) => r.name !== champ)];
+  const wl = new Map<string, string>();
+  for (const r of s) {
+    const stat = `${r.wins}–${r.losses}`;
+    wl.set(r.name.toLowerCase(), stat);
+    const p = t.participants.find((x) => x.id === r.participantId);
+    p?.members?.forEach((m) => wl.set(m.toLowerCase(), stat));
   }
-  return rows;
+  return getPlacements(t).map((pl) => {
+    const stats = pl.names.map((n) => wl.get(n.toLowerCase())).filter(Boolean) as string[];
+    const uniform = stats.length === pl.names.length && new Set(stats).size === 1;
+    return { name: pl.names.join(" & "), stat: uniform ? stats[0] : "", rank: pl.rank };
+  });
 }
 
 function golfNames(t: Tournament): string[] {

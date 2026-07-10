@@ -82,17 +82,19 @@ export function ScorePhoto({ t }: { t: Tournament }) {
         )}
 
         <div className="mt-4 space-y-1.5">
-          {rows.map((r, i) => (
+          {rows.map((r, i) => {
+            const rank = r.rank ?? i + 1;
+            return (
             <div
               key={`${r.name}-${i}`}
               className="flex items-center gap-2.5 rounded-xl px-3 py-2"
-              style={{ background: i === 0 ? "#ecfdf5" : "#f6f8fa" }}
+              style={{ background: rank === 1 ? "#ecfdf5" : "#f6f8fa" }}
             >
               <span
-                style={rankStyle(i)}
+                style={rankStyle(rank - 1)}
                 className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold tabular-nums"
               >
-                {i + 1}
+                {rank}
               </span>
               <Avatar name={r.name} color={colorForName(r.name)} className="h-7 w-7 text-[11px]" />
               <span className="flex-1 min-w-0">
@@ -107,7 +109,8 @@ export function ScorePhoto({ t }: { t: Tournament }) {
                 {r.stat}
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div
