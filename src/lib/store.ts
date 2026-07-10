@@ -372,8 +372,29 @@ export const useStore = create<State>()(
             if (t.id !== id) return t;
             if (t.spectator || t.generated) return t; // host setup only
             const prev = new Map(t.participants.map((p) => [p.id, p]));
-            const manual = t.participants.filter((p) => !p.id.startsWith("reg-"));
-            const regParts: Participant[] = regs.map((r) => {
+            // Host's manually-typed roster. A registrant whose name matches one of these
+            // "claims" it — their photo/handicap attach to that entry instead of creating a
+            // duplicate. So a host can type everyone, then have people fill in their own
+            // details by joining the registration link.
+            const manual = t.participants
+              .filter((p) => !p.id.startsWith("reg-"))
+              .map((p) => ({ ...p }));
+            const manualByName = new Map<string, Participant>();
+            for (const p of manual) {
+              const k = p.name.trim().toLowerCase();
+              if (k && !manualByName.has(k)) manualByName.set(k, p);
+            }
+            const claimed = new Set<string>();
+            const regParts: Participant[] = [];
+            for (const r of regs) {
+              const hit = manualByName.get(r.name.trim().toLowerCase());
+              if (hit && !claimed.has(hit.id)) {
+                // Merge onto the typed name rather than adding a second player.
+                claimed.add(hit.id);
+                if (r.handicap != null) hit.handicap = r.handicap;
+                if (r.photo) hit.photo = r.photo;
+                continue;
+              }
               const old = prev.get(`reg-${r.id}`);
               const p: Participant = { id: `reg-${r.id}`, name: r.name };
               if (r.handicap != null) p.handicap = r.handicap;
@@ -381,8 +402,8 @@ export const useStore = create<State>()(
               if (old?.team !== undefined) p.team = old.team;
               if (old?.seed !== undefined) p.seed = old.seed;
               if (old?.tee !== undefined) p.tee = old.tee;
-              return p;
-            });
+              regParts.push(p);
+            }
             const participants = [...manual, ...regParts];
             if (JSON.stringify(participants) === JSON.stringify(t.participants)) return t;
             return { ...t, participants, updatedAt: Date.now() };
