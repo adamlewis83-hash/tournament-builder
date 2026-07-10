@@ -73,6 +73,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [tees, setTees] = useState<TeeSet[]>(t.golf?.tees ?? []);
   const [defaultTee, setDefaultTee] = useState<string | undefined>(undefined);
   const [teeForm, setTeeForm] = useState<{ name: string; rating: string; slope: string } | null>(null);
+  const [teeFinding, setTeeFinding] = useState(false);
+  const [teeFindMsg, setTeeFindMsg] = useState<string | null>(null);
   const [showCourse, setShowCourse] = useState(false);
   const [courseSaved, setCourseSaved] = useState(false);
   const [query, setQuery] = useState("");
@@ -185,6 +187,32 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setTees((prev) => prev.filter((x) => x.name !== name));
     if (defaultTee === name) setDefaultTee(undefined);
     setPlayers((prev) => prev.map((r) => (r.tee === name ? { ...r, tee: undefined } : r)));
+  }
+
+  // Saved/typed courses may not carry tees. Look the course name up in the database and
+  // pull its real tee boxes so the host doesn't have to re-search or enter them by hand.
+  async function loadTeesForCourse() {
+    const q = courseName.trim();
+    if (q.length < 2) return;
+    setTeeFinding(true);
+    setTeeFindMsg(null);
+    const r = await searchCourses(q);
+    if (r.notConfigured) {
+      setTeeFinding(false);
+      setTeeFindMsg("Course search isn't set up — add your tees manually below.");
+      return;
+    }
+    const match = r.courses.find((c) => c.name.toLowerCase() === q.toLowerCase()) ?? r.courses[0];
+    if (match) {
+      const c = await importCourse(match.id);
+      if (c?.tees?.length) {
+        swapTees(c.tees);
+        setTeeFinding(false);
+        return;
+      }
+    }
+    setTeeFinding(false);
+    setTeeFindMsg("No tee data found for this course — add your tees manually below.");
   }
 
   function loadCourse(c: Course) {
@@ -450,11 +478,22 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </div>
 
           {tees.length === 0 && !teeForm && (
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Search &amp; import a real course above to load its tees automatically — or tap{" "}
-              <span className="text-[var(--brand)]">+ Add tee</span> to enter your own (name +
-              rating/slope from the scorecard) so handicaps adjust to the box you play.
-            </p>
+            <div className="mt-1.5 space-y-1.5">
+              {courseName.trim().length >= 2 && (
+                <button
+                  type="button"
+                  onClick={loadTeesForCourse}
+                  disabled={teeFinding}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--brand)] transition hover:brightness-105 disabled:opacity-50"
+                >
+                  {teeFinding ? "Finding tees…" : `🔍 Find tees for ${courseName.trim()}`}
+                </button>
+              )}
+              <p className="text-xs text-[var(--muted)]">
+                {teeFindMsg ??
+                  "Pulls the real tee boxes for the course above — or tap + Add tee to enter your own (name + rating/slope from the scorecard)."}
+              </p>
+            </div>
           )}
 
           {tees.length > 0 && (
