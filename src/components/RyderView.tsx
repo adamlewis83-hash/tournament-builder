@@ -6,6 +6,7 @@ import { ryderScore, RyderSessionType } from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
 import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
+import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
 import { Confetti } from "./Confetti";
 
@@ -210,6 +211,7 @@ function PairingEditor({
 }
 
 export function RyderView({ t }: { t: Tournament }) {
+  const noEdit = !canEditScores(t); // spectator without scorekeeper rights
   // Default into captain's-picks mode until scoring has started.
   const [editing, setEditing] = useState(
     () => !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
@@ -302,7 +304,7 @@ export function RyderView({ t }: { t: Tournament }) {
         </p>
       </Card>
 
-      {!t.spectator && (
+      {!noEdit && (
         <Card className="no-print p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm">
@@ -338,7 +340,7 @@ export function RyderView({ t }: { t: Tournament }) {
         </Card>
       )}
 
-      {!t.spectator && rounds.length > 0 && (
+      {!noEdit && rounds.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-[var(--muted)]">
             {editing
@@ -363,7 +365,7 @@ export function RyderView({ t }: { t: Tournament }) {
           <div key={round}>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold">{label}</h3>
-              {editing && !t.spectator && (
+              {editing && !noEdit && (
                 <button
                   onClick={() => {
                     if (confirm(`Remove this ${label} session?`)) removeRyderRound(t.id, round);

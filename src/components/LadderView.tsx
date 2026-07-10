@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { canEditScores } from "@/lib/perms";
 import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
 
 export function LadderView({ t }: { t: Tournament }) {
   const record = useStore((s) => s.recordLadderMatch);
-  const spectator = t.spectator === true;
+  const spectator = !canEditScores(t); // true when this device can't enter scores
   const order = t.ladder?.order ?? t.participants.map((p) => p.id);
   const byId = (id: string) => t.participants.find((p) => p.id === id);
 

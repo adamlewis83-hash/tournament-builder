@@ -25,6 +25,7 @@ import {
 } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { applyProfilePhoto } from "./profile";
+import { canEditScores } from "./perms";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 const DEFAULT_CONFIG: TournamentConfig = {
@@ -69,6 +70,7 @@ interface State {
   duplicateTournament: (id: string) => string | null;
   mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
+  setScorers: (id: string, names: string[]) => void;
   setParticipants: (id: string, names: string[]) => void;
   syncRegistrations: (
     id: string,
@@ -248,8 +250,12 @@ export const useStore = create<State>()(
         const t = get().tournaments.find((x) => x.id === id);
         if (t?.liveCode) pushPatch(id, { kind: "replace", data: { ...t } });
       };
-      // Spectators (joined via live code) are read-only — their edits are ignored.
-      const blocked = (id: string) => get().tournaments.find((x) => x.id === id)?.spectator === true;
+      // Spectators (joined via live code) are read-only unless the host granted them as a
+      // scorekeeper (matched by profile name). The host is never blocked.
+      const blocked = (id: string) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        return t ? !canEditScores(t) : false;
+      };
 
       return {
       tournaments: [],
@@ -377,6 +383,16 @@ export const useStore = create<State>()(
             t.id === id ? { ...t, ...patch, updatedAt: Date.now() } : t,
           ),
         }));
+      },
+
+      // Host-only: choose which players may keep score from their own device.
+      setScorers: (id, names) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id && !t.spectator ? { ...t, scorers: names, updatedAt: Date.now() } : t,
+          ),
+        }));
+        pushReplace(id);
       },
 
       setParticipants: (id, names) =>

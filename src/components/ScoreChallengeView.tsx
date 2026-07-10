@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { canEditScores } from "@/lib/perms";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Card } from "./ui";
 
 export function ScoreChallengeView({ t }: { t: Tournament }) {
   const setScore = useStore((s) => s.setScoreChallengeScore);
-  const spectator = t.spectator === true;
+  const spectator = !canEditScores(t); // true when this device can't enter scores
   const [tab, setTab] = useState<"card" | "board">("card");
 
   const rounds = Math.max(1, t.config.rounds);

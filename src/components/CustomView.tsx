@@ -8,11 +8,12 @@ import { StandingsTable } from "./StandingsTable";
 import { BracketDiagram } from "./BracketDiagram";
 import { Champion } from "./Champion";
 import { Button, Card } from "./ui";
+import { canEditScores } from "@/lib/perms";
 
 export function CustomView({ t }: { t: Tournament }) {
   const addCustomMatch = useStore((s) => s.addCustomMatch);
   const removeMatch = useStore((s) => s.removeMatch);
-  const spectator = t.spectator === true;
+  const spectator = !canEditScores(t); // true when this device can't enter scores
 
   const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
   // Each player can be assigned to Side A, Side B, or neither — so any pairing/matchup is possible.

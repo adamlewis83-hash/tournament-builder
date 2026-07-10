@@ -254,6 +254,7 @@ export interface Tournament {
   liveCode?: string; // when set, this tournament is synced to a live session
   liveVersion?: number; // last server version this device has applied
   spectator?: boolean; // joined via live code as a viewer — read-only, can't edit scores
+  scorers?: string[]; // participant names the host lets keep score from their own device
 }
 
 export const FORMAT_LABELS: Record<Format, string> = {

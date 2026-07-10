@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useStore, useTournament } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
+import { isGrantedScorer } from "@/lib/perms";
 import { Badge, Button, Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -106,10 +107,17 @@ function TournamentDetail({ id }: { id: string }) {
       {t.spectator && (
         <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-4 py-2.5 text-sm flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-[var(--win)] pulse-ring shrink-0" />
-          <span>
-            <span className="font-semibold">Watching live</span> — scores update from the host
-            automatically. You&apos;re a spectator, so scoring is read-only.
-          </span>
+          {isGrantedScorer(t) ? (
+            <span>
+              <span className="font-semibold">You can keep score</span> — the host added you as a
+              scorekeeper. Your entries sync to everyone. (Recognized by your profile name.)
+            </span>
+          ) : (
+            <span>
+              <span className="font-semibold">Watching live</span> — scores update from the host
+              automatically. You&apos;re a spectator, so scoring is read-only.
+            </span>
+          )}
         </div>
       )}
 

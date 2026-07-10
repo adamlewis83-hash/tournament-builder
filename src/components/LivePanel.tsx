@@ -9,8 +9,18 @@ import { Button, Card } from "./ui";
 export function LivePanel({ t }: { t: Tournament }) {
   const publishLive = useStore((s) => s.publishLive);
   const goOffline = useStore((s) => s.goOffline);
+  const setScorers = useStore((s) => s.setScorers);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [showScorers, setShowScorers] = useState(false);
+
+  const scorers = t.scorers ?? [];
+  const isScorer = (name: string) => scorers.some((n) => n.toLowerCase() === name.toLowerCase());
+  const toggleScorer = (name: string) =>
+    setScorers(
+      t.id,
+      isScorer(name) ? scorers.filter((n) => n.toLowerCase() !== name.toLowerCase()) : [...scorers, name],
+    );
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const joinUrl = t.liveCode ? `${origin}/live/${t.liveCode}` : "";
@@ -76,6 +86,49 @@ export function LivePanel({ t }: { t: Tournament }) {
         Anyone can join at <span className="font-mono">{origin.replace(/^https?:\/\//, "")}/live/{t.liveCode}</span>{" "}
         or enter the code on the home screen. Scores sync every couple seconds.
       </p>
+
+      {/* Scorekeepers — let chosen players enter scores from their own phones. */}
+      <div className="mt-3 border-t border-[var(--border)] pt-3">
+        <button
+          type="button"
+          onClick={() => setShowScorers((v) => !v)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <span className="text-sm font-semibold">
+            Scorekeepers{scorers.length ? ` · ${scorers.length}` : ""} ✍️
+          </span>
+          <span className="text-xs text-[var(--muted)]">{showScorers ? "▾ Hide" : "▸ Let players score"}</span>
+        </button>
+        {showScorers && (
+          <div className="mt-2">
+            <p className="text-xs text-[var(--muted)] mb-2">
+              By default only you enter scores. Tap anyone below to let them keep score from their own
+              phone once they join the link — they&apos;re recognized by their profile name, so it must
+              match. Their entries sync to everyone.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {t.participants.map((p) => {
+                const on = isScorer(p.name);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggleScorer(p.name)}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                      on
+                        ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                        : "border-[var(--border)] hover:bg-[var(--hover)]"
+                    }`}
+                  >
+                    {on ? "✓ " : "+ "}
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
