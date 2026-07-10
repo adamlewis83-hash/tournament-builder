@@ -853,7 +853,7 @@ export const useStore = create<State>()(
 
             if (t.format === "swiss") {
               if (maxRound >= t.config.rounds) return t;
-              const ordered = computeStandings(t.participants, t.matches, t.config.tiebreaker).map(
+              const ordered = computeStandings(t.participants, t.matches, t.config.tiebreaker, t.config.rankByWinPct).map(
                 (r) => r.participantId,
               );
               const next = genSwissRound(ordered, t.matches, maxRound + 1, t.config.courts);
@@ -870,7 +870,7 @@ export const useStore = create<State>()(
             }
 
             if (t.format === "kotc") {
-              const standings = computeStandings(t.participants, t.matches, t.config.tiebreaker);
+              const standings = computeStandings(t.participants, t.matches, t.config.tiebreaker, t.config.rankByWinPct);
               const topWins = standings.reduce((mx, r) => Math.max(mx, r.wins), 0);
               if (topWins >= t.config.advanceCount) return t; // crown already won
               const g = genKotcNext(ids, t.matches);
@@ -938,7 +938,7 @@ export const useStore = create<State>()(
 
             let finals: Match[] = [];
             if (t.format === "round-robin") {
-              const standings = computeStandings(t.participants, baseMatches, t.config.tiebreaker);
+              const standings = computeStandings(t.participants, baseMatches, t.config.tiebreaker, t.config.rankByWinPct);
               const n = Math.min(t.config.advanceCount, standings.length);
               const seedIds = standings.slice(0, n).map((r) => r.participantId);
               if (t.playStyle === "doubles") {
@@ -959,6 +959,7 @@ export const useStore = create<State>()(
                   t.participants,
                   baseMatches.filter((m) => m.poolId === pid),
                   t.config.tiebreaker,
+                  t.config.rankByWinPct,
                 ),
               );
               const advancePerPool = Math.max(1, Math.ceil(t.config.advanceCount / Math.max(1, poolIds.length)));

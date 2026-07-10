@@ -226,6 +226,7 @@ export interface TournamentConfig {
   poolCount: number; // pool-bracket: number of pools
   bracketType: "single" | "double"; // pool-bracket: knockout style after pools
   tiebreaker: Tiebreaker; // how to break equal win-loss records
+  rankByWinPct?: boolean; // rank by win % (wins ÷ games played) instead of raw wins — fairer when byes leave players with unequal game counts
   thirdPlace: boolean; // add a 3rd-place game to single-elimination brackets
   teamNames: [string, string]; // Ryder Cup team names
   ryderFoursomes: number; // Ryder Cup: # of Foursomes (alternate shot) sessions

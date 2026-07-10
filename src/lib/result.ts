@@ -38,7 +38,7 @@ export function getResult(t: Tournament): TournamentResult {
     }
     const base = t.matches.filter((m) => m.phase === "rr" || m.phase === "pool");
     if (allScored(base)) {
-      const s = computeStandings(P, base, t.config.tiebreaker);
+      const s = computeStandings(P, base, t.config.tiebreaker, t.config.rankByWinPct);
       return { complete: true, winner: s[0]?.name ?? null };
     }
     return none;
@@ -49,7 +49,7 @@ export function getResult(t: Tournament): TournamentResult {
     const maxR = ms.reduce((x, m) => Math.max(x, m.round), 0);
     const cur = ms.filter((m) => m.round === maxR);
     if (maxR >= t.config.rounds && allScored(cur)) {
-      const s = computeStandings(P, ms, t.config.tiebreaker);
+      const s = computeStandings(P, ms, t.config.tiebreaker, t.config.rankByWinPct);
       return { complete: true, winner: s[0]?.name ?? null };
     }
     return none;
@@ -69,7 +69,7 @@ export function getResult(t: Tournament): TournamentResult {
 
   if (t.format === "kotc") {
     const ms = t.matches.filter((m) => m.phase === "rr");
-    const s = computeStandings(P, ms, t.config.tiebreaker);
+    const s = computeStandings(P, ms, t.config.tiebreaker, t.config.rankByWinPct);
     const top = s.reduce((x, r) => Math.max(x, r.wins), 0);
     return top >= t.config.advanceCount ? { complete: true, winner: s[0]?.name ?? null } : none;
   }

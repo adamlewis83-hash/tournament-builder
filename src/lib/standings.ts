@@ -10,6 +10,7 @@ export interface Standing {
   pointsFor: number;
   pointsAgainst: number;
   diff: number;
+  winPct: number; // (wins + ½·ties) ÷ games played; 0 when unplayed
   rank: number;
 }
 
@@ -21,11 +22,16 @@ function isPlayed(m: Match): boolean {
  * Per-participant standings aggregated across the given matches.
  * Sorted by wins desc, then point differential desc, then points-for desc, then name.
  * Ranks are unique (1..N) following that sort order, so seeds are unambiguous.
+ *
+ * When `rankByWinPct` is set the primary key becomes win percentage
+ * (wins ÷ games played) instead of raw wins — so a player who sat out a bye
+ * isn't penalized for the missing game. Tiebreakers below it are unchanged.
  */
 export function computeStandings(
   participants: Participant[],
   matches: Match[],
   tiebreaker: Tiebreaker = "diff",
+  rankByWinPct = false,
 ): Standing[] {
   const table = new Map<string, Standing>();
   for (const p of participants) {
@@ -39,6 +45,7 @@ export function computeStandings(
       pointsFor: 0,
       pointsAgainst: 0,
       diff: 0,
+      winPct: 0,
       rank: 0,
     });
   }
@@ -74,7 +81,11 @@ export function computeStandings(
   }
 
   const rows = [...table.values()];
-  for (const r of rows) r.diff = r.pointsFor - r.pointsAgainst;
+  for (const r of rows) {
+    r.diff = r.pointsFor - r.pointsAgainst;
+    // Ties count as half a win, matching standard win-percentage convention.
+    r.winPct = r.played > 0 ? (r.wins + 0.5 * r.ties) / r.played : 0;
+  }
 
   // Head-to-head wins counted only among players tied on total wins.
   const h2h = new Map<string, number>();
@@ -100,7 +111,8 @@ export function computeStandings(
 
   rows.sort(
     (x, y) =>
-      y.wins - x.wins ||
+      // Primary key: win % when byes make game counts unequal, else raw wins.
+      (rankByWinPct ? y.winPct - x.winPct : y.wins - x.wins) ||
       // "record": among equal wins, fewer losses ranks higher (so ties beat losses), then diff
       (tiebreaker === "record" ? x.losses - y.losses : 0) ||
       (tiebreaker === "headToHead"

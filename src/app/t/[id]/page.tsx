@@ -156,6 +156,7 @@ function TournamentDetail({ id }: { id: string }) {
               highlightTop={t.config.advanceCount}
               title="Round Robin Standings"
               tiebreaker={t.config.tiebreaker}
+          rankByWinPct={t.config.rankByWinPct}
             />
           )}
         </div>

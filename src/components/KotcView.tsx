@@ -18,7 +18,7 @@ export function KotcView({ t }: { t: Tournament }) {
   const currentDecided =
     current && current.scoreA !== null && current.scoreB !== null && current.scoreA !== current.scoreB;
 
-  const standings = computeStandings(t.participants, t.matches, t.config.tiebreaker);
+  const standings = computeStandings(t.participants, t.matches, t.config.tiebreaker, t.config.rankByWinPct);
   const topWins = standings.reduce((mx, r) => Math.max(mx, r.wins), 0);
   const target = t.config.advanceCount;
   const champ = topWins >= target ? standings[0] : null;
@@ -77,6 +77,7 @@ export function KotcView({ t }: { t: Tournament }) {
           title="Leaderboard"
           highlightTop={1}
           tiebreaker={t.config.tiebreaker}
+          rankByWinPct={t.config.rankByWinPct}
           footnote={`First to ${target} wins takes the crown · ties broken by point differential`}
         />
       </div>

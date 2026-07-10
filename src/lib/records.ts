@@ -54,6 +54,7 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     t.participants,
     t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
     t.config.tiebreaker,
+    t.config.rankByWinPct,
   );
   let rows = s.map((r) => ({ name: r.name, stat: `${r.wins}–${r.losses}` }));
   const champ = getResult(t).winner;
@@ -94,6 +95,7 @@ export function getRanking(t: Tournament): string[] {
     t.participants,
     t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
     t.config.tiebreaker,
+    t.config.rankByWinPct,
   ).map((s) => s.name);
   const champ = getResult(t).winner;
   if (champ && order.includes(champ)) return [champ, ...order.filter((n) => n !== champ)];

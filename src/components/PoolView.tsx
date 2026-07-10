@@ -34,6 +34,7 @@ export function PoolView({ t }: { t: Tournament }) {
                 matches={pm}
                 title="Standings"
                 tiebreaker={t.config.tiebreaker}
+          rankByWinPct={t.config.rankByWinPct}
               />
               <div>
                 <ScheduleView matches={pm} participants={t.participants} tournamentId={t.id} />

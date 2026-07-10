@@ -20,7 +20,7 @@ export function SwissView({ t }: { t: Tournament }) {
   const moreRounds = maxRound < t.config.rounds;
   const allDone = !moreRounds && curComplete;
 
-  const standings = computeStandings(t.participants, matches, t.config.tiebreaker);
+  const standings = computeStandings(t.participants, matches, t.config.tiebreaker, t.config.rankByWinPct);
   const winner = standings[0];
   const playersWithBye = t.participants.length % 2 === 1;
 
@@ -69,6 +69,7 @@ export function SwissView({ t }: { t: Tournament }) {
         matches={matches}
         title="Standings"
         tiebreaker={t.config.tiebreaker}
+          rankByWinPct={t.config.rankByWinPct}
       />
 
       <ScheduleView matches={matches} participants={t.participants} tournamentId={t.id} />

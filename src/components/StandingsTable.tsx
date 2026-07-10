@@ -11,6 +11,7 @@ export function StandingsTable({
   highlightTop = 0,
   title,
   tiebreaker = "diff",
+  rankByWinPct = false,
   footnote,
 }: {
   participants: Participant[];
@@ -18,9 +19,11 @@ export function StandingsTable({
   highlightTop?: number;
   title?: string;
   tiebreaker?: Tiebreaker;
+  rankByWinPct?: boolean;
   footnote?: string;
 }) {
-  const rows = computeStandings(participants, matches, tiebreaker);
+  const rows = computeStandings(participants, matches, tiebreaker, rankByWinPct);
+  const pct = (p: number) => (p * 100).toFixed(0) + "%";
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
       {title && (
@@ -35,6 +38,14 @@ export function StandingsTable({
             <th className="px-3 py-2">Player</th>
             <th className="px-2 py-2 text-center w-12">W</th>
             <th className="px-2 py-2 text-center w-12">L</th>
+            {rankByWinPct && (
+              <th
+                className="px-2 py-2 text-center w-14"
+                title="Win % — wins ÷ games played (primary ranking)"
+              >
+                Win%
+              </th>
+            )}
             <th className="px-2 py-2 text-center w-14" title="Point differential — breaks ties">
               Diff
             </th>
@@ -76,6 +87,11 @@ export function StandingsTable({
                 </td>
                 <td className="px-2 py-2 text-center tabular-nums">{r.wins}</td>
                 <td className="px-2 py-2 text-center tabular-nums text-[var(--muted)]">{r.losses}</td>
+                {rankByWinPct && (
+                  <td className="px-2 py-2 text-center tabular-nums font-bold">
+                    {r.played > 0 ? pct(r.winPct) : "—"}
+                  </td>
+                )}
                 <td
                   className={`px-2 py-2 text-center tabular-nums font-bold ${
                     r.diff > 0 ? "text-[var(--win)]" : r.diff < 0 ? "text-rose-400" : ""
@@ -97,7 +113,7 @@ export function StandingsTable({
       {(footnote || highlightTop > 0) && (
         <div className="px-4 py-2 text-xs text-[var(--muted)] border-t border-[var(--border)]">
           {footnote ??
-            `Top ${highlightTop} advance · ties broken by ${TIEBREAKER_LABELS[tiebreaker].toLowerCase()}`}
+            `${rankByWinPct ? "Ranked by win % · " : ""}Top ${highlightTop} advance · ties broken by ${TIEBREAKER_LABELS[tiebreaker].toLowerCase()}`}
         </div>
       )}
     </div>

@@ -582,6 +582,25 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </span>
             </label>
           )}
+          {(t.format === "round-robin" ||
+            t.format === "pool-bracket" ||
+            t.format === "swiss" ||
+            t.format === "kotc") && (
+            <label className="col-span-2 flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={cfg.rankByWinPct ?? false}
+                onChange={(e) => setCfg({ rankByWinPct: e.target.checked })}
+                className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
+              />
+              <span className="text-sm font-medium">
+                Rank by win %{" "}
+                <span className="text-[var(--muted)] font-normal">
+                  (wins ÷ games played — fairer when byes leave some players a game short)
+                </span>
+              </span>
+            </label>
+          )}
           {showThirdPlace && (
             <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none">
               <input

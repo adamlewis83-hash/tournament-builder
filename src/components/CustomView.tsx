@@ -83,6 +83,7 @@ export function CustomView({ t }: { t: Tournament }) {
           matches={t.matches}
           title="Leaderboard"
           tiebreaker={t.config.tiebreaker}
+          rankByWinPct={t.config.rankByWinPct}
         />
       ) : tab === "bracket" ? (
         t.matches.length === 0 ? (
