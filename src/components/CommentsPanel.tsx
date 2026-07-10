@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Tournament } from "@/lib/types";
 import { useLiveComments } from "@/hooks/useLiveComments";
+import { getProfile } from "@/lib/profile";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
 
 const EMOJI = ["👏", "🔥", "🎉", "💪", "🙌", "😤", "⚡", "🏆"];
 const NAME_KEY = "seeded-cheer-name";
+const MANUAL_KEY = "seeded-cheer-name-manual"; // set once the user deliberately picks a cheer name
 
 function ago(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -25,13 +27,22 @@ function hue(name: string): string {
 export function CommentsPanel({ t }: { t: Tournament }) {
   const { comments, post } = useLiveComments(t.liveCode);
   const [name, setName] = useState<string>("");
+  const [profileName, setProfileName] = useState("");
   const [draftName, setDraftName] = useState("");
   const [text, setText] = useState("");
   const [tag, setTag] = useState(""); // "" | "player:Adam" | "hole:7"
   const feedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setName(localStorage.getItem(NAME_KEY) ?? "");
+    // Your profile name is your identity by default — so joining a tournament cheers as
+    // the real you, not a stale name left over from testing. A name you deliberately pick
+    // (the "change" flow) is remembered and wins over the profile default.
+    const prof = getProfile().name.trim();
+    const manual = localStorage.getItem(MANUAL_KEY) === "1";
+    const saved = localStorage.getItem(NAME_KEY) ?? "";
+    setProfileName(prof);
+    setName(manual && saved ? saved : prof || saved);
+    setDraftName(prof);
   }, []);
   useEffect(() => {
     const el = feedRef.current;
@@ -42,6 +53,9 @@ export function CommentsPanel({ t }: { t: Tournament }) {
     const v = n.trim().slice(0, 40);
     if (!v) return;
     localStorage.setItem(NAME_KEY, v);
+    // Deliberately choosing a name (that isn't just your profile) pins it over the profile default.
+    if (v.toLowerCase() === profileName.toLowerCase()) localStorage.removeItem(MANUAL_KEY);
+    else localStorage.setItem(MANUAL_KEY, "1");
     setName(v);
   }
 
@@ -112,16 +126,27 @@ export function CommentsPanel({ t }: { t: Tournament }) {
         {!name ? (
           <div className="space-y-2">
             <p className="text-xs font-medium text-[var(--muted)]">Join the cheers as…</p>
+            {profileName && (
+              <button
+                onClick={() => saveName(profileName)}
+                className="rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1 text-xs font-semibold text-[var(--brand)]"
+              >
+                {profileName} (you)
+              </button>
+            )}
             <div className="flex flex-wrap gap-1.5">
-              {t.participants.slice(0, 12).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => saveName(p.name)}
-                  className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs hover:bg-[var(--hover)]"
-                >
-                  {p.name}
-                </button>
-              ))}
+              {t.participants
+                .filter((p) => p.name.toLowerCase() !== profileName.toLowerCase())
+                .slice(0, 12)
+                .map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => saveName(p.name)}
+                    className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs hover:bg-[var(--hover)]"
+                  >
+                    {p.name}
+                  </button>
+                ))}
             </div>
             <div className="flex gap-2">
               <input
