@@ -54,7 +54,7 @@ function Friends() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && add()}
-              placeholder="e.g. Brian Hirsbrunner"
+              placeholder="Player"
               className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
             />
           </label>
