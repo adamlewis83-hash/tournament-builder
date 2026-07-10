@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { getProfile } from "@/lib/profile";
 import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
@@ -71,6 +73,41 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
   const aRows = parseRows(aText);
   const bRows = parseRows(bText);
+
+  // Add yourself to a side from your profile, carrying your golf handicap index.
+  const [profileName, setProfileName] = useState("");
+  const [profileHcp, setProfileHcp] = useState<number | null>(null);
+  useEffect(() => {
+    const p = getProfile();
+    setProfileName(p.name.trim());
+    setProfileHcp(p.golfHandicap);
+  }, []);
+  const inA = !!profileName && aRows.some((r) => r.name.toLowerCase() === profileName.toLowerCase());
+  const inB = !!profileName && bRows.some((r) => r.name.toLowerCase() === profileName.toLowerCase());
+  const myTeamName = inA ? nameA : inB ? nameB : null;
+  const meLine = () => (profileHcp != null ? `${profileName}, ${profileHcp}` : profileName);
+  const stripMe = (s: string) =>
+    s
+      .split("\n")
+      .filter((l) => l.split(",")[0].trim().toLowerCase() !== profileName.toLowerCase())
+      .join("\n");
+  const addMeTo = (team: 0 | 1) => {
+    if (!profileName) return;
+    const cleanA = stripMe(aText);
+    const cleanB = stripMe(bText);
+    if (team === 0) {
+      setAText((cleanA.trim() ? cleanA + "\n" : "") + meLine());
+      setBText(cleanB);
+    } else {
+      setBText((cleanB.trim() ? cleanB + "\n" : "") + meLine());
+      setAText(cleanA);
+    }
+  };
+  const removeMe = () => {
+    setAText(stripMe(aText));
+    setBText(stripMe(bText));
+  };
+
   const totalPar = course.pars.slice(0, course.holes).reduce((x, y) => x + y, 0);
   const canGenerate = aRows.length >= 1 && bRows.length >= 1 && course.pars.length >= course.holes;
 
@@ -289,8 +326,50 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
       {/* Teams */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold">Teams</h2>
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-semibold">Teams</h2>
+            {profileName && !myTeamName && (
+              <span className="inline-flex items-center gap-1 text-xs">
+                <span className="text-[var(--muted)]">Add me:</span>
+                <button
+                  type="button"
+                  onClick={() => addMeTo(0)}
+                  title={`Add ${profileName} to ${nameA}`}
+                  className="rounded-md bg-[var(--brand-soft)] text-[var(--brand)] font-semibold px-2 py-0.5"
+                >
+                  → A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addMeTo(1)}
+                  title={`Add ${profileName} to ${nameB}`}
+                  className="rounded-md bg-rose-400/15 text-rose-300 font-semibold px-2 py-0.5"
+                >
+                  → B
+                </button>
+              </span>
+            )}
+            {profileName && myTeamName && (
+              <button
+                type="button"
+                onClick={removeMe}
+                title={`Remove ${profileName}`}
+                className="rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-2 py-0.5 text-xs font-medium text-[var(--brand)]"
+              >
+                ✓ You&apos;re on {myTeamName} · remove
+              </button>
+            )}
+            {!profileName && (
+              <Link
+                href="/settings"
+                title="Set your name in your profile, then add yourself to a team"
+                className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs font-medium text-[var(--muted)] hover:bg-[var(--hover)]"
+              >
+                + Add me
+              </Link>
+            )}
+          </div>
           <button
             type="button"
             onClick={fillSample}
