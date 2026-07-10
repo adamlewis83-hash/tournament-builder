@@ -28,6 +28,7 @@ export function CommentsPanel({ t }: { t: Tournament }) {
   const { comments, post } = useLiveComments(t.liveCode);
   const [name, setName] = useState<string>("");
   const [profileName, setProfileName] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [text, setText] = useState("");
   const [tag, setTag] = useState(""); // "" | "player:Adam" | "hole:7"
@@ -37,13 +38,29 @@ export function CommentsPanel({ t }: { t: Tournament }) {
     // Your profile name is your identity by default — so joining a tournament cheers as
     // the real you, not a stale name left over from testing. A name you deliberately pick
     // (the "change" flow) is remembered and wins over the profile default.
-    const prof = getProfile().name.trim();
+    const prof = getProfile();
+    const nm = prof.name.trim();
     const manual = localStorage.getItem(MANUAL_KEY) === "1";
     const saved = localStorage.getItem(NAME_KEY) ?? "";
-    setProfileName(prof);
-    setName(manual && saved ? saved : prof || saved);
-    setDraftName(prof);
+    setProfileName(nm);
+    setProfilePhoto(prof.photo);
+    setName(manual && saved ? saved : nm || saved);
+    setDraftName(nm);
   }, []);
+
+  // Comments only carry a name over the wire, so resolve each author's avatar from the
+  // roster (host-set or self-registered photos/colors) and fall back to your own profile
+  // photo for your own cheers. No per-comment photo needed on the server.
+  const byName = new Map<string, { photo?: string; color?: string }>();
+  for (const p of t.participants) {
+    const k = p.name.trim().toLowerCase();
+    if (!byName.has(k)) byName.set(k, { photo: p.photo, color: p.color });
+  }
+  const authorPhoto = (a: string): string | undefined => {
+    const k = a.trim().toLowerCase();
+    return byName.get(k)?.photo ?? (k === profileName.toLowerCase() ? profilePhoto ?? undefined : undefined);
+  };
+  const authorColor = (a: string): string => byName.get(a.trim().toLowerCase())?.color ?? hue(a);
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -102,7 +119,12 @@ export function CommentsPanel({ t }: { t: Tournament }) {
         ) : (
           comments.map((c) => (
             <div key={c.id} className="flex items-start gap-2.5">
-              <Avatar name={c.author} color={hue(c.author)} className="h-7 w-7 text-[11px] shrink-0" />
+              <Avatar
+                name={c.author}
+                color={authorColor(c.author)}
+                photo={authorPhoto(c.author)}
+                className="h-7 w-7 text-[11px] shrink-0"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="font-semibold text-sm">{c.author}</span>
