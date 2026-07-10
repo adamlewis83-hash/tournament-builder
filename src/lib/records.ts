@@ -97,90 +97,115 @@ function rosterOf(t: Tournament, ids: string[]): string[] {
   });
 }
 
-// Finishing tiers from a knockout bracket: every player on the winning side of
-// the final shares 1st, the losing finalists share 2nd, the 3rd-place game (or,
-// absent one, the two semifinal losers) share 3rd, and so on. Returns null when
-// there's no decided bracket (e.g. a round-robin with no finals).
-function bracketTiers(t: Tournament): string[][] | null {
-  const ms = t.matches;
-  if (!bracketChampion(ms)) return null;
+export interface Placement {
+  names: string[]; // everyone sharing this finishing position (doubles partners together)
+  rank: number; // displayed finishing number (1, 2, then 5, 6… when a top-4 advanced)
+  medal?: "gold" | "silver" | "bronze";
+}
 
+const medalFor = (rank: number, hasThird: boolean): Placement["medal"] =>
+  rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 && hasThird ? "bronze" : undefined;
+
+// Group participants (rostered) by their assigned finishing rank into sorted placements.
+function toPlacements(t: Tournament, rankByPid: Map<string, number>, hasThird: boolean): Placement[] {
+  const byRank = new Map<number, string[]>();
+  for (const p of t.participants) {
+    const rank = rankByPid.get(p.id);
+    if (rank == null) continue;
+    byRank.set(rank, [...(byRank.get(rank) ?? []), ...rosterOf(t, [p.id])]);
+  }
+  return [...byRank.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([rank, names]) => ({ names, rank, medal: medalFor(rank, hasThird) }));
+}
+
+/**
+ * Finishing placements (best → worst). Doubles/team results keep partners together
+ * and sharing a rank: in a round-robin whose top players advance to a paired final,
+ * the winning duo are both 1st, the losing duo both 2nd, and everyone who didn't
+ * advance keeps their round-robin position (so with a top-4 final the next player is
+ * 5th). Bronze is only awarded when a real 3rd-place is contested.
+ */
+export function getPlacements(t: Tournament): Placement[] {
+  if (t.format === "golf") {
+    return golfNames(t).map((n, i) => ({ names: [n], rank: i + 1, medal: medalFor(i + 1, true) }));
+  }
+  if (t.format === "ryder") {
+    const { winners, losers } = ryderTeams(t);
+    const out: Placement[] = [];
+    if (winners.length) out.push({ names: winners, rank: 1, medal: "gold" });
+    if (losers.length) out.push({ names: losers, rank: 2, medal: "silver" });
+    return out;
+  }
+  if (t.format === "americano" || t.format === "mexicano") {
+    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
+    return pointsLeaderboard(t.participants, scored).map((r, i) => ({
+      names: [r.name],
+      rank: i + 1,
+      medal: medalFor(i + 1, true),
+    }));
+  }
+
+  const ms = t.matches;
+  const base = ms.filter((m) => m.phase === "rr" || m.phase === "pool");
+  const scored = ms.filter((m) => m.scoreA !== null && m.scoreB !== null);
+  const standings = computeStandings(
+    t.participants,
+    base.some((m) => m.scoreA !== null) ? base : scored,
+    t.config.tiebreaker,
+    t.config.rankByWinPct,
+  );
+  const rrRank = new Map<string, number>();
+  standings.forEach((r, i) => rrRank.set(r.participantId, i + 1));
+
+  // No finals bracket: pure standings order, everyone keeps their standing rank.
+  if (!bracketChampion(ms)) {
+    return toPlacements(t, rrRank, true);
+  }
+
+  // Finals bracket present: the podium comes from the bracket; everyone who didn't
+  // reach it keeps their round-robin rank (so a top-4 final leaves the field at 5th+).
   const reset = ms.find((m) => m.phase === "championship");
   const grandFinal = ms.find((m) => m.phase === "final");
   const terminal = ms
     .filter((m) => m.phase === "winners" && !m.nextMatchId)
     .sort((a, b) => b.round - a.round)[0];
   const fm = reset && decided(reset) ? reset : grandFinal && decided(grandFinal) ? grandFinal : terminal;
-  if (!fm || !decided(fm)) return null;
 
-  const tiers: string[][] = [];
-  const used = new Set<string>();
-  const add = (ids: string[]) => {
-    const names = rosterOf(t, ids).filter((n) => n && !used.has(n.toLowerCase()));
-    if (names.length) {
-      names.forEach((n) => used.add(n.toLowerCase()));
-      tiers.push(names);
+  const rank = new Map<string, number>();
+  const setRank = (ids: string[], r: number) =>
+    ids.forEach((id) => {
+      if (!rank.has(id)) rank.set(id, r);
+    });
+  let hasThird = false;
+  if (fm && decided(fm)) {
+    setRank(winSide(fm), 1);
+    setRank(loseSide(fm), 2);
+    const thirdGame = ms.find((m) => m.phase === "placement" && decided(m));
+    if (thirdGame) {
+      setRank(winSide(thirdGame), 3);
+      setRank(loseSide(thirdGame), 4);
+      hasThird = true;
+    } else {
+      // Only a genuine semifinal round (matches feeding the final) makes a 3rd place.
+      const semiLosers = ms.filter((m) => m.nextMatchId === fm.id && decided(m)).flatMap((m) => loseSide(m));
+      if (semiLosers.length) {
+        setRank(semiLosers, 3);
+        hasThird = true;
+      }
     }
-  };
-
-  add(winSide(fm)); // 1st
-  add(loseSide(fm)); // 2nd
-
-  const placement = ms.find((m) => m.phase === "placement" && decided(m));
-  if (placement) {
-    add(winSide(placement)); // 3rd
-    add(loseSide(placement)); // 4th
-  } else {
-    // No 3rd-place game: the players who lost the matches feeding the final tie for 3rd.
-    const feeders = ms.filter((m) => m.nextMatchId === fm.id && decided(m));
-    add(feeders.flatMap((m) => loseSide(m)));
+  }
+  // Everyone not placed by the bracket keeps their round-robin standing.
+  for (const p of t.participants) {
+    if (!rank.has(p.id)) rank.set(p.id, rrRank.get(p.id) ?? 999);
   }
 
-  // Everyone else, deeper-eliminated first (best-effort ordering for the also-rans).
-  const lastRound = (pid: string) =>
-    ms.filter((m) => m.sideA.includes(pid) || m.sideB.includes(pid)).reduce((mx, m) => Math.max(mx, m.round), 0);
-  const rest = t.participants.filter((p) => {
-    const people = p.members?.length ? p.members : [p.name];
-    return people.some((n) => !used.has(n.toLowerCase()));
-  });
-  rest.sort((a, b) => lastRound(b.id) - lastRound(a.id));
-  for (const p of rest) add([p.id]);
-
-  return tiers.length ? tiers : null;
-}
-
-// Standings-based tiers (round-robin with no finals, swiss, kotc): each standings
-// row is one placement — expanded to its roster so a fixed-doubles pair stays tied.
-function standingsTiers(t: Tournament): string[][] {
-  return computeStandings(
-    t.participants,
-    t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
-    t.config.tiebreaker,
-    t.config.rankByWinPct,
-  ).map((r) => rosterOf(t, [r.participantId]));
-}
-
-/**
- * Finishing tiers (best → worst); every name within a tier shares that placement.
- * Doubles/team results keep partners in the same tier, so both champions are 1st,
- * both runners-up 2nd, etc. — instead of an individual 1,2,3,… split.
- */
-export function getPlacementTiers(t: Tournament): string[][] {
-  if (t.format === "golf") return golfNames(t).map((n) => [n]);
-  if (t.format === "ryder") {
-    const { winners, losers } = ryderTeams(t);
-    return [winners, losers].filter((tier) => tier.length > 0);
-  }
-  if (t.format === "americano" || t.format === "mexicano") {
-    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
-    return pointsLeaderboard(t.participants, scored).map((r) => [r.name]);
-  }
-  return bracketTiers(t) ?? standingsTiers(t);
+  return toPlacements(t, rank, hasThird);
 }
 
 /** Final finishing order (best → worst) as a flat list — partners stay adjacent. */
 export function getRanking(t: Tournament): string[] {
-  return getPlacementTiers(t).flat();
+  return getPlacements(t).flatMap((p) => p.names);
 }
 
 export interface RecordRow {
@@ -231,12 +256,13 @@ export function aggregateRecords(tournaments: Tournament[]): RecordRow[] {
         }
       }
     }
-    // Every member of a placement tier earns that medal — both doubles champions
-    // get gold, both runners-up silver, both third-place bronze.
-    const tiers = getPlacementTiers(t);
-    tiers[0]?.forEach((n) => row(n).firsts++);
-    tiers[1]?.forEach((n) => row(n).seconds++);
-    tiers[2]?.forEach((n) => row(n).thirds++);
+    // Every member of a podium placement earns that medal — both doubles champions
+    // get gold, both runners-up silver (bronze only when a 3rd-place was contested).
+    for (const pl of getPlacements(t)) {
+      if (pl.medal === "gold") pl.names.forEach((n) => row(n).firsts++);
+      else if (pl.medal === "silver") pl.names.forEach((n) => row(n).seconds++);
+      else if (pl.medal === "bronze") pl.names.forEach((n) => row(n).thirds++);
+    }
   }
 
   return [...map.values()].sort(

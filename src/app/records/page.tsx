@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
-import { aggregateRecords, getPlacementTiers } from "@/lib/records";
+import { aggregateRecords, getPlacements } from "@/lib/records";
 import { getResult } from "@/lib/result";
 import { Crown, Trophy } from "@/components/icons";
 import { Emoji } from "@/components/Emoji";
@@ -22,7 +22,7 @@ export default function RecordsPage() {
   );
 }
 
-const MEDAL = ["🥇", "🥈", "🥉"];
+const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bronze: "🥉" };
 
 function RecordBook() {
   const tournaments = useStore((s) => s.tournaments);
@@ -125,16 +125,12 @@ function RecordBook() {
 function EventRow({ t }: { t: Tournament }) {
   const [open, setOpen] = useState(false);
   const res = getResult(t);
-  // Flatten placement tiers into display rows, but keep each tier's shared rank and
-  // medal — so both doubles champions show 🥇 at #1, both runners-up 🥈, etc.
-  const tiers = getPlacementTiers(t);
-  const entries: { name: string; rank: number; medal?: string }[] = [];
-  let pos = 1;
-  tiers.forEach((tier, ti) => {
-    const rank = pos;
-    tier.forEach((name) => entries.push({ name, rank, medal: MEDAL[ti] }));
-    pos += tier.length;
-  });
+  // Flatten placements into display rows, keeping each placement's shared rank and
+  // medal — both doubles champions show 🥇 at #1, both runners-up 🥈 at #2, and the
+  // field that didn't advance keeps its round-robin rank (5th onward after a top-4 final).
+  const entries = getPlacements(t).flatMap((pl) =>
+    pl.names.map((name) => ({ name, rank: pl.rank, medal: pl.medal ? MEDAL_EMOJI[pl.medal] : undefined })),
+  );
 
   return (
     <Card className="p-4">
