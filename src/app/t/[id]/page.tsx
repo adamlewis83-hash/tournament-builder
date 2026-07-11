@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { useStore, useTournament } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { isGrantedScorer } from "@/lib/perms";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button, Card, StatusPill } from "@/components/ui";
+import { tournamentStatus } from "@/lib/status";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SetupPanel } from "@/components/SetupPanel";
 import { ScheduleView } from "@/components/ScheduleView";
@@ -75,6 +76,7 @@ function TournamentDetail({ id }: { id: string }) {
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <StatusPill status={tournamentStatus(t)} />
             <Badge color="blue">{FORMAT_LABELS[t.format]}</Badge>
             {t.format !== "ryder" && t.format !== "golf" && (
               <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>

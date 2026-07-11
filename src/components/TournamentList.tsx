@@ -8,16 +8,8 @@ import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS, Tournament } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { colorForName } from "@/lib/colors";
-import { Badge, Card } from "@/components/ui";
-
-type CardStatus = { label: string; kind: "live" | "final" | "setup" | "play" };
-
-function statusOf(t: Tournament, complete: boolean): CardStatus {
-  if (t.liveCode) return { label: "Live", kind: "live" };
-  if (complete) return { label: "Final", kind: "final" };
-  if (!t.generated) return { label: "Setup", kind: "setup" };
-  return { label: "In play", kind: "play" };
-}
+import { Badge, Card, StatusPill } from "@/components/ui";
+import { tournamentStatus } from "@/lib/status";
 
 // Fraction of the event that's been played, for the progress bar. Null when a format has no
 // clean game count (ladder / score-challenge / custom-before-matches) — the status pill carries it.
@@ -34,31 +26,6 @@ function cardProgress(t: Tournament): { done: number; total: number } | null {
     return { done: Math.min(done, total), total };
   }
   return null;
-}
-
-function StatusPill({ status }: { status: CardStatus }) {
-  const base =
-    "absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide";
-  if (status.kind === "live")
-    return (
-      <span className={`${base} border-rose-400/40 bg-rose-500/15 text-rose-400`}>
-        <span className="h-1.5 w-1.5 rounded-full bg-rose-400 pulse-ring" />
-        {status.label}
-      </span>
-    );
-  if (status.kind === "final")
-    return (
-      <span className={`${base} border-[var(--win)]/40 bg-[var(--win-bg)] text-[var(--win)]`}>
-        {status.label}
-      </span>
-    );
-  if (status.kind === "setup")
-    return <span className={`${base} border-[var(--border)] text-[var(--muted)]`}>{status.label}</span>;
-  return (
-    <span className={`${base} border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)]`}>
-      {status.label}
-    </span>
-  );
 }
 
 // Duplicate / Delete tucked behind a ⋯ button so the card leads with one primary action.
@@ -193,7 +160,7 @@ export function TournamentList() {
       ) : (
         <div className="flex flex-wrap justify-center gap-4">
           {shown.map(({ t, res }) => {
-            const status = statusOf(t, res.complete);
+            const status = tournamentStatus(t);
             const prog = cardProgress(t);
             const accent = colorForName(t.sport);
             const primary = !t.generated ? "Finish setup" : res.complete ? "View results" : "Open";
@@ -210,7 +177,7 @@ export function TournamentList() {
                   className="absolute left-2 top-4 bottom-4 w-1 rounded-full"
                   style={{ background: accent }}
                 />
-                <StatusPill status={status} />
+                <StatusPill status={status} className="absolute top-3 right-3 z-10" />
                 <Link href={`/t/${t.id}`} className="group block">
                   <div className="mb-2 pr-16">
                     <Badge accent={accent}>{FORMAT_LABELS[t.format]}</Badge>

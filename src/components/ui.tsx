@@ -1,6 +1,7 @@
 "use client";
 
 import { ButtonHTMLAttributes, ReactNode } from "react";
+import type { TournamentStatus } from "@/lib/status";
 
 const VARIANTS: Record<string, string> = {
   primary:
@@ -63,11 +64,11 @@ export function Badge({
     purple: "bg-violet-500/15 text-violet-600 border border-violet-500/30",
     rose: "bg-rose-500/15 text-rose-600 border border-rose-500/30",
   };
-  const base = "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium";
+  const badgeBase = "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium";
   if (accent) {
     return (
       <span
-        className={`${base} border`}
+        className={`${badgeBase} border`}
         style={{
           background: `color-mix(in srgb, ${accent} 14%, transparent)`,
           color: accent,
@@ -78,5 +79,35 @@ export function Badge({
       </span>
     );
   }
-  return <span className={`${base} ${map[color]}`}>{children}</span>;
+  return <span className={`${badgeBase} ${map[color]}`}>{children}</span>;
+}
+
+// Shared lifecycle pill. Both the Home card and the detail header render this off
+// the single `tournamentStatus(t)` helper, so their labels can never disagree.
+// Positioning is left to the caller via `className` (the card places it absolute).
+export function StatusPill({
+  status,
+  className = "",
+}: {
+  status: TournamentStatus;
+  className?: string;
+}) {
+  const base =
+    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide";
+  const variant =
+    status.kind === "live"
+      ? "border-rose-400/40 bg-rose-500/15 text-rose-400"
+      : status.kind === "final"
+        ? "border-[var(--win)]/40 bg-[var(--win-bg)] text-[var(--win)]"
+        : status.kind === "setup"
+          ? "border-[var(--border)] text-[var(--muted)]"
+          : "border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)]";
+  return (
+    <span className={`${base} ${variant} ${className}`}>
+      {status.kind === "live" && (
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-400 pulse-ring" />
+      )}
+      {status.label}
+    </span>
+  );
 }

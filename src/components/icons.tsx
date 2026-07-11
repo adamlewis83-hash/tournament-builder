@@ -71,7 +71,24 @@ export const IconPools = duo(GridFour);
 export const IconAmericano = duo(Shuffle);
 export const IconMexicano = duo(UsersThree);
 export const IconRyder = duo(Users);
-export const IconGolf = duo(PhFlag);
+// Golf format tile — the custom monoline club + ball on ground (matches the
+// SportIcon set's weight), not the thin Phosphor flag it replaced.
+export const IconGolf = ({ className }: IconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.7}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M9 4 L9 18" />
+    <path d="M9 4 L16 6 L9 8.5 Z" fill="currentColor" />
+    <ellipse cx="10" cy="18.5" rx="5.5" ry="1.8" />
+  </svg>
+);
+IconGolf.displayName = "IconGolf";
 export const IconCustom = duo(PuzzlePiece);
 export const IconScore = duo(Target);
 export const IconLadder = duo(Ladder);

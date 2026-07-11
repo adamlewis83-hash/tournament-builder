@@ -15,6 +15,7 @@ import {
   SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
+import { SportIcon } from "./SportIcon";
 import {
   Trophy,
   Crown,
@@ -39,6 +40,9 @@ const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
 };
 const OTHER = "__other__";
 const TEAM_SPORTS = new Set(["Flag Football", "Soccer", "Basketball", "Volleyball", "Spikeball"]);
+// The sports shown up-front in the picker (each has a custom SportIcon); the rest
+// live behind "More…". Order follows SPORTS.
+const PRIMARY_SPORTS = SPORTS.slice(0, 8);
 
 const FORMAT_ICON: Record<Format, typeof Trophy> = {
   "round-robin": IconRoundRobin,
@@ -75,6 +79,13 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const [customSport, setCustomSport] = useState("");
   const [format, setFormat] = useState<Format>("round-robin");
   const [playStyle, setPlayStyle] = useState<PlayStyle>("doubles");
+  const [showMoreSports, setShowMoreSports] = useState(false);
+  // Which sport chips to render: the primary set, expanded to the full list once
+  // "More…" is tapped, or whenever the current pick lives in the tail.
+  const sportChips =
+    showMoreSports || (sportChoice !== OTHER && !PRIMARY_SPORTS.includes(sportChoice))
+      ? SPORTS
+      : PRIMARY_SPORTS;
 
   const sport =
     sportChoice === OTHER ? customSport.trim() || "Custom Tournament" : sportChoice;
@@ -111,40 +122,64 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
       {/* Step 1 — name & sport */}
       <section>
         <StepHeader n={1} title="Name & sport" />
-        <div className="grid sm:grid-cols-2 gap-4">
-          <label className="block">
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Tournament name — e.g. Saturday Pickleball"
-              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-            />
-          </label>
-          <label className="block">
-            <select
-              value={sportChoice}
-              onChange={(e) => setSportChoice(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Tournament name — e.g. Saturday Pickleball"
+          className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+        />
+        {/* Tappable sport chips (icon + label) instead of a native dropdown */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {sportChips.map((s) => {
+            const on = sportChoice === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSportChoice(s)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                  on
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] font-medium"
+                    : "border-[var(--border)] hover:bg-[var(--hover)]"
+                }`}
+              >
+                <SportIcon sport={s} className="h-4 w-4 shrink-0" />
+                {s}
+              </button>
+            );
+          })}
+          {!showMoreSports && sportChips.length < SPORTS.length && (
+            <button
+              type="button"
+              onClick={() => setShowMoreSports(true)}
+              className="rounded-full border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:bg-[var(--hover)]"
             >
-              {SPORTS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-              <option value={OTHER}>Other / custom…</option>
-            </select>
-            {sportChoice === OTHER && (
-              <input
-                autoFocus
-                value={customSport}
-                onChange={(e) => setCustomSport(e.target.value)}
-                placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
-                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-              />
-            )}
-          </label>
+              More…
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSportChoice(OTHER)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+              sportChoice === OTHER
+                ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] font-medium"
+                : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--hover)]"
+            }`}
+          >
+            <SportIcon sport="custom" className="h-4 w-4 shrink-0" />
+            Other…
+          </button>
         </div>
+        {sportChoice === OTHER && (
+          <input
+            autoFocus
+            value={customSport}
+            onChange={(e) => setCustomSport(e.target.value)}
+            placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
+            className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+          />
+        )}
       </section>
 
       {/* Step 2 — format (icon+label tiles + one blurb strip) */}
