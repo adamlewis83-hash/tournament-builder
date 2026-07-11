@@ -71,6 +71,8 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setScorers: (id: string, names: string[]) => void;
+  setMatchClock: (id: string, matchId: string, action: "start" | "pause" | "reset") => void;
+  setRoundClock: (id: string, round: number, action: "start" | "pause" | "reset") => void;
   setParticipants: (id: string, names: string[]) => void;
   syncRegistrations: (
     id: string,
@@ -154,6 +156,27 @@ interface State {
 
 const isFinalsPhase = (m: Match) =>
   m.phase === "winners" || m.phase === "losers" || m.phase === "final" || m.phase === "championship";
+
+// Apply a start/pause/reset to one clock, returning the next state (or null to clear it).
+// start resumes from the paused remainder, or the full time when idle; expired clocks stay put.
+function nextClock(
+  cur: { endAt?: number; leftSec?: number } | undefined,
+  action: "start" | "pause" | "reset",
+  totalSec: number,
+  now: number,
+): { endAt?: number; leftSec?: number } | null {
+  const remaining =
+    cur?.endAt != null
+      ? Math.max(0, Math.round((cur.endAt - now) / 1000))
+      : cur?.leftSec != null
+        ? cur.leftSec
+        : totalSec;
+  if (action === "reset") return null;
+  if (action === "pause") return { leftSec: remaining };
+  // start
+  if (remaining <= 0) return cur ?? null; // already expired — don't restart
+  return { endAt: now + remaining * 1000 };
+}
 
 export function buildMatches(t: Tournament): Match[] {
   const ids = t.participants.map((p) => p.id);
@@ -391,6 +414,49 @@ export const useStore = create<State>()(
           tournaments: s.tournaments.map((t) =>
             t.id === id && !t.spectator ? { ...t, scorers: names, updatedAt: Date.now() } : t,
           ),
+        }));
+        pushReplace(id);
+      },
+
+      // Start/pause/reset one match's game clock — synced so every viewer sees the same countdown.
+      setMatchClock: (id, matchId, action) => {
+        if (blocked(id)) return; // host or granted scorer only
+        const now = Date.now();
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const total = (t.config.timeLimitMin || 0) * 60;
+            if (total <= 0) return t;
+            const clocks = { ...(t.clocks ?? {}) };
+            const nc = nextClock(clocks[matchId], action, total, now);
+            if (nc) clocks[matchId] = nc;
+            else delete clocks[matchId];
+            return { ...t, clocks, updatedAt: now };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      // Same, applied to every timed match in a round at once (the "Start all" master clock).
+      setRoundClock: (id, round, action) => {
+        if (blocked(id)) return;
+        const now = Date.now();
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const total = (t.config.timeLimitMin || 0) * 60;
+            if (total <= 0) return t;
+            const clocks = { ...(t.clocks ?? {}) };
+            for (const m of t.matches) {
+              if (m.round !== round) continue;
+              const decided = m.scoreA !== null && m.scoreB !== null && m.scoreA !== m.scoreB;
+              if (!m.sideA.length || !m.sideB.length || decided) continue;
+              const nc = nextClock(clocks[m.id], action, total, now);
+              if (nc) clocks[m.id] = nc;
+              else delete clocks[m.id];
+            }
+            return { ...t, clocks, updatedAt: now };
+          }),
         }));
         pushReplace(id);
       },

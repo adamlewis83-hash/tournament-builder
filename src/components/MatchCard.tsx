@@ -3,14 +3,43 @@
 import { useEffect, useRef, useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { canEditScores } from "@/lib/perms";
 import { colorFor } from "@/lib/colors";
 
-type ClockAction = "start" | "pause" | "reset";
-type ClockSignal = { action: ClockAction; round: number | null };
-const clockEvent = (tournamentId: string) => `sporos-clock:${tournamentId}`;
+// One shared audio context, unlocked by any clock tap (a user gesture) so the buzzer can play.
+let sharedAudio: AudioContext | null = null;
+function unlockAudio() {
+  if (typeof window === "undefined") return;
+  if (!sharedAudio) {
+    try {
+      sharedAudio = new AudioContext();
+    } catch {
+      /* no audio support — timer still works silently */
+    }
+  }
+  sharedAudio?.resume().catch(() => {});
+}
+// Three descending buzzer blasts when a clock hits zero (only where audio was unlocked).
+function buzz() {
+  const ctx = sharedAudio;
+  if (!ctx) return;
+  [0, 0.45, 0.9].forEach((delay, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = i === 2 ? 392 : 523;
+    const at = ctx.currentTime + delay;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + (i === 2 ? 0.6 : 0.3));
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + (i === 2 ? 0.65 : 0.35));
+  });
+}
 
-// Master control for ONE round: broadcasts start/pause/reset to that round's clocks only.
-// `round = null` would target every clock; we always scope to a round here.
+// Master control for ONE round: start/pause/reset that round's clocks — synced to all viewers.
+// Only the host or a granted scorekeeper sees the controls.
 export function MasterClock({
   tournamentId,
   round,
@@ -18,10 +47,13 @@ export function MasterClock({
   tournamentId: string;
   round: number | null;
 }) {
-  function send(action: ClockAction) {
-    const detail: ClockSignal = { action, round };
-    window.dispatchEvent(new CustomEvent(clockEvent(tournamentId), { detail }));
-  }
+  const t = useStore((s) => s.tournaments.find((x) => x.id === tournamentId));
+  const setRoundClock = useStore((s) => s.setRoundClock);
+  if (!t || round == null || !canEditScores(t)) return null;
+  const send = (action: "start" | "pause" | "reset") => {
+    if (action === "start") unlockAudio();
+    setRoundClock(tournamentId, round, action);
+  };
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       <button
@@ -51,95 +83,59 @@ export function MasterClock({
   );
 }
 
-// Countdown clock for timed games ("first to N points or M minutes").
-// Runs locally on the scorer's device; not synced.
+// Countdown clock for timed games — driven by the synced per-match clock in tournament state,
+// so the host, scorekeepers, and every spectator all see the same time tick down together.
 function MatchTimer({
   minutes,
   tournamentId,
-  round,
+  match,
 }: {
   minutes: number;
   tournamentId: string;
-  round: number;
+  match: Match;
 }) {
   const total = minutes * 60;
-  const [left, setLeft] = useState(total);
-  const [running, setRunning] = useState(false);
-  const endAt = useRef<number | null>(null);
-  const audio = useRef<AudioContext | null>(null);
-  const leftRef = useRef(total);
-  leftRef.current = left;
+  const t = useStore((s) => s.tournaments.find((x) => x.id === tournamentId));
+  const setMatchClock = useStore((s) => s.setMatchClock);
+  const clock = t?.clocks?.[match.id];
+  const canControl = t ? canEditScores(t) : false;
 
-  function unlockAudio() {
-    if (!audio.current) {
-      try {
-        audio.current = new AudioContext();
-      } catch {
-        /* no audio support — timer still works silently */
-      }
-    }
-    audio.current?.resume().catch(() => {});
-  }
-
-  // Obey the master clock (start/pause/reset all courts at once).
+  // Re-render every 250ms while running so the displayed time counts down locally.
+  const [, force] = useState(0);
   useEffect(() => {
-    const name = clockEvent(tournamentId);
-    const onMaster = (e: Event) => {
-      const { action, round: target } = (e as CustomEvent).detail as ClockSignal;
-      if (target !== null && target !== round) return; // not this round — ignore
-      if (action === "start") {
-        if (leftRef.current <= 0) return; // already expired — don't restart/re-buzz
-        unlockAudio(); // master tap is a user gesture; dispatch is synchronous
-        setRunning(true);
-      } else if (action === "pause") {
-        setRunning(false);
-      } else {
-        setRunning(false);
-        setLeft(total);
-      }
-    };
-    window.addEventListener(name, onMaster);
-    return () => window.removeEventListener(name, onMaster);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId, total, round]);
-
-  // Three descending buzzer blasts when the clock hits zero.
-  function buzz() {
-    const ctx = audio.current;
-    if (!ctx) return;
-    [0, 0.45, 0.9].forEach((delay, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "square";
-      osc.frequency.value = i === 2 ? 392 : 523; // last blast lower
-      const t = ctx.currentTime + delay;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + (i === 2 ? 0.6 : 0.3));
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + (i === 2 ? 0.65 : 0.35));
-    });
-  }
-
-  useEffect(() => {
-    if (!running) return;
-    endAt.current = Date.now() + left * 1000;
-    const id = setInterval(() => {
-      const remain = Math.max(0, Math.round(((endAt.current ?? 0) - Date.now()) / 1000));
-      setLeft(remain);
-      if (remain <= 0) {
-        setRunning(false);
-        buzz();
-      }
+    if (clock?.endAt == null) return;
+    const iv = setInterval(() => {
+      force((n) => n + 1);
+      if (Date.now() >= (clock.endAt ?? 0)) clearInterval(iv);
     }, 250);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running]);
+    return () => clearInterval(iv);
+  }, [clock?.endAt]);
 
+  const running = clock?.endAt != null;
+  const left =
+    clock?.endAt != null
+      ? Math.max(0, Math.round((clock.endAt - Date.now()) / 1000))
+      : clock?.leftSec != null
+        ? clock.leftSec
+        : total;
   const expired = left <= 0;
+
+  // Buzz once when it reaches zero (only fires where audio was unlocked by a tap).
+  const buzzed = useRef(false);
+  useEffect(() => {
+    if (running && expired && !buzzed.current) {
+      buzzed.current = true;
+      buzz();
+    }
+    if (!expired) buzzed.current = false;
+  }, [running, expired]);
+
   const mm = Math.floor(left / 60);
   const ss = String(left % 60).padStart(2, "0");
+  const act = (action: "start" | "pause" | "reset") => {
+    if (action === "start") unlockAudio();
+    setMatchClock(tournamentId, match.id, action);
+  };
 
   return (
     <div className="flex items-center gap-1.5">
@@ -154,27 +150,20 @@ function MatchTimer({
       >
         {expired ? "TIME!" : `${mm}:${ss}`}
       </span>
-      {!expired && (
+      {canControl && !expired && (
         <button
           type="button"
-          onClick={() => {
-            // Unlock audio inside the tap gesture so the end-of-game buzzer can play.
-            if (!running) unlockAudio();
-            setRunning((r) => !r);
-          }}
+          onClick={() => act(running ? "pause" : "start")}
           className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
           title={running ? "Pause clock" : "Start clock"}
         >
           {running ? "⏸" : "▶"}
         </button>
       )}
-      {(expired || (!running && left < total)) && (
+      {canControl && (expired || (!running && left < total)) && (
         <button
           type="button"
-          onClick={() => {
-            setRunning(false);
-            setLeft(total);
-          }}
+          onClick={() => act("reset")}
           className="text-xs px-1.5 py-0.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--hover)] transition"
           title="Reset clock"
         >
@@ -299,7 +288,7 @@ export function MatchCard({
             {[match.label, match.court ? `Court ${match.court}` : null].filter(Boolean).join(" · ")}
           </span>
           {showTimer && (
-            <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} round={match.round} />
+            <MatchTimer minutes={timeLimitMin} tournamentId={tournamentId} match={match} />
           )}
         </div>
       )}
