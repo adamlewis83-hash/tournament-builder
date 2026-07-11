@@ -26,15 +26,18 @@ const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bron
 
 type Medalist = { name: string; firsts: number; seconds: number; thirds: number };
 
-// One spot on the gold/silver/bronze podium. rank 1 is tallest/centered.
-function PodiumSpot({ r, rank }: { r?: Medalist; rank: 1 | 2 | 3 }) {
+// One spot on the podium. The pedestal reflects the best medal the player has actually
+// won — so every champion (including co-champions of a doubles event) stands on gold,
+// runners-up on silver, third-place on bronze — rather than their column position.
+function PodiumSpot({ r }: { r?: Medalist }) {
   if (!r) return <div className="w-20 sm:w-24" />;
-  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
-  const barH = rank === 1 ? "h-16" : rank === 2 ? "h-11" : "h-8";
+  const tier = r.firsts > 0 ? 1 : r.seconds > 0 ? 2 : 3;
+  const medal = tier === 1 ? "🥇" : tier === 2 ? "🥈" : "🥉";
+  const barH = tier === 1 ? "h-16" : tier === 2 ? "h-11" : "h-8";
   const barBg =
-    rank === 1
+    tier === 1
       ? "border-amber-400 bg-amber-400/25"
-      : rank === 2
+      : tier === 2
         ? "border-slate-400 bg-slate-400/20"
         : "border-orange-400 bg-orange-400/20";
   const tally = [
@@ -50,7 +53,7 @@ function PodiumSpot({ r, rank }: { r?: Medalist; rank: 1 | 2 | 3 }) {
       <Avatar
         name={r.name}
         color={colorForName(r.name)}
-        className={rank === 1 ? "mt-1 h-12 w-12 text-base" : "mt-1 h-9 w-9 text-xs"}
+        className={tier === 1 ? "mt-1 h-12 w-12 text-base" : "mt-1 h-9 w-9 text-xs"}
       />
       <div className="mt-1 w-full truncate text-center text-xs font-semibold leading-tight" title={r.name}>
         {r.name}
@@ -102,9 +105,9 @@ function RecordBook() {
           {records[0]?.firsts > 0 && (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
               <div className="flex items-end justify-center gap-3 sm:gap-6">
-                <PodiumSpot r={records[1]} rank={2} />
-                <PodiumSpot r={records[0]} rank={1} />
-                <PodiumSpot r={records[2]} rank={3} />
+                <PodiumSpot r={records[1]} />
+                <PodiumSpot r={records[0]} />
+                <PodiumSpot r={records[2]} />
               </div>
             </div>
           )}
