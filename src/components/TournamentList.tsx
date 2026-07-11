@@ -10,17 +10,6 @@ import { getResult } from "@/lib/result";
 import { colorForName } from "@/lib/colors";
 import { Badge, Card } from "@/components/ui";
 
-const FORMAT_COLOR: Record<string, string> = {
-  "round-robin": "blue",
-  swiss: "slate",
-  kotc: "amber",
-  "single-elim": "green",
-  "double-elim": "purple",
-  "pool-bracket": "amber",
-  ryder: "rose",
-  golf: "green",
-};
-
 type CardStatus = { label: string; kind: "live" | "final" | "setup" | "play" };
 
 function statusOf(t: Tournament, complete: boolean): CardStatus {
@@ -224,7 +213,7 @@ export function TournamentList() {
                 <StatusPill status={status} />
                 <Link href={`/t/${t.id}`} className="group block">
                   <div className="mb-2 pr-16">
-                    <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
+                    <Badge accent={accent}>{FORMAT_LABELS[t.format]}</Badge>
                   </div>
                   <h3 className="flex items-center gap-2 text-lg font-bold transition group-hover:brand-text">
                     <span

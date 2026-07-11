@@ -45,7 +45,16 @@ export function Card({
   );
 }
 
-export function Badge({ children, color = "slate" }: { children: ReactNode; color?: string }) {
+export function Badge({
+  children,
+  color = "slate",
+  accent,
+}: {
+  children: ReactNode;
+  color?: string;
+  /** A raw color (e.g. a sport's palette hex). Overrides `color` with an inline tint. */
+  accent?: string;
+}) {
   const map: Record<string, string> = {
     slate: "bg-[var(--subtle)] text-[var(--muted)] border border-[var(--border)]",
     blue: "bg-sky-500/15 text-sky-600 border border-sky-500/30",
@@ -54,9 +63,20 @@ export function Badge({ children, color = "slate" }: { children: ReactNode; colo
     purple: "bg-violet-500/15 text-violet-600 border border-violet-500/30",
     rose: "bg-rose-500/15 text-rose-600 border border-rose-500/30",
   };
-  return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${map[color]}`}>
-      {children}
-    </span>
-  );
+  const base = "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium";
+  if (accent) {
+    return (
+      <span
+        className={`${base} border`}
+        style={{
+          background: `color-mix(in srgb, ${accent} 14%, transparent)`,
+          color: accent,
+          borderColor: `color-mix(in srgb, ${accent} 30%, transparent)`,
+        }}
+      >
+        {children}
+      </span>
+    );
+  }
+  return <span className={`${base} ${map[color]}`}>{children}</span>;
 }
