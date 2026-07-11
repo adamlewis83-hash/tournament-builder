@@ -15,6 +15,22 @@ import {
   SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
+import {
+  Trophy,
+  Crown,
+  IconRoundRobin,
+  IconSwiss,
+  IconSingleElim,
+  IconDoubleElim,
+  IconPools,
+  IconAmericano,
+  IconMexicano,
+  IconRyder,
+  IconGolf,
+  IconCustom,
+  IconScore,
+  IconLadder,
+} from "./icons";
 
 const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
   doubles: "Individuals enter; partners rotate each round and standings track per person — great for pickleball/tennis socials.",
@@ -23,6 +39,33 @@ const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
 };
 const OTHER = "__other__";
 const TEAM_SPORTS = new Set(["Flag Football", "Soccer", "Basketball", "Volleyball", "Spikeball"]);
+
+const FORMAT_ICON: Record<Format, typeof Trophy> = {
+  "round-robin": IconRoundRobin,
+  swiss: IconSwiss,
+  kotc: Crown,
+  "single-elim": IconSingleElim,
+  "double-elim": IconDoubleElim,
+  "pool-bracket": IconPools,
+  americano: IconAmericano,
+  mexicano: IconMexicano,
+  ryder: IconRyder,
+  golf: IconGolf,
+  custom: IconCustom,
+  "score-challenge": IconScore,
+  ladder: IconLadder,
+};
+
+function StepHeader({ n, title }: { n: number; title: string }) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--brand)] text-xs font-bold text-[var(--on-brand)]">
+        {n}
+      </span>
+      <span className="text-sm font-semibold">{title}</span>
+    </div>
+  );
+}
 
 export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const router = useRouter();
@@ -61,90 +104,112 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
     router.push(`/t/${id}`);
   }
 
+  const FormatBlurb = FORMAT_ICON[format] ?? Trophy;
+
   return (
-    <form onSubmit={submit} className="space-y-5">
-      <div className="grid sm:grid-cols-2 gap-4">
-        <label className="block">
-          <span className="text-sm font-medium">Tournament name</span>
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Saturday Pickleball"
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium">Sport / activity</span>
-          <select
-            value={sportChoice}
-            onChange={(e) => setSportChoice(e.target.value)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-          >
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-            <option value={OTHER}>Other / custom…</option>
-          </select>
-          {sportChoice === OTHER && (
+    <form onSubmit={submit} className="space-y-6">
+      {/* Step 1 — name & sport */}
+      <section>
+        <StepHeader n={1} title="Name & sport" />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <label className="block">
             <input
               autoFocus
-              value={customSport}
-              onChange={(e) => setCustomSport(e.target.value)}
-              placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
-              className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tournament name — e.g. Saturday Pickleball"
+              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
             />
+          </label>
+          <label className="block">
+            <select
+              value={sportChoice}
+              onChange={(e) => setSportChoice(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+            >
+              {SPORTS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+              <option value={OTHER}>Other / custom…</option>
+            </select>
+            {sportChoice === OTHER && (
+              <input
+                autoFocus
+                value={customSport}
+                onChange={(e) => setCustomSport(e.target.value)}
+                placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
+                className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+              />
+            )}
+          </label>
+        </div>
+      </section>
+
+      {/* Step 2 — format (icon+label tiles + one blurb strip) */}
+      <section>
+        <StepHeader n={2} title="Format" />
+        <div className="grid grid-cols-2 gap-2">
+          {available.map((f) => {
+            const Icon = FORMAT_ICON[f] ?? Trophy;
+            const on = format === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFormat(f)}
+                className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+                  on
+                    ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                    : "border-[var(--border)] hover:bg-[var(--hover)]"
+                }`}
+              >
+                <Icon
+                  className={`h-6 w-6 shrink-0 ${on ? "text-[var(--brand)]" : "text-[var(--muted)]"}`}
+                />
+                <span className="text-sm font-medium">{FORMAT_LABELS[f]}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--subtle)] px-3 py-2 text-xs text-[var(--muted)]">
+          <FormatBlurb className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />
+          <span>
+            <span className="font-semibold text-[var(--foreground)]">{FORMAT_LABELS[format]}</span> —{" "}
+            {FORMAT_BLURBS[format]}
+          </span>
+        </div>
+      </section>
+
+      {/* Step 3 — play style (skipped for formats with a single style, e.g. golf / Ryder Cup) */}
+      {styleOptions.length > 1 && (
+        <section>
+          <StepHeader n={3} title="Play style" />
+          <div className="flex flex-wrap gap-2">
+            {styleOptions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setPlayStyle(s)}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                  playStyle === s
+                    ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                    : "border-[var(--border)] hover:bg-[var(--hover)]"
+                }`}
+              >
+                {PLAYSTYLE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+          {STYLE_HINTS[playStyle] && (
+            <p className="mt-2 text-xs text-[var(--muted)]">{STYLE_HINTS[playStyle]}</p>
           )}
-        </label>
-      </div>
+        </section>
+      )}
 
-      <div>
-        <span className="text-sm font-medium">Format</span>
-        <div className="mt-2 grid sm:grid-cols-2 gap-2">
-          {available.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFormat(f)}
-              className={`text-left rounded-lg border p-3 transition ${
-                format === f
-                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
-                  : "border-[var(--border)] hover:bg-[var(--hover)]"
-              }`}
-            >
-              <div className="font-medium text-sm">{FORMAT_LABELS[f]}</div>
-              <div className="text-xs text-[var(--muted)] mt-0.5">{FORMAT_BLURBS[f]}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className={styleOptions.length <= 1 ? "hidden" : ""}>
-        <span className="text-sm font-medium">Play style</span>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {styleOptions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setPlayStyle(s)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                playStyle === s
-                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
-                  : "border-[var(--border)] hover:bg-[var(--hover)]"
-              }`}
-            >
-              {PLAYSTYLE_LABELS[s]}
-            </button>
-          ))}
-        </div>
-        {STYLE_HINTS[playStyle] && (
-          <p className="mt-2 text-xs text-[var(--muted)]">{STYLE_HINTS[playStyle]}</p>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-2 pt-2">
+      {/* Sticky create bar */}
+      <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-[var(--border)] bg-[var(--background)]/90 py-3 backdrop-blur">
         {onDone && (
           <Button type="button" variant="outline" onClick={onDone}>
             Cancel

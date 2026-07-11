@@ -22,6 +22,17 @@ import {
   FloppyDisk,
   Gear as PhGear,
   Cards as PhCards,
+  ArrowsClockwise,
+  ListNumbers,
+  Tree,
+  TreeStructure,
+  GridFour,
+  Shuffle,
+  UsersThree,
+  Users,
+  PuzzlePiece,
+  Target,
+  Ladder,
   type Icon,
   type IconProps,
 } from "@phosphor-icons/react";
@@ -50,3 +61,17 @@ export const Flag = duo(PhFlag);
 export const Save = duo(FloppyDisk);
 export const Settings = duo(PhGear);
 export const Cards = duo(PhCards);
+
+// Format tile icons (Phosphor duotone) for the New Tournament picker.
+export const IconRoundRobin = duo(ArrowsClockwise);
+export const IconSwiss = duo(ListNumbers);
+export const IconSingleElim = duo(Tree);
+export const IconDoubleElim = duo(TreeStructure);
+export const IconPools = duo(GridFour);
+export const IconAmericano = duo(Shuffle);
+export const IconMexicano = duo(UsersThree);
+export const IconRyder = duo(Users);
+export const IconGolf = duo(PhFlag);
+export const IconCustom = duo(PuzzlePiece);
+export const IconScore = duo(Target);
+export const IconLadder = duo(Ladder);
