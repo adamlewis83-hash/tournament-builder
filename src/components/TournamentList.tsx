@@ -227,7 +227,13 @@ export function TournamentList() {
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
                   </div>
                   <h3 className="flex items-center gap-2 text-lg font-bold transition group-hover:brand-text">
-                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+                    <span
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                      style={{
+                        background: `color-mix(in srgb, ${accent} 14%, transparent)`,
+                        color: accent,
+                      }}
+                    >
                       <SportIcon sport={t.sport} className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 truncate">{t.name}</span>
