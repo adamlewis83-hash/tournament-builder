@@ -5,6 +5,7 @@ import { Tournament } from "@/lib/types";
 import { useLiveComments } from "@/hooks/useLiveComments";
 import { getProfile } from "@/lib/profile";
 import { Avatar } from "./Avatar";
+import { EmojiPicker } from "./EmojiPicker";
 import { Button, Card } from "./ui";
 
 const EMOJI = ["👏", "🔥", "🎉", "💪", "🙌", "😤", "⚡", "🏆"];
@@ -32,6 +33,7 @@ export function CommentsPanel({ t }: { t: Tournament }) {
   const [draftName, setDraftName] = useState("");
   const [text, setText] = useState("");
   const [tag, setTag] = useState(""); // "" | "player:Adam" | "hole:7"
+  const [showEmoji, setShowEmoji] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -184,7 +186,15 @@ export function CommentsPanel({ t }: { t: Tournament }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
+            {showEmoji && (
+              <div className="absolute bottom-full left-0 mb-2 z-20">
+                <EmojiPicker
+                  onPick={(e) => setText((t2) => (t2 + " " + e).trimStart())}
+                  onClose={() => setShowEmoji(false)}
+                />
+              </div>
+            )}
             <div className="flex items-center gap-1.5 flex-wrap">
               {EMOJI.map((e) => (
                 <button
@@ -196,6 +206,19 @@ export function CommentsPanel({ t }: { t: Tournament }) {
                   {e}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setShowEmoji((v) => !v)}
+                aria-label="More emoji"
+                title="More emoji"
+                className={`rounded-full border px-2 py-0.5 text-xs font-medium transition ${
+                  showEmoji
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--hover)]"
+                }`}
+              >
+                😀＋
+              </button>
               <select
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
