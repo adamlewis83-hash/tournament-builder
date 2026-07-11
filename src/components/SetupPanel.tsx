@@ -195,10 +195,11 @@ export function SetupPanel({ t }: { t: Tournament }) {
             : t.format === "round-robin" && isDoubles
               ? 4
               : 2;
-  const showThirdPlace =
+  // Bronze / 3rd-place option — offered for every bracket-producing format (singles & doubles).
+  const showBronze =
     t.format === "single-elim" ||
     (t.format === "pool-bracket" && cfg.bracketType === "single") ||
-    (t.format === "round-robin" && !isDoubles);
+    t.format === "round-robin";
   const canGenerate = teamMode ? teamCount >= minNeeded : count >= minNeeded;
 
   function commitNames() {
@@ -601,35 +602,23 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </span>
             </label>
           )}
-          {t.format === "round-robin" && (
+          {showBronze && (
             <label className="col-span-2 flex items-start gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={cfg.bronzeMatch ?? false}
+                checked={cfg.bronzeMatch ?? cfg.thirdPlace ?? false}
                 onChange={(e) => setCfg({ bronzeMatch: e.target.checked })}
                 className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
               />
               <span className="text-sm font-medium">
                 Bronze medal match{" "}
                 <span className="text-[var(--muted)] font-normal">
-                  {isDoubles
-                    ? "(the next four seeds play off for 3rd — 5 & 8 vs 6 & 7)"
-                    : "(seeds 5 & 6 play off for 3rd)"}
+                  {t.format === "round-robin"
+                    ? isDoubles
+                      ? "(play off for 3rd — semifinal losers, or seeds 5 & 8 vs 6 & 7 when the final is just two teams)"
+                      : "(play off for 3rd — semifinal losers, or seeds 5 & 6 when the final is just two)"
+                    : "(the two semifinal losers play off for 3rd place)"}
                 </span>
-              </span>
-            </label>
-          )}
-          {showThirdPlace && (
-            <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={cfg.thirdPlace ?? false}
-                onChange={(e) => setCfg({ thirdPlace: e.target.checked })}
-                className="h-4 w-4 accent-[var(--brand)]"
-              />
-              <span className="text-sm font-medium">
-                Add a 3rd-place game{" "}
-                <span className="text-[var(--muted)] font-normal">(semifinal losers play off)</span>
               </span>
             </label>
           )}

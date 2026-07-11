@@ -203,7 +203,7 @@ export function buildMatches(t: Tournament): Match[] {
     }
 
     case "single-elim":
-      return genSingleElim(ids, "winners", { thirdPlace: t.config.thirdPlace });
+      return genSingleElim(ids, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
 
     case "double-elim":
       return genDoubleElim(ids);
@@ -1013,13 +1013,15 @@ export const useStore = create<State>()(
                 for (let i = 0; i < Math.floor(seedIds.length / 2); i++) {
                   sides.push([seedIds[i], seedIds[seedIds.length - 1 - i]]);
                 }
-                finals = genSingleElimSides(sides, "winners", { thirdPlace: t.config.thirdPlace });
+                finals = genSingleElimSides(sides, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
               } else {
-                finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.thirdPlace });
+                finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
               }
-              // Optional bronze-medal match: the next tier plays off for 3rd. Doubles pairs
-              // them best-with-worst (5&8 vs 6&7); singles is 5 vs 6. Winner takes bronze.
-              if (t.config.bronzeMatch) {
+              // Bronze medal: when the finals bracket has a semifinal, genSingleElim above
+              // already added a semifinal-losers 3rd-place game. Only when the final is just two
+              // teams (no semifinal) do the NEXT tier play off — doubles 5&8 vs 6&7, singles 5 vs 6.
+              const wantBronze = t.config.bronzeMatch ?? t.config.thirdPlace;
+              if (wantBronze && !finals.some((m) => m.phase === "placement")) {
                 const need = t.playStyle === "doubles" ? 4 : 2;
                 const b = standings.slice(n, n + need).map((r) => r.participantId);
                 if (b.length === need) {
@@ -1058,7 +1060,7 @@ export const useStore = create<State>()(
               finals =
                 t.config.bracketType === "double"
                   ? genDoubleElim(seedIds)
-                  : genSingleElim(seedIds, "winners", { thirdPlace: t.config.thirdPlace });
+                  : genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
             }
             return { ...t, matches: [...baseMatches, ...finals], updatedAt: Date.now() };
           }),
