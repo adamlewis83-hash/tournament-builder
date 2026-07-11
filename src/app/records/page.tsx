@@ -26,12 +26,10 @@ const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bron
 
 type Medalist = { name: string; firsts: number; seconds: number; thirds: number };
 
-// One spot on the podium. The pedestal reflects the best medal the player has actually
-// won — so every champion (including co-champions of a doubles event) stands on gold,
-// runners-up on silver, third-place on bronze — rather than their column position.
-function PodiumSpot({ r }: { r?: Medalist }) {
-  if (!r) return <div className="w-20 sm:w-24" />;
-  const tier = r.firsts > 0 ? 1 : r.seconds > 0 ? 2 : 3;
+// One medal step of the podium — shows EVERY player on that step, so a doubles duo
+// (two co-champions, or two runners-up) both appear instead of the group being cut off.
+function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 }) {
+  if (!players.length) return <div className="w-24 sm:w-28" />;
   const medal = tier === 1 ? "🥇" : tier === 2 ? "🥈" : "🥉";
   const barH = tier === 1 ? "h-16" : tier === 2 ? "h-11" : "h-8";
   const barBg =
@@ -40,25 +38,25 @@ function PodiumSpot({ r }: { r?: Medalist }) {
       : tier === 2
         ? "border-slate-400 bg-slate-400/20"
         : "border-orange-400 bg-orange-400/20";
-  const tally = [
-    r.firsts ? `🥇${r.firsts}` : "",
-    r.seconds ? `🥈${r.seconds}` : "",
-    r.thirds ? `🥉${r.thirds}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const show = players.slice(0, 4);
+  const extra = players.length - show.length;
   return (
-    <div className="flex w-20 flex-col items-center sm:w-24">
+    <div className="flex w-24 flex-col items-center sm:w-28">
       <Emoji e={medal} className="h-6 w-6" />
-      <Avatar
-        name={r.name}
-        color={colorForName(r.name)}
-        className={tier === 1 ? "mt-1 h-12 w-12 text-base" : "mt-1 h-9 w-9 text-xs"}
-      />
-      <div className="mt-1 w-full truncate text-center text-xs font-semibold leading-tight" title={r.name}>
-        {r.name}
+      <div className="mt-1 flex flex-wrap items-end justify-center gap-1">
+        {show.map((p) => (
+          <Avatar
+            key={p.name}
+            name={p.name}
+            color={colorForName(p.name)}
+            className={tier === 1 ? "h-10 w-10 text-sm" : "h-8 w-8 text-[10px]"}
+          />
+        ))}
       </div>
-      <div className="text-[10px] text-[var(--muted)]">{tally}</div>
+      <div className="mt-1 text-center text-[11px] font-semibold leading-tight">
+        {show.map((p) => p.name).join(" & ")}
+        {extra > 0 ? ` +${extra}` : ""}
+      </div>
       <div className={`mt-1.5 w-full rounded-t-md border-t-2 ${barBg} ${barH}`} />
     </div>
   );
@@ -76,6 +74,11 @@ function RecordBook() {
   rankOf.forEach((v, i) => {
     if (v === -1) rankOf[i] = rankOf[i - 1];
   });
+  // Podium groups by best medal won, so every co-medalist appears (both doubles champions
+  // on gold, both runners-up on silver, etc.) — records stays sorted so each group is ordered.
+  const golds = records.filter((r) => r.firsts > 0);
+  const silvers = records.filter((r) => r.firsts === 0 && r.seconds > 0);
+  const bronzes = records.filter((r) => r.firsts === 0 && r.seconds === 0 && r.thirds > 0);
 
   return (
     <div className="space-y-6">
@@ -101,13 +104,13 @@ function RecordBook() {
         </Card>
       ) : (
         <>
-          {/* Podium — top three of the Hall of Fame */}
-          {records[0]?.firsts > 0 && (
+          {/* Podium — gold / silver / bronze steps, each showing all its medalists */}
+          {golds.length > 0 && (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
               <div className="flex items-end justify-center gap-3 sm:gap-6">
-                <PodiumSpot r={records[1]} />
-                <PodiumSpot r={records[0]} />
-                <PodiumSpot r={records[2]} />
+                <PodiumTier players={silvers} tier={2} />
+                <PodiumTier players={golds} tier={1} />
+                <PodiumTier players={bronzes} tier={3} />
               </div>
             </div>
           )}
