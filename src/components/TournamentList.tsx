@@ -5,9 +5,10 @@ import Link from "next/link";
 import { Plus, Trophy } from "@/components/icons";
 import { SportIcon } from "@/components/SportIcon";
 import { useStore } from "@/lib/store";
-import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
+import { FORMAT_LABELS, PLAYSTYLE_LABELS, Tournament } from "@/lib/types";
 import { getResult } from "@/lib/result";
-import { Badge, Button, Card } from "@/components/ui";
+import { colorForName } from "@/lib/colors";
+import { Badge, Card } from "@/components/ui";
 
 const FORMAT_COLOR: Record<string, string> = {
   "round-robin": "blue",
@@ -19,6 +20,107 @@ const FORMAT_COLOR: Record<string, string> = {
   ryder: "rose",
   golf: "green",
 };
+
+type CardStatus = { label: string; kind: "live" | "final" | "setup" | "play" };
+
+function statusOf(t: Tournament, complete: boolean): CardStatus {
+  if (t.liveCode) return { label: "Live", kind: "live" };
+  if (complete) return { label: "Final", kind: "final" };
+  if (!t.generated) return { label: "Setup", kind: "setup" };
+  return { label: "In play", kind: "play" };
+}
+
+// Fraction of the event that's been played, for the progress bar. Null when a format has no
+// clean game count (ladder / score-challenge / custom-before-matches) — the status pill carries it.
+function cardProgress(t: Tournament): { done: number; total: number } | null {
+  if (t.matches.length) {
+    const done = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
+    return { done, total: t.matches.length };
+  }
+  if (t.format === "golf" && t.golf) {
+    const total = t.golf.holes * t.participants.length;
+    if (!total) return null;
+    let done = 0;
+    for (const card of Object.values(t.golf.scores)) done += card.filter((v) => v != null).length;
+    return { done: Math.min(done, total), total };
+  }
+  return null;
+}
+
+function StatusPill({ status }: { status: CardStatus }) {
+  const base =
+    "absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide";
+  if (status.kind === "live")
+    return (
+      <span className={`${base} border-rose-400/40 bg-rose-500/15 text-rose-400`}>
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-400 pulse-ring" />
+        {status.label}
+      </span>
+    );
+  if (status.kind === "final")
+    return (
+      <span className={`${base} border-[var(--win)]/40 bg-[var(--win-bg)] text-[var(--win)]`}>
+        {status.label}
+      </span>
+    );
+  if (status.kind === "setup")
+    return <span className={`${base} border-[var(--border)] text-[var(--muted)]`}>{status.label}</span>;
+  return (
+    <span className={`${base} border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)]`}>
+      {status.label}
+    </span>
+  );
+}
+
+// Duplicate / Delete tucked behind a ⋯ button so the card leads with one primary action.
+function OverflowMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="More actions"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-md px-2 py-1 text-lg leading-none text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--foreground)]"
+      >
+        ⋯
+      </button>
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-20 cursor-default"
+          />
+          <div className="absolute right-0 bottom-full z-30 mb-1 w-32 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-lg">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onDuplicate();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-sm hover:bg-[var(--hover)]"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-sm text-rose-400 hover:bg-[var(--hover)]"
+            >
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function TournamentList() {
   const tournaments = useStore((s) => s.tournaments);
@@ -102,56 +204,77 @@ export function TournamentList() {
       ) : (
         <div className="flex flex-wrap justify-center gap-4">
           {shown.map(({ t, res }) => {
-            const played = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
+            const status = statusOf(t, res.complete);
+            const prog = cardProgress(t);
+            const accent = colorForName(t.sport);
+            const primary = !t.generated ? "Finish setup" : res.complete ? "View results" : "Open";
+            const pct = prog && prog.total ? Math.round((prog.done / prog.total) * 100) : 0;
             return (
-              <Card key={t.id} bare className="basis-full sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] p-4 flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 shadow-sm hover:bg-[var(--surface)]/80 hover:border-[var(--brand)]/40 transition">
-                <Link href={`/t/${t.id}`} className="flex-1 block group">
-                  <div className="flex items-center gap-2 mb-2">
+              <Card
+                key={t.id}
+                bare
+                className="relative basis-full sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 p-4 pl-6 shadow-sm transition hover:border-[var(--brand)]/40 hover:bg-[var(--surface)]/80"
+              >
+                {/* sport-tinted accent rail (color derived from the sport, from the existing palette) */}
+                <span
+                  aria-hidden
+                  className="absolute left-2 top-4 bottom-4 w-1 rounded-full"
+                  style={{ background: accent }}
+                />
+                <StatusPill status={status} />
+                <Link href={`/t/${t.id}`} className="group block">
+                  <div className="mb-2 pr-16">
                     <Badge color={FORMAT_COLOR[t.format]}>{FORMAT_LABELS[t.format]}</Badge>
-                    {!t.generated && <Badge color="slate">Setup</Badge>}
-                    {res.complete && <Badge color="green">✓ Complete</Badge>}
                   </div>
-                  <h3 className="font-bold text-lg group-hover:brand-text transition flex items-center gap-2">
+                  <h3 className="flex items-center gap-2 text-lg font-bold transition group-hover:brand-text">
                     <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
                       <SportIcon sport={t.sport} className="h-5 w-5" />
                     </span>
-                    {t.name}
+                    <span className="min-w-0 truncate">{t.name}</span>
                   </h3>
-                  <p className="text-sm text-[var(--muted)]">
+                  <p className="mt-1 text-sm text-[var(--muted)]">
                     {t.sport} · {PLAYSTYLE_LABELS[t.playStyle].split(" ")[0]}
                   </p>
+                </Link>
+
+                <div className="mt-3 flex-1">
                   {res.winner ? (
-                    <p className="text-sm mt-2 font-semibold text-amber-500 flex items-center gap-1.5">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-500">
                       <Trophy className="h-4 w-4" /> {res.winner}
                     </p>
+                  ) : prog ? (
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-xs text-[var(--muted)]">
+                        <span>{t.participants.length} players</span>
+                        <span className="tabular-nums">
+                          {prog.done}/{prog.total}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
+                        <div
+                          className="h-full rounded-full bg-[var(--brand)] transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
                   ) : (
-                    <p className="text-xs text-[var(--muted)] mt-2">
-                      {t.participants.length} participants
-                      {t.matches.length > 0 && ` · ${played}/${t.matches.length} games played`}
-                    </p>
+                    <p className="text-xs text-[var(--muted)]">{t.participants.length} participants</p>
                   )}
-                </Link>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border)]">
+                </div>
+
+                <div className="mt-3 flex items-center justify-between border-t border-[var(--border)] pt-3">
                   <Link
                     href={`/t/${t.id}`}
-                    className="text-sm font-medium text-[var(--brand)] hover:underline"
+                    className="text-sm font-semibold text-[var(--brand)] hover:underline"
                   >
-                    Open →
+                    {primary} →
                   </Link>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" className="px-2 py-1" onClick={() => duplicate(t.id)}>
-                      Duplicate
-                    </Button>
-                    <Button
-                      variant="danger"
-                      className="px-2 py-1"
-                      onClick={() => {
-                        if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                  <OverflowMenu
+                    onDuplicate={() => duplicate(t.id)}
+                    onDelete={() => {
+                      if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
+                    }}
+                  />
                 </div>
               </Card>
             );
