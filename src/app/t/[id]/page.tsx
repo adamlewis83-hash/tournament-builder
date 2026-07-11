@@ -146,6 +146,7 @@ function TournamentDetail({ id }: { id: string }) {
               matches={t.matches.filter((m) => m.phase === "rr")}
               participants={t.participants}
               tournamentId={t.id}
+              hero
             />
           )}
           {tab === "bracket" && <BracketPanel t={t} />}

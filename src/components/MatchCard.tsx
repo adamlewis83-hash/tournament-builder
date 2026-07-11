@@ -85,7 +85,7 @@ export function MasterClock({
 
 // Countdown clock for timed games — driven by the synced per-match clock in tournament state,
 // so the host, scorekeepers, and every spectator all see the same time tick down together.
-function MatchTimer({
+export function MatchTimer({
   minutes,
   tournamentId,
   match,
@@ -174,7 +174,7 @@ function MatchTimer({
   );
 }
 
-function Side({
+export function Side({
   ids,
   label,
   participants,
