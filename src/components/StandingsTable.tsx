@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Match, Participant, Tiebreaker, TIEBREAKER_LABELS } from "@/lib/types";
 import { computeStandings } from "@/lib/standings";
 import { colorFor, photoFor } from "@/lib/colors";
@@ -24,6 +25,9 @@ export function StandingsTable({
 }) {
   const rows = computeStandings(participants, matches, tiebreaker, rankByWinPct);
   const pct = (p: number) => (p * 100).toFixed(0) + "%";
+  const cols = 7 + (rankByWinPct ? 1 : 0); // column count for the cutline row's colSpan
+  // Show the "advance" cutline only when a real cut exists (not the whole field advances).
+  const showCut = highlightTop > 0 && highlightTop < rows.length;
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
       {title && (
@@ -56,10 +60,11 @@ export function StandingsTable({
         <tbody>
           {rows.map((r) => {
             const advancing = highlightTop > 0 && r.rank <= highlightTop;
+            const cutHere = showCut && r.rank === highlightTop;
             return (
+              <Fragment key={r.participantId}>
               <tr
-                key={r.participantId}
-                className={`border-b border-[var(--border)] last:border-0 ${advancing ? "bg-[var(--win-bg)]" : ""}`}
+                className={`border-b border-[var(--border)] ${advancing ? "bg-[var(--win-bg)]" : ""}`}
               >
                 <td className="px-3 py-2 font-bold text-[var(--muted)]">
                   {advancing ? <span className="text-[var(--win)]">{r.rank}</span> : r.rank}
@@ -106,6 +111,20 @@ export function StandingsTable({
                   {r.pointsAgainst}
                 </td>
               </tr>
+              {cutHere && (
+                <tr aria-hidden>
+                  <td colSpan={cols} className="px-3 py-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-0 flex-1 border-t-2 border-dashed border-[var(--brand)]/50" />
+                      <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                        ✂ Top {highlightTop} advance
+                      </span>
+                      <div className="h-0 flex-1 border-t-2 border-dashed border-[var(--brand)]/50" />
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

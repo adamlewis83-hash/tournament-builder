@@ -24,6 +24,43 @@ export default function RecordsPage() {
 
 const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bronze: "🥉" };
 
+type Medalist = { name: string; firsts: number; seconds: number; thirds: number };
+
+// One spot on the gold/silver/bronze podium. rank 1 is tallest/centered.
+function PodiumSpot({ r, rank }: { r?: Medalist; rank: 1 | 2 | 3 }) {
+  if (!r) return <div className="w-20 sm:w-24" />;
+  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+  const barH = rank === 1 ? "h-16" : rank === 2 ? "h-11" : "h-8";
+  const barBg =
+    rank === 1
+      ? "border-amber-400 bg-amber-400/25"
+      : rank === 2
+        ? "border-slate-400 bg-slate-400/20"
+        : "border-orange-400 bg-orange-400/20";
+  const tally = [
+    r.firsts ? `🥇${r.firsts}` : "",
+    r.seconds ? `🥈${r.seconds}` : "",
+    r.thirds ? `🥉${r.thirds}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className="flex w-20 flex-col items-center sm:w-24">
+      <Emoji e={medal} className="h-6 w-6" />
+      <Avatar
+        name={r.name}
+        color={colorForName(r.name)}
+        className={rank === 1 ? "mt-1 h-12 w-12 text-base" : "mt-1 h-9 w-9 text-xs"}
+      />
+      <div className="mt-1 w-full truncate text-center text-xs font-semibold leading-tight" title={r.name}>
+        {r.name}
+      </div>
+      <div className="text-[10px] text-[var(--muted)]">{tally}</div>
+      <div className={`mt-1.5 w-full rounded-t-md border-t-2 ${barBg} ${barH}`} />
+    </div>
+  );
+}
+
 function RecordBook() {
   const tournaments = useStore((s) => s.tournaments);
   const completed = tournaments.filter((t) => getResult(t).complete);
@@ -61,6 +98,17 @@ function RecordBook() {
         </Card>
       ) : (
         <>
+          {/* Podium — top three of the Hall of Fame */}
+          {records[0]?.firsts > 0 && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
+              <div className="flex items-end justify-center gap-3 sm:gap-6">
+                <PodiumSpot r={records[1]} rank={2} />
+                <PodiumSpot r={records[0]} rank={1} />
+                <PodiumSpot r={records[2]} rank={3} />
+              </div>
+            </div>
+          )}
+
           {/* Hall of Fame */}
           <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
             <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">
