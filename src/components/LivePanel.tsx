@@ -13,6 +13,7 @@ export function LivePanel({ t }: { t: Tournament }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [showScorers, setShowScorers] = useState(false);
+  const [newScorer, setNewScorer] = useState("");
 
   const scorers = t.scorers ?? [];
   const isScorer = (name: string) => scorers.some((n) => n.toLowerCase() === name.toLowerCase());
@@ -21,6 +22,19 @@ export function LivePanel({ t }: { t: Tournament }) {
       t.id,
       isScorer(name) ? scorers.filter((n) => n.toLowerCase() !== name.toLowerCase()) : [...scorers, name],
     );
+  // Scorekeepers who aren't in the field — e.g. a spouse or friend running the scorecard.
+  const extraScorers = scorers.filter(
+    (n) => !t.participants.some((p) => p.name.trim().toLowerCase() === n.trim().toLowerCase()),
+  );
+  const addScorerByName = () => {
+    const v = newScorer.trim();
+    if (!v || isScorer(v)) {
+      setNewScorer("");
+      return;
+    }
+    setScorers(t.id, [...scorers, v]);
+    setNewScorer("");
+  };
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const joinUrl = t.liveCode ? `${origin}/live/${t.liveCode}` : "";
@@ -102,9 +116,10 @@ export function LivePanel({ t }: { t: Tournament }) {
         {showScorers && (
           <div className="mt-2">
             <p className="text-xs text-[var(--muted)] mb-2">
-              By default only you enter scores. Tap anyone below to let them keep score from their own
-              phone once they join the link — they&apos;re recognized by their profile name, so it must
-              match. Their entries sync to everyone.
+              By default only you enter scores. Tap a player below — or add someone who isn&apos;t in
+              the tournament (a spouse, a friend) — to let them keep score from their own phone once
+              they join the link. They&apos;re recognized by their profile name, so it must match.
+              Entries sync to everyone.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {t.participants.map((p) => {
@@ -125,6 +140,41 @@ export function LivePanel({ t }: { t: Tournament }) {
                   </button>
                 );
               })}
+              {/* Non-player scorekeepers: shown as removable chips since they have no player toggle. */}
+              {extraScorers.map((n) => (
+                <span
+                  key={`extra-${n}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] pl-2.5 pr-1.5 py-1 text-xs font-medium text-[var(--brand)]"
+                >
+                  ✓ {n}
+                  <span className="text-[10px] opacity-70">(not playing)</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleScorer(n)}
+                    aria-label={`Remove ${n}`}
+                    className="hover:text-rose-400 px-0.5"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={newScorer}
+                onChange={(e) => setNewScorer(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addScorerByName())}
+                placeholder="Add a scorekeeper by name…"
+                className="flex-1 min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm"
+              />
+              <Button
+                variant="outline"
+                className="px-3 py-1.5"
+                onClick={addScorerByName}
+                disabled={!newScorer.trim()}
+              >
+                Add
+              </Button>
             </div>
           </div>
         )}
