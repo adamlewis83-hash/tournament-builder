@@ -118,6 +118,33 @@ export function GolfView({ t }: { t: Tournament }) {
                 Next ›
               </Button>
             </div>
+            {/* Hole-progress dots — filled as holes are scored; tap to jump to a hole. */}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+              {holes.map((hi) => {
+                const scored = t.participants.filter((p) => g.scores[p.id]?.[hi] != null).length;
+                const done = t.participants.length > 0 && scored === t.participants.length;
+                const partial = scored > 0 && !done;
+                const cur = hi === h;
+                return (
+                  <button
+                    key={hi}
+                    type="button"
+                    onClick={() => setHole(hi)}
+                    title={`Hole ${holeNo(hi)}`}
+                    aria-label={`Go to hole ${holeNo(hi)}`}
+                    className={`h-2.5 w-2.5 rounded-full transition ${
+                      cur
+                        ? "scale-150 bg-[var(--brand)]"
+                        : done
+                          ? "bg-[var(--brand)]"
+                          : partial
+                            ? "bg-[var(--brand)]/40"
+                            : "bg-[var(--border)] hover:bg-[var(--muted)]"
+                    }`}
+                  />
+                );
+              })}
+            </div>
             <div className="mt-3 space-y-2">
               {t.participants.map((p) => {
                 const v = g.scores[p.id]?.[h];
@@ -139,7 +166,8 @@ export function GolfView({ t }: { t: Tournament }) {
                       )}
                       <button
                         onClick={() => adj(p.id, -1)}
-                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]"
+                        aria-label={`Minus one for ${p.name}`}
+                        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] text-2xl font-bold text-[var(--muted)] transition hover:bg-[var(--hover)]"
                       >
                         −
                       </button>
@@ -149,11 +177,12 @@ export function GolfView({ t }: { t: Tournament }) {
                         value={v ?? ""}
                         onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
                         placeholder="–"
-                        className="w-12 rounded-lg border border-[var(--border)] bg-[var(--input)] px-1 py-1.5 text-center text-lg font-bold tabular-nums outline-none focus:border-[var(--brand)]"
+                        className="w-14 rounded-xl border border-[var(--border)] bg-[var(--input)] py-1.5 text-center text-2xl font-extrabold tabular-nums outline-none focus:border-[var(--brand)]"
                       />
                       <button
                         onClick={() => adj(p.id, 1)}
-                        className="h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--hover)] text-lg font-bold hover:bg-[var(--hover-strong)]"
+                        aria-label={`Plus one for ${p.name}`}
+                        className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand)] text-2xl font-bold text-[var(--on-brand)] transition hover:opacity-90"
                       >
                         +
                       </button>
@@ -204,7 +233,11 @@ export function GolfView({ t }: { t: Tournament }) {
                 </td>
                 <td className="px-2 py-2 text-center tabular-nums">{r.thru ? `${r.thru}` : "–"}</td>
                 {strokeLike && (
-                  <td className="px-2 py-2 text-center tabular-nums font-bold">
+                  <td
+                    className={`px-2 py-2 text-center tabular-nums font-bold ${
+                      r.thru ? (r.toPar < 0 ? "text-[var(--win)]" : r.toPar > 0 ? "text-[var(--muted)]" : "") : ""
+                    }`}
+                  >
                     {r.thru ? formatToPar(r.toPar) : "–"}
                   </td>
                 )}
