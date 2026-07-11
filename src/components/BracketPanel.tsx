@@ -13,7 +13,11 @@ export function BracketPanel({ t }: { t: Tournament }) {
   const rrMatches = t.matches.filter((m) => m.phase === "rr");
   const finals = t.matches.filter(
     (m) =>
-      m.phase === "winners" || m.phase === "losers" || m.phase === "final" || m.phase === "championship",
+      m.phase === "winners" ||
+      m.phase === "losers" ||
+      m.phase === "final" ||
+      m.phase === "championship" ||
+      m.phase === "placement",
   );
   const rrComplete =
     rrMatches.length > 0 && rrMatches.every((m) => m.scoreA !== null && m.scoreB !== null);

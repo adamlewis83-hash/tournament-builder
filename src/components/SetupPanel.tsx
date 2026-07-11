@@ -601,6 +601,24 @@ export function SetupPanel({ t }: { t: Tournament }) {
               </span>
             </label>
           )}
+          {t.format === "round-robin" && (
+            <label className="col-span-2 flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={cfg.bronzeMatch ?? false}
+                onChange={(e) => setCfg({ bronzeMatch: e.target.checked })}
+                className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
+              />
+              <span className="text-sm font-medium">
+                Bronze medal match{" "}
+                <span className="text-[var(--muted)] font-normal">
+                  {isDoubles
+                    ? "(the next four seeds play off for 3rd — 5 & 8 vs 6 & 7)"
+                    : "(seeds 5 & 6 play off for 3rd)"}
+                </span>
+              </span>
+            </label>
+          )}
           {showThirdPlace && (
             <label className="col-span-2 flex items-center gap-2.5 cursor-pointer select-none">
               <input

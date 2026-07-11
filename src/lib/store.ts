@@ -1017,6 +1017,25 @@ export const useStore = create<State>()(
               } else {
                 finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.thirdPlace });
               }
+              // Optional bronze-medal match: the next tier plays off for 3rd. Doubles pairs
+              // them best-with-worst (5&8 vs 6&7); singles is 5 vs 6. Winner takes bronze.
+              if (t.config.bronzeMatch) {
+                const need = t.playStyle === "doubles" ? 4 : 2;
+                const b = standings.slice(n, n + need).map((r) => r.participantId);
+                if (b.length === need) {
+                  finals.push({
+                    id: uid(),
+                    phase: "placement",
+                    round: 1,
+                    order: 99,
+                    label: "Bronze Medal Match",
+                    sideA: need === 4 ? [b[0], b[3]] : [b[0]],
+                    sideB: need === 4 ? [b[1], b[2]] : [b[1]],
+                    scoreA: null,
+                    scoreB: null,
+                  });
+                }
+              }
             } else if (t.format === "pool-bracket") {
               // Seed across pools: all pool winners first, then runners-up, etc.
               const poolIds = Array.from(new Set(baseMatches.map((m) => m.poolId).filter(Boolean))) as string[];
