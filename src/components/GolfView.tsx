@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { GOLF_MODE_BLURBS, GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { computeGolf, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
@@ -12,13 +13,18 @@ import { BbbView } from "./BbbView";
 import { WolfView } from "./WolfView";
 import { MixedGolfView } from "./MixedGolfView";
 
+// Mapbox touches `window`, so load the GPS panel client-side only.
+const GolfGps = dynamic(() => import("./GolfGps").then((m) => m.GolfGps), { ssr: false });
+
 const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins", "nassau"];
 
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfScore = useStore((s) => s.setGolfScore);
+  const setGolfPin = useStore((s) => s.setGolfPin);
   const [hole, setHole] = useState(0);
   const [showCard, setShowCard] = useState(true);
+  const [gpsOpen, setGpsOpen] = useState(false);
   const g = t.golf;
   if (!g) return null;
 
@@ -190,6 +196,27 @@ export function GolfView({ t }: { t: Tournament }) {
                   </div>
                 );
               })}
+            </div>
+
+            {/* GPS / yardage — aerial of the hole with live distance to the pin */}
+            <div className="mt-3 border-t border-[var(--border)] pt-3">
+              <button
+                type="button"
+                onClick={() => setGpsOpen((o) => !o)}
+                className="flex w-full items-center justify-between text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                <span>📍 GPS · yards to pin</span>
+                <span className="text-xs">{gpsOpen ? "Hide" : "Show"}</span>
+              </button>
+              {gpsOpen && (
+                <div className="mt-3">
+                  <GolfGps
+                    key={h}
+                    pin={g.pins?.[h] ?? null}
+                    onSetPin={(c) => setGolfPin(t.id, h, c)}
+                  />
+                </div>
+              )}
             </div>
           </Card>
         );

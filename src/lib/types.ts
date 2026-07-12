@@ -165,6 +165,7 @@ export interface GolfData {
   strokeIndex: number[]; // 1..holes difficulty ranking (for net allocation)
   tees?: TeeSet[]; // tee sets at this course; players' `tee` picks drive course handicaps
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
+  pins?: ([number, number] | null)[]; // per-hole green/pin location [lng, lat] for GPS distance
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices
   segments?: GolfSegment[]; // "Build Your Own": format per hole range

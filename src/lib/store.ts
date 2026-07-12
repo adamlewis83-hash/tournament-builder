@@ -140,6 +140,7 @@ interface State {
     participantId: string | null,
   ) => void;
   setGolfWolf: (id: string, hole: number, partner: string | "lone" | null) => void;
+  setGolfPin: (id: string, hole: number, coords: [number, number] | null) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -851,6 +852,19 @@ export const useStore = create<State>()(
           }),
         }));
         pushPatch(id, { kind: "golfScore", participantId, hole, strokes });
+      },
+
+      // Local-only: the green/pin location for GPS distance. It's course geometry,
+      // not scoring, so it doesn't sync to live spectators — each device keeps its own.
+      setGolfPin: (id, hole, coords) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const pins = [...(t.golf.pins ?? Array(t.golf.holes).fill(null))];
+            pins[hole] = coords;
+            return { ...t, golf: { ...t.golf, pins }, updatedAt: Date.now() };
+          }),
+        }));
       },
 
       setGolfAward: (id, kind, hole, participantId) => {
