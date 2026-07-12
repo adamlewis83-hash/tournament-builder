@@ -71,8 +71,9 @@ export const IconPools = duo(GridFour);
 export const IconAmericano = duo(Shuffle);
 export const IconMexicano = duo(UsersThree);
 export const IconRyder = duo(Users);
-// Golf format tile — the custom monoline club + ball on ground (matches the
-// SportIcon set's weight), not the thin Phosphor flag it replaced.
+// Golf format tile — the angled club (driver) + ball glyph, kept in sync with
+// SportIcon's golf so the format tile and sport chip match. (Replaced the thin
+// Phosphor flag, then the flag-like "pole + pennant" shape.)
 export const IconGolf = ({ className }: IconProps) => (
   <svg
     viewBox="0 0 24 24"
@@ -83,9 +84,18 @@ export const IconGolf = ({ className }: IconProps) => (
     strokeLinejoin="round"
     className={className}
   >
-    <path d="M9 4 L9 18" />
-    <path d="M9 4 L16 6 L9 8.5 Z" fill="currentColor" />
-    <ellipse cx="10" cy="18.5" rx="5.5" ry="1.8" />
+    <path d="M16.5 3.5 L8.7 15.3" />
+    <ellipse
+      cx="7.3"
+      cy="16.4"
+      rx="3.1"
+      ry="1.85"
+      transform="rotate(-38 7.3 16.4)"
+      fill="currentColor"
+      stroke="none"
+    />
+    <circle cx="16.8" cy="18.9" r="1.6" fill="currentColor" stroke="none" />
+    <path d="M11.8 20.7 L21 20.7" opacity="0.4" />
   </svg>
 );
 IconGolf.displayName = "IconGolf";

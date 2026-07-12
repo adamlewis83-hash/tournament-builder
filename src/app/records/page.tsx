@@ -29,7 +29,10 @@ type Medalist = { name: string; firsts: number; seconds: number; thirds: number 
 // One medal step of the podium — shows EVERY player on that step, so a doubles duo
 // (two co-champions, or two runners-up) both appear instead of the group being cut off.
 function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 }) {
-  if (!players.length) return <div className="w-24 sm:w-28" />;
+  // Render nothing for an absent tier (e.g. no bronze/3rd-place match). The parent
+  // centers whatever tiers exist, so a 1- or 1-2-place podium stays balanced instead
+  // of leaving a detached empty column with a gap.
+  if (!players.length) return null;
   const medal = tier === 1 ? "🥇" : tier === 2 ? "🥈" : "🥉";
   const barH = tier === 1 ? "h-16" : tier === 2 ? "h-11" : "h-8";
   const barBg =

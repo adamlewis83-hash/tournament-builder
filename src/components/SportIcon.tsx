@@ -32,12 +32,22 @@ const ICONS: Record<Key, ReactNode> = {
       <circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none" />
     </>
   ),
-  // Golf — club + ball on the ground
+  // Golf — angled club (driver) + ball on the ground. The 4a "pole + pennant"
+  // glyph read as a flag; this reshapes it into an unmistakable club.
   golf: (
     <>
-      <path d="M9 4 L9 18" />
-      <path d="M9 4 L16 6 L9 8.5 Z" fill="currentColor" />
-      <ellipse cx="10" cy="18.5" rx="5.5" ry="1.8" />
+      <path d="M16.5 3.5 L8.7 15.3" />
+      <ellipse
+        cx="7.3"
+        cy="16.4"
+        rx="3.1"
+        ry="1.85"
+        transform="rotate(-38 7.3 16.4)"
+        fill="currentColor"
+        stroke="none"
+      />
+      <circle cx="16.8" cy="18.9" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M11.8 20.7 L21 20.7" opacity="0.4" />
     </>
   ),
   // Tennis — strung racquet + ball
