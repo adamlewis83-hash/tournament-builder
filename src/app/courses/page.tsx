@@ -30,6 +30,9 @@ function Courses() {
         <p className="text-sm text-[var(--muted)]">
           Saved courses load their pars &amp; stroke index so net scoring adjusts per hole and player.
         </p>
+        <Link href="/nearby" className="mt-2 inline-block text-sm text-[var(--brand)] hover:underline">
+          🥏 Find disc golf courses near you →
+        </Link>
       </div>
 
       {courses.length === 0 ? (

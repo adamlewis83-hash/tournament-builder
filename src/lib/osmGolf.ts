@@ -6,11 +6,14 @@
 
 type LngLat = [number, number];
 
-interface OverpassElement {
+export interface OverpassElement {
   type: string;
+  id: number;
   tags?: Record<string, string>;
   center?: { lat: number; lon: number };
   geometry?: { lat: number; lon: number }[];
+  lat?: number; // node elements carry coords directly
+  lon?: number;
 }
 
 // The main Overpass instance is community-run and occasionally slow or down;
@@ -21,7 +24,11 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
-export async function overpassFetch(query: string): Promise<Response> {
+// Direct Overpass access, falling through mirrors. An overloaded instance can
+// answer 200 with zero elements plus a `remark` about an internal timeout —
+// treat that as a failure and try the next mirror, otherwise callers would
+// show a false "nothing found". Used server-side by /api/overpass.
+export async function overpassDirect(query: string): Promise<{ elements: OverpassElement[] }> {
   let lastErr: unknown = null;
   for (const url of OVERPASS_ENDPOINTS) {
     const ctrl = new AbortController();
@@ -33,8 +40,16 @@ export async function overpassFetch(query: string): Promise<Response> {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         signal: ctrl.signal,
       });
-      if (res.ok) return res;
-      lastErr = new Error(`Overpass ${res.status}`);
+      if (!res.ok) {
+        lastErr = new Error(`Overpass ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as { elements?: OverpassElement[]; remark?: string };
+      if (data.remark && !(data.elements ?? []).length) {
+        lastErr = new Error(`Overpass remark: ${data.remark}`);
+        continue;
+      }
+      return { elements: data.elements ?? [] };
     } catch (e) {
       lastErr = e;
     } finally {
@@ -42,6 +57,24 @@ export async function overpassFetch(query: string): Promise<Response> {
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error("Overpass unreachable");
+}
+
+// Client entry point: route queries through our own /api/overpass proxy —
+// Vercel's servers reach Overpass far more reliably than a phone on cell data
+// (per-IP throttling, flaky mirrors). Falls back to direct mirrors if our API
+// is unavailable (e.g. local dev without the route, offline SW edge cases).
+export async function overpassJson(query: string): Promise<{ elements: OverpassElement[] }> {
+  try {
+    const res = await fetch("/api/overpass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (res.ok) return (await res.json()) as { elements: OverpassElement[] };
+  } catch {
+    /* fall through to direct */
+  }
+  return overpassDirect(query);
 }
 
 function dist2(a: LngLat, b: LngLat): number {
@@ -68,8 +101,7 @@ export async function fetchOsmPins(
 (way["golf"="green"](around:1500,${lat},${lng}););out tags center;
 (way["golf"="hole"](around:1500,${lat},${lng}););out tags geom;`;
 
-  const res = await overpassFetch(query);
-  const data = (await res.json()) as { elements: OverpassElement[] };
+  const data = await overpassJson(query);
 
   const greens: { ref: number; center: LngLat }[] = [];
   const holeEnds: { ref: number; end: LngLat }[] = [];

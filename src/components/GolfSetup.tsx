@@ -356,6 +356,16 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </Link>
         </div>
 
+        {/* Disc golf isn't in the ball-golf course database — point at the OSM finder. */}
+        {/disc\s*golf/i.test(t.sport) && (
+          <Link
+            href="/nearby"
+            className="mb-3 block rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-3 py-2 text-sm text-[var(--brand)] hover:opacity-90"
+          >
+            🥏 Find disc golf courses near you →
+          </Link>
+        )}
+
         <div className="mb-3">
           <span className="text-xs font-medium text-[var(--muted)]">Search real courses</span>
           <div className="mt-1 flex gap-2">

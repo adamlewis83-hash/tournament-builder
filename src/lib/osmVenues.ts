@@ -2,7 +2,7 @@
 // Scoped to disc golf for now — OSM maps disc golf courses well as named
 // `leisure=disc_golf_course` features (unlike pickleball, which is sparsely
 // named), so this is the one sport that meets an "accurate and useful" bar.
-import { overpassFetch } from "./osmGolf";
+import { overpassJson } from "./osmGolf";
 
 export interface Venue {
   id: string;
@@ -11,15 +11,6 @@ export interface Venue {
   lng: number;
   holes: number | null;
   meters: number; // distance from the search point
-}
-
-interface OverpassElement {
-  type: string;
-  id: number;
-  tags?: Record<string, string>;
-  center?: { lat: number; lon: number };
-  lat?: number;
-  lon?: number;
 }
 
 function metersBetween(aLng: number, aLat: number, bLng: number, bLat: number): number {
@@ -46,8 +37,7 @@ export async function fetchDiscGolfCourses(
  node["leisure"="disc_golf_course"](around:${radiusM},${lat},${lng}););
 out tags center;`;
 
-  const res = await overpassFetch(query);
-  const data = (await res.json()) as { elements: OverpassElement[] };
+  const data = await overpassJson(query);
 
   const venues: Venue[] = [];
   for (const el of data.elements) {
@@ -55,15 +45,29 @@ out tags center;`;
     const lat2 = el.center?.lat ?? el.lat;
     const lng2 = el.center?.lon ?? el.lon;
     if (lat2 == null || lng2 == null) continue;
+    const name = t.name?.trim() || "";
+    // Mappers sometimes put the course tag on per-hole features ("Disc Golf
+    // Basket #4", "Tee #7", "Hole 12") — those aren't courses, skip them.
+    if (/(?:basket|tee)\s*#?\d|^hole\s*\d+$/i.test(name)) continue;
     const holesTag = t.holes ? parseInt(t.holes, 10) : NaN;
     venues.push({
       id: `${el.type}/${el.id}`,
-      name: t.name?.trim() || "Disc golf course",
+      name: name || "Disc golf course",
       lat: lat2,
       lng: lng2,
       holes: Number.isNaN(holesTag) ? null : holesTag,
       meters: metersBetween(lng, lat, lng2, lat2),
     });
   }
-  return venues.sort((a, b) => a.meters - b.meters);
+  // One course is often mapped as several overlapping shapes (an outline plus
+  // fairway pieces). Collapse anything within ~500m of an already-kept venue,
+  // considering named venues first so the real name wins over a blank shape.
+  const byDist = (a: Venue, b: Venue) => a.meters - b.meters;
+  const named = venues.filter((v) => v.name !== "Disc golf course").sort(byDist);
+  const unnamed = venues.filter((v) => v.name === "Disc golf course").sort(byDist);
+  const keep: Venue[] = [];
+  for (const v of [...named, ...unnamed]) {
+    if (!keep.some((k) => metersBetween(k.lng, k.lat, v.lng, v.lat) < 500)) keep.push(v);
+  }
+  return keep.sort(byDist);
 }

@@ -23,6 +23,7 @@ export default function NearbyPage() {
   const [error, setError] = useState<string | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [widened, setWidened] = useState(false);
+  const [searchedAt, setSearchedAt] = useState<{ lat: number; lng: number; acc: number } | null>(null);
   const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function search(center: [number, number]) {
@@ -68,6 +69,11 @@ export default function NearbyPage() {
         if (settled) return;
         settled = true;
         if (watchdog.current) clearTimeout(watchdog.current);
+        setSearchedAt({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          acc: pos.coords.accuracy,
+        });
         search([pos.coords.longitude, pos.coords.latitude]);
       },
       (err) => {
@@ -81,7 +87,9 @@ export default function NearbyPage() {
             : "Couldn't get your location right now.",
         );
       },
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 11000 },
+      // Coarse (Wi-Fi/cell) on purpose: a 25-mile course search doesn't need GPS
+      // precision, and a high-accuracy request stalls indoors (esp. iPhone).
+      { enableHighAccuracy: false, maximumAge: 300000, timeout: 11000 },
     );
   }
 
@@ -123,8 +131,15 @@ export default function NearbyPage() {
 
       {status === "done" && venues.length === 0 && (
         <Card className="p-6 text-center text-sm text-[var(--muted)]">
-          No disc golf courses found nearby in OpenStreetMap.
+          No disc golf courses found within ~75 mi in OpenStreetMap.
         </Card>
+      )}
+
+      {searchedAt && (status === "done" || status === "error") && (
+        <p className="text-xs text-[var(--muted)]">
+          Searched around {searchedAt.lat.toFixed(3)}, {searchedAt.lng.toFixed(3)} (±
+          {Math.round(searchedAt.acc)} m).
+        </p>
       )}
 
       {venues.length > 0 && (
