@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "@/components/icons";
 import { Card } from "@/components/ui";
@@ -20,6 +21,12 @@ export default function NewTournamentPage() {
         {/* onDone fires on cancel; on create the form routes to the new tournament itself. */}
         <CreateTournamentForm onDone={() => router.push("/tournaments")} />
       </Card>
+      <Link
+        href="/nearby"
+        className="mt-3 inline-block text-sm text-[var(--brand)] hover:underline"
+      >
+        🥏 Find disc golf courses near you →
+      </Link>
     </HydrationGate>
   );
 }

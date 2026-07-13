@@ -21,7 +21,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
-async function overpassFetch(query: string): Promise<Response> {
+export async function overpassFetch(query: string): Promise<Response> {
   let lastErr: unknown = null;
   for (const url of OVERPASS_ENDPOINTS) {
     const ctrl = new AbortController();
