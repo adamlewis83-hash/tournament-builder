@@ -7,6 +7,19 @@ import { fetchOsmPins } from "@/lib/osmGolf";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+// iOS home-screen web apps ("standalone" display mode) have a long-standing bug
+// where geolocation calls can hang with no success/error callback ever firing.
+// The same site works fine in a normal browser tab, so we detect this to give
+// the user the one reliable instruction: open it in Safari.
+function isStandaloneIOS(): boolean {
+  if (typeof window === "undefined") return false;
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+  const iOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  return !!standalone && iOS;
+}
+
 // Haversine distance in meters between two [lng, lat] points.
 function metersBetween(a: [number, number], b: [number, number]): number {
   const R = 6371000;
@@ -46,6 +59,7 @@ export function GolfGps({
   const pinMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const youMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const centeredRef = useRef(false);
   // Keep the latest callbacks/props without re-running the map-init effect.
   const onSetPinRef = useRef(onSetPin);
@@ -63,6 +77,7 @@ export function GolfGps({
   const [courseMsg, setCourseMsg] = useState<string | null>(null);
 
   function onFix(pos: GeolocationPosition) {
+    if (watchdogRef.current) clearTimeout(watchdogRef.current);
     setGeoError(null);
     setLocating(false);
     const c: [number, number] = [pos.coords.longitude, pos.coords.latitude];
@@ -93,6 +108,19 @@ export function GolfGps({
     setLocating(true);
     setGeoError(null);
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    // Watchdog: on iOS standalone apps the geolocation callbacks can never fire
+    // (no success, no error). Without this the button would spin forever, so we
+    // stop it ourselves and, if we're in that known-bad context, say why.
+    if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    watchdogRef.current = setTimeout(() => {
+      if (youRef.current) return; // a fix arrived — nothing to do
+      setLocating(false);
+      setGeoError(
+        isStandaloneIOS()
+          ? "iPhone blocks GPS in installed web apps. Open sporos.app in Safari for the GPS features."
+          : "Couldn't get a location fix — make sure location is allowed, then retry.",
+      );
+    }, 12000);
     // Stage 1 — coarse (Wi-Fi/cell): fast, works indoors, gets a dot on the map.
     navigator.geolocation.getCurrentPosition(
       onFix,
@@ -160,6 +188,7 @@ export function GolfGps({
 
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
       map.remove();
       mapRef.current = null;
     };
