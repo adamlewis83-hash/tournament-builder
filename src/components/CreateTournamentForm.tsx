@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import {
@@ -179,6 +180,15 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
             placeholder="e.g. Mario Kart, Chili Cook-off, Office Bracket"
             className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
           />
+        )}
+        {/* The finder is most useful right when Disc Golf is picked. */}
+        {/disc\s*golf/i.test(sport) && (
+          <Link
+            href="/nearby"
+            className="mt-2 block rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-3 py-2 text-sm text-[var(--brand)] hover:opacity-90"
+          >
+            🥏 Find disc golf courses near you →
+          </Link>
         )}
       </section>
 
