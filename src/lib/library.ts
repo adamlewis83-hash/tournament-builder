@@ -1,4 +1,4 @@
-import { Tournament } from "./types";
+import { Course, Friend, Tournament } from "./types";
 
 const KEY = "seeded-library-key";
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -48,6 +48,58 @@ export async function fetchLibrary(owner: string): Promise<Tournament[]> {
     return (json.tournaments ?? []) as Tournament[];
   } catch {
     return [];
+  }
+}
+
+export async function fetchFriends(owner: string): Promise<Friend[]> {
+  try {
+    const res = await fetch(`/api/friends?owner=${encodeURIComponent(owner)}`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.friends ?? []) as Friend[];
+  } catch {
+    return [];
+  }
+}
+
+export async function putFriends(owner: string, friends: Friend[]): Promise<void> {
+  try {
+    // keepalive so the backup completes even if the page reloads right after
+    // (e.g. editing a friend then signing out).
+    await fetch("/api/friends", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, friends }),
+      keepalive: true,
+    });
+  } catch {
+    /* offline — local stays source of truth, will resync later */
+  }
+}
+
+export async function fetchCourses(owner: string): Promise<Course[]> {
+  try {
+    const res = await fetch(`/api/saved-courses?owner=${encodeURIComponent(owner)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.courses ?? []) as Course[];
+  } catch {
+    return [];
+  }
+}
+
+export async function putCourses(owner: string, courses: Course[]): Promise<void> {
+  try {
+    await fetch("/api/saved-courses", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, courses }),
+      keepalive: true,
+    });
+  } catch {
+    /* offline — local stays source of truth, will resync later */
   }
 }
 

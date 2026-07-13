@@ -62,8 +62,10 @@ interface State {
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
+  mergeCourses: (list: Course[]) => void;
   saveFriend: (input: Omit<Friend, "id"> & { id?: string }) => string;
   removeFriend: (id: string) => void;
+  mergeFriends: (list: Friend[]) => void;
   createTournament: (input: CreateInput) => string;
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
@@ -313,6 +315,20 @@ export const useStore = create<State>()(
 
       removeFriend: (id) => set((s) => ({ friends: s.friends.filter((f) => f.id !== id) })),
 
+      // Union cloud friends into local without ever dropping a local one. Local
+      // wins on id or name collisions (avoids duplicating the same person); any
+      // cloud friend not seen locally is added — this restores friends after a
+      // reinstall/sign-in on a device whose local list was empty.
+      mergeFriends: (list) =>
+        set((s) => {
+          const byId = new Set(s.friends.map((f) => f.id));
+          const byName = new Set(s.friends.map((f) => f.name.trim().toLowerCase()));
+          const add = list.filter(
+            (f) => !byId.has(f.id) && !byName.has(f.name.trim().toLowerCase()),
+          );
+          return add.length ? { friends: [...s.friends, ...add] } : {};
+        }),
+
       saveCourse: (input) => {
         let id = input.id ?? "";
         set((s) => {
@@ -336,6 +352,18 @@ export const useStore = create<State>()(
       },
 
       removeCourse: (id) => set((s) => ({ courses: s.courses.filter((c) => c.id !== id) })),
+
+      // Union cloud courses into local without dropping a local one (see
+      // mergeFriends). Restores saved courses after a reinstall/sign-in.
+      mergeCourses: (list) =>
+        set((s) => {
+          const byId = new Set(s.courses.map((c) => c.id));
+          const byName = new Set(s.courses.map((c) => c.name.trim().toLowerCase()));
+          const add = list.filter(
+            (c) => !byId.has(c.id) && !byName.has(c.name.trim().toLowerCase()),
+          );
+          return add.length ? { courses: [...s.courses, ...add] } : {};
+        }),
 
       createTournament: (input) => {
         const id = uid();

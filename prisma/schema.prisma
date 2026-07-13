@@ -63,6 +63,30 @@ model OwnedTournament {
   @@map("owned_tournaments")
 }
 
+// A user's saved friends list, backed up as a single blob under their library
+// key (mirrors OwnedTournament) so friends survive a reinstall and follow the
+// account across devices.
+model OwnedFriends {
+  ownerId   String   @id // anonymous library key
+  data      Json // Friend[]
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("owned_friends")
+}
+
+// A user's saved courses list, backed up as a single blob under their library
+// key (mirrors OwnedFriends) so saved courses survive a reinstall and follow the
+// account across devices.
+model OwnedCourses {
+  ownerId   String   @id // anonymous library key
+  data      Json // Course[]
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("owned_courses")
+}
+
 // Links an email to a library key so a user can recover their library on a new
 // device by entering their email + a one-time code (no password / account).
 model EmailLink {

@@ -2,16 +2,29 @@
 
 import { useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
-import { getLibraryKey, fetchLibrary, putTournament, deleteTournamentRemote } from "@/lib/library";
+import {
+  getLibraryKey,
+  fetchLibrary,
+  putTournament,
+  deleteTournamentRemote,
+  fetchFriends,
+  putFriends,
+  fetchCourses,
+  putCourses,
+} from "@/lib/library";
 
 // Backs the whole tournament library up to the cloud under an anonymous device key,
 // pulls it on load, and keeps it synced. Renders nothing.
 export function CloudSync() {
   const hydrated = useStore((s) => s.hydrated);
   const mergeCloud = useStore((s) => s.mergeCloud);
+  const mergeFriends = useStore((s) => s.mergeFriends);
+  const mergeCourses = useStore((s) => s.mergeCourses);
   const started = useRef(false);
   const lastPushed = useRef<Map<string, number>>(new Map());
   const prevIds = useRef<Set<string>>(new Set());
+  const lastFriendsSig = useRef("");
+  const lastCoursesSig = useRef("");
   const owner = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -29,14 +42,29 @@ export function CloudSync() {
         putTournament(owner.current, t);
       }
       prevIds.current = new Set(all.map((t) => t.id));
+
+      // Friends & saved courses: pull cloud into local (restores after a
+      // reinstall), then push the merged list back so both sides converge.
+      const remoteFriends = await fetchFriends(owner.current);
+      if (remoteFriends.length) mergeFriends(remoteFriends);
+      const friends = useStore.getState().friends;
+      lastFriendsSig.current = JSON.stringify(friends);
+      putFriends(owner.current, friends);
+
+      const remoteCourses = await fetchCourses(owner.current);
+      if (remoteCourses.length) mergeCourses(remoteCourses);
+      const courses = useStore.getState().courses;
+      lastCoursesSig.current = JSON.stringify(courses);
+      putCourses(owner.current, courses);
     })();
-  }, [hydrated, mergeCloud]);
+  }, [hydrated, mergeCloud, mergeFriends, mergeCourses]);
 
   // Push diffs (debounced) on any store change.
   useEffect(() => {
     const sync = () => {
       if (!owner.current) return;
-      const all = useStore.getState().tournaments;
+      const state = useStore.getState();
+      const all = state.tournaments;
       const ids = new Set(all.map((t) => t.id));
       for (const id of prevIds.current) if (!ids.has(id)) deleteTournamentRemote(owner.current, id);
       for (const t of all) {
@@ -46,6 +74,18 @@ export function CloudSync() {
         }
       }
       prevIds.current = ids;
+
+      // Friends & saved courses: push the whole list whenever it changes.
+      const friendsSig = JSON.stringify(state.friends);
+      if (friendsSig !== lastFriendsSig.current) {
+        lastFriendsSig.current = friendsSig;
+        putFriends(owner.current, state.friends);
+      }
+      const coursesSig = JSON.stringify(state.courses);
+      if (coursesSig !== lastCoursesSig.current) {
+        lastCoursesSig.current = coursesSig;
+        putCourses(owner.current, state.courses);
+      }
     };
     const unsub = useStore.subscribe(() => {
       if (timer.current) clearTimeout(timer.current);
