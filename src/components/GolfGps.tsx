@@ -99,7 +99,9 @@ export function GolfGps({
     map.on("click", (e) => onSetPinRef.current([e.lngLat.lng, e.lngLat.lat]));
 
     const geo = new mapboxgl.GeolocateControl({
-      positionOptions: { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
+      // Generous timeout: a cold GPS fix (indoors, or PWA just opened) can take
+      // 20s+; accept a cached position up to 30s old to get a first answer fast.
+      positionOptions: { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 },
       trackUserLocation: true,
       showUserHeading: true,
       showAccuracyCircle: true,
