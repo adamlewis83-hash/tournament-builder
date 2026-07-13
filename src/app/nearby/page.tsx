@@ -23,7 +23,8 @@ export default function NearbyPage() {
   const [error, setError] = useState<string | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [widened, setWidened] = useState(false);
-  const [searchedAt, setSearchedAt] = useState<{ lat: number; lng: number; acc: number } | null>(null);
+  const [searchedAt, setSearchedAt] = useState<{ label: string } | null>(null);
+  const [place, setPlace] = useState("");
   const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function search(center: [number, number]) {
@@ -60,8 +61,8 @@ export default function NearbyPage() {
       setStatus("error");
       setError(
         isStandaloneIOS()
-          ? "iPhone blocks GPS in installed web apps. Open sporos.app in Safari to use this."
-          : "Couldn't get your location — allow location access and try again.",
+          ? "iPhone blocks GPS in installed web apps — search by city below instead (or open sporos.app in Safari)."
+          : "Couldn't get your location — allow location access, or search by city below.",
       );
     }, 12000);
     navigator.geolocation.getCurrentPosition(
@@ -70,9 +71,7 @@ export default function NearbyPage() {
         settled = true;
         if (watchdog.current) clearTimeout(watchdog.current);
         setSearchedAt({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          acc: pos.coords.accuracy,
+          label: `your location (±${Math.round(pos.coords.accuracy)} m)`,
         });
         search([pos.coords.longitude, pos.coords.latitude]);
       },
@@ -83,14 +82,44 @@ export default function NearbyPage() {
         setStatus("error");
         setError(
           err.code === 1
-            ? "Location permission denied — allow it and try again."
-            : "Couldn't get your location right now.",
+            ? "Location permission denied — allow it, or search by city below."
+            : "Couldn't get your location right now — search by city below.",
         );
       },
       // Coarse (Wi-Fi/cell) on purpose: a 25-mile course search doesn't need GPS
       // precision, and a high-accuracy request stalls indoors (esp. iPhone).
       { enableHighAccuracy: false, maximumAge: 300000, timeout: 11000 },
     );
+  }
+
+  // No-GPS path (iPhone's installed app blocks geolocation; also handy for
+  // trips): geocode a typed city/place via Mapbox and search around it.
+  async function findNearPlace() {
+    const q = place.trim();
+    if (q.length < 2) return;
+    setStatus("locating");
+    setError(null);
+    try {
+      const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      const res = await fetch(
+        `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(q)}&limit=1&access_token=${token}`,
+      );
+      const json = await res.json();
+      const feat = json?.features?.[0];
+      const coords: [number, number] | undefined = feat?.geometry?.coordinates;
+      if (!coords) {
+        setStatus("error");
+        setError(`Couldn't find "${q}" — try a city name like "Broomfield, CO".`);
+        return;
+      }
+      setSearchedAt({
+        label: feat?.properties?.full_address || feat?.properties?.name || q,
+      });
+      await search(coords);
+    } catch {
+      setStatus("error");
+      setError("Place lookup failed — try again in a moment.");
+    }
   }
 
   return (
@@ -107,13 +136,36 @@ export default function NearbyPage() {
         </p>
       </div>
 
-      <Button onClick={findNearMe} disabled={status === "locating" || status === "searching"}>
-        {status === "locating"
-          ? "Getting your location…"
-          : status === "searching"
-            ? "Searching…"
-            : "📍 Find courses near me"}
-      </Button>
+      <div className="space-y-2">
+        <Button onClick={findNearMe} disabled={status === "locating" || status === "searching"}>
+          {status === "locating"
+            ? "Getting your location…"
+            : status === "searching"
+              ? "Searching…"
+              : "📍 Find courses near me"}
+        </Button>
+        <div className="flex gap-2">
+          <input
+            value={place}
+            onChange={(e) => setPlace(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                findNearPlace();
+              }
+            }}
+            placeholder="…or a city or place, e.g. Broomfield, CO"
+            className="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)]"
+          />
+          <Button
+            variant="outline"
+            onClick={findNearPlace}
+            disabled={place.trim().length < 2 || status === "locating" || status === "searching"}
+          >
+            Search
+          </Button>
+        </div>
+      </div>
 
       {error && (
         <Card className="p-4 text-sm text-[var(--muted)]">
@@ -136,10 +188,7 @@ export default function NearbyPage() {
       )}
 
       {searchedAt && (status === "done" || status === "error") && (
-        <p className="text-xs text-[var(--muted)]">
-          Searched around {searchedAt.lat.toFixed(3)}, {searchedAt.lng.toFixed(3)} (±
-          {Math.round(searchedAt.acc)} m).
-        </p>
+        <p className="text-xs text-[var(--muted)]">Searched around {searchedAt.label}.</p>
       )}
 
       {venues.length > 0 && (
