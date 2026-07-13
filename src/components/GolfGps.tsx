@@ -7,6 +7,11 @@ import { fetchOsmPins } from "@/lib/osmGolf";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+// Below this accuracy (meters) we trust a fix enough to recenter the map and to
+// pick which course to load. A coarse Wi-Fi/cell fix (hundreds/thousands of m)
+// can sit at the wrong course entirely, so we hold off until GPS locks on.
+const GOOD_ACCURACY_M = 120;
+
 // iOS home-screen web apps ("standalone" display mode) have a long-standing bug
 // where geolocation calls can hang with no success/error callback ever firing.
 // The same site works fine in a normal browser tab, so we detect this to give
@@ -83,9 +88,11 @@ export function GolfGps({
     const c: [number, number] = [pos.coords.longitude, pos.coords.latitude];
     setYou(c);
     setAccuracy(pos.coords.accuracy);
-    // Center on the first fix only — after that the golfer pans freely.
+    // Only recenter once we have a CONFIDENT fix. A coarse Wi-Fi/cell fix can be
+    // miles off (it once flew to a course 10 mi away), so we show the dot but
+    // leave the map where it is until GPS actually locks on.
     const map = mapRef.current;
-    if (map && !centeredRef.current) {
+    if (map && !centeredRef.current && pos.coords.accuracy <= GOOD_ACCURACY_M) {
       centeredRef.current = true;
       map.flyTo({ center: c, zoom: 17, duration: 800 });
     }
@@ -148,8 +155,16 @@ export function GolfGps({
   // GPS fix yet, around the current map view) and set all pins at once.
   async function autoLoadPins() {
     const map = mapRef.current;
+    // Use the GPS position only if it's precise enough to identify the right
+    // course; otherwise a coarse fix would load whatever course is near the
+    // (possibly miles-off) guess. Fall back to whatever the map is centered on.
+    const preciseYou = you && accuracy != null && accuracy <= GOOD_ACCURACY_M ? you : null;
+    if (you && !preciseYou) {
+      setCourseMsg("GPS still coarse — move outside for a lock so the right course loads.");
+      return;
+    }
     const origin: [number, number] | null =
-      you ?? (map ? [map.getCenter().lng, map.getCenter().lat] : null);
+      preciseYou ?? (map ? [map.getCenter().lng, map.getCenter().lat] : null);
     if (!origin) return;
     setLoadingCourse(true);
     setCourseMsg(null);
