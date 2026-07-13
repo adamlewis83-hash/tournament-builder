@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# SPM pins — regenerated per build (stale originHash breaks Xcode Cloud resolve)
+App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
