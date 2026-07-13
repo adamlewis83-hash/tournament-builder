@@ -11,3 +11,11 @@ brew install node
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 npm ci
 npx cap sync ios
+
+# Xcode Cloud's own resolve step runs with automatic dependency resolution
+# DISABLED and errors if Package.resolved is missing or stale ("a resolved
+# file is required..."). The file embeds an SPM-computed hash, so it can't be
+# maintained from the Windows dev machine — generate it fresh here instead
+# (our invocation is allowed to resolve), so the system step finds it current.
+cd "$CI_PRIMARY_REPOSITORY_PATH/ios/App"
+xcodebuild -resolvePackageDependencies -project App.xcodeproj -scheme App
