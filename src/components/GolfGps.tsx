@@ -113,8 +113,10 @@ export function GolfGps({
     geo.on("error", (err) => {
       setGeoError(
         err.code === 1
-          ? "Location permission denied — enable it in your phone settings."
-          : "Can't get a GPS signal right now.",
+          ? "Location permission denied — allow it when prompted, or in phone settings."
+          : err.code === 2
+            ? "Location unavailable — check Settings → Privacy → Location Services (Precise on)."
+            : "GPS timed out — tap ⊙ to retry.",
       );
     });
     // Auto-start where the platform allows it (Android, already-granted iOS).

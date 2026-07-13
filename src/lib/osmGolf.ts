@@ -13,7 +13,36 @@ interface OverpassElement {
   geometry?: { lat: number; lon: number }[];
 }
 
-const OVERPASS = "https://overpass-api.de/api/interpreter";
+// The main Overpass instance is community-run and occasionally slow or down;
+// fall through the public mirrors before giving up.
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
+
+async function overpassFetch(query: string): Promise<Response> {
+  let lastErr: unknown = null;
+  for (const url of OVERPASS_ENDPOINTS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        body: "data=" + encodeURIComponent(query),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        signal: ctrl.signal,
+      });
+      if (res.ok) return res;
+      lastErr = new Error(`Overpass ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Overpass unreachable");
+}
 
 function dist2(a: LngLat, b: LngLat): number {
   // Cheap comparator (not meters) — fine for "which candidate is closest".
@@ -39,12 +68,7 @@ export async function fetchOsmPins(
 (way["golf"="green"](around:1500,${lat},${lng}););out tags center;
 (way["golf"="hole"](around:1500,${lat},${lng}););out tags geom;`;
 
-  const res = await fetch(OVERPASS, {
-    method: "POST",
-    body: "data=" + encodeURIComponent(query),
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
-  if (!res.ok) throw new Error(`Overpass ${res.status}`);
+  const res = await overpassFetch(query);
   const data = (await res.json()) as { elements: OverpassElement[] };
 
   const greens: { ref: number; center: LngLat }[] = [];
