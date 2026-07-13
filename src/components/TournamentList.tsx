@@ -10,6 +10,7 @@ import { getResult } from "@/lib/result";
 import { colorForName } from "@/lib/colors";
 import { Badge, Card, StatusPill } from "@/components/ui";
 import { tournamentStatus } from "@/lib/status";
+import { getLibraryKey, deleteTournamentRemote } from "@/lib/library";
 
 // Fraction of the event that's been played, for the progress bar. Null when a format has no
 // clean game count (ladder / score-challenge / custom-before-matches) — the status pill carries it.
@@ -234,7 +235,12 @@ export function TournamentList() {
                   <OverflowMenu
                     onDuplicate={() => duplicate(t.id)}
                     onDelete={() => {
-                      if (confirm(`Delete "${t.name}"? This cannot be undone.`)) remove(t.id);
+                      if (confirm(`Delete "${t.name}"? This cannot be undone.`)) {
+                        remove(t.id);
+                        // Delete on the server right away (keepalive) so it can't be
+                        // resurrected by a later cloud pull — e.g. after signing out.
+                        deleteTournamentRemote(getLibraryKey(), t.id);
+                      }
                     }}
                   />
                 </div>

@@ -101,7 +101,12 @@ export async function verifyRecoveryCode(
 
 export async function deleteTournamentRemote(owner: string, id: string): Promise<void> {
   try {
-    await fetch(`/api/library/${id}?owner=${encodeURIComponent(owner)}`, { method: "DELETE" });
+    // keepalive so the request still completes if the page reloads/navigates
+    // right after (e.g. deleting then immediately signing out).
+    await fetch(`/api/library/${id}?owner=${encodeURIComponent(owner)}`, {
+      method: "DELETE",
+      keepalive: true,
+    });
   } catch {
     /* ignore */
   }
