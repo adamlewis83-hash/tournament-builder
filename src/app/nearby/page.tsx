@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { SportIcon } from "@/components/SportIcon";
 import { fetchDiscGolfCourses, Venue } from "@/lib/osmVenues";
+import { GeoFailure, getPosition, hasNativeGeo } from "@/lib/geo";
 
 // iOS home-screen web apps can hang geolocation with no callback; detect so we
 // can point the user to Safari instead of spinning forever (see GolfGps).
@@ -46,11 +47,6 @@ export default function NearbyPage() {
   }
 
   function findNearMe() {
-    if (!("geolocation" in navigator)) {
-      setError("This device can't share a location.");
-      setStatus("error");
-      return;
-    }
     setStatus("locating");
     setError(null);
     if (watchdog.current) clearTimeout(watchdog.current);
@@ -60,22 +56,23 @@ export default function NearbyPage() {
       settled = true;
       setStatus("error");
       setError(
-        isStandaloneIOS()
-          ? "iPhone blocks GPS in installed web apps — search by city below instead (or open sporos.app in Safari)."
+        isStandaloneIOS() && !hasNativeGeo()
+          ? "iPhone blocks GPS in home-screen web apps — search by city below (or use the Sporos app / Safari)."
           : "Couldn't get your location — allow location access, or search by city below.",
       );
     }, 12000);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    // lib/geo prefers the native CoreLocation bridge in the iOS shell; coarse
+    // (Wi-Fi/cell) on purpose — a 25-mile course search doesn't need GPS
+    // precision, and a high-accuracy request stalls indoors.
+    getPosition({ highAccuracy: false, maximumAgeMs: 300000, timeoutMs: 11000 })
+      .then((fix) => {
         if (settled) return;
         settled = true;
         if (watchdog.current) clearTimeout(watchdog.current);
-        setSearchedAt({
-          label: `your location (±${Math.round(pos.coords.accuracy)} m)`,
-        });
-        search([pos.coords.longitude, pos.coords.latitude]);
-      },
-      (err) => {
+        setSearchedAt({ label: `your location (±${Math.round(fix.accuracy)} m)` });
+        search([fix.lng, fix.lat]);
+      })
+      .catch((err: GeoFailure) => {
         if (settled) return;
         settled = true;
         if (watchdog.current) clearTimeout(watchdog.current);
@@ -85,11 +82,7 @@ export default function NearbyPage() {
             ? "Location permission denied — allow it, or search by city below."
             : "Couldn't get your location right now — search by city below.",
         );
-      },
-      // Coarse (Wi-Fi/cell) on purpose: a 25-mile course search doesn't need GPS
-      // precision, and a high-accuracy request stalls indoors (esp. iPhone).
-      { enableHighAccuracy: false, maximumAge: 300000, timeout: 11000 },
-    );
+      });
   }
 
   // No-GPS path (iPhone's installed app blocks geolocation; also handy for

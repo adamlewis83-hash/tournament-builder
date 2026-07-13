@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { fetchOsmPins } from "@/lib/osmGolf";
+import { GeoFailure, GeoFix, getPosition, hasNativeGeo, watchPosition } from "@/lib/geo";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -63,7 +64,7 @@ export function GolfGps({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const pinMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const youMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const watchIdRef = useRef<number | null>(null);
+  const stopWatchRef = useRef<(() => void) | null>(null);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const centeredRef = useRef(false);
   // Keep the latest callbacks/props without re-running the map-init effect.
@@ -81,18 +82,18 @@ export function GolfGps({
   const [loadingCourse, setLoadingCourse] = useState(false);
   const [courseMsg, setCourseMsg] = useState<string | null>(null);
 
-  function onFix(pos: GeolocationPosition) {
+  function onFix(fix: GeoFix) {
     if (watchdogRef.current) clearTimeout(watchdogRef.current);
     setGeoError(null);
     setLocating(false);
-    const c: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+    const c: [number, number] = [fix.lng, fix.lat];
     setYou(c);
-    setAccuracy(pos.coords.accuracy);
+    setAccuracy(fix.accuracy);
     // Only recenter once we have a CONFIDENT fix. A coarse Wi-Fi/cell fix can be
     // miles off (it once flew to a course 10 mi away), so we show the dot but
     // leave the map where it is until GPS actually locks on.
     const map = mapRef.current;
-    if (map && !centeredRef.current && pos.coords.accuracy <= GOOD_ACCURACY_M) {
+    if (map && !centeredRef.current && fix.accuracy <= GOOD_ACCURACY_M) {
       centeredRef.current = true;
       map.flyTo({ center: c, zoom: 17, duration: 800 });
     }
@@ -106,48 +107,43 @@ export function GolfGps({
         : "Location timed out — tap Locate me to retry.";
   }
 
-  // Gesture-driven locate: coarse fix now, GPS-precision watch after.
+  // Gesture-driven locate: coarse fix now, GPS-precision watch after. Both run
+  // through lib/geo, which uses the native CoreLocation bridge inside the iOS
+  // shell and navigator.geolocation in ordinary browsers.
   function locate() {
-    if (!("geolocation" in navigator)) {
-      setGeoError("This device has no location support.");
-      return;
-    }
     setLocating(true);
     setGeoError(null);
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-    // Watchdog: on iOS standalone apps the geolocation callbacks can never fire
-    // (no success, no error). Without this the button would spin forever, so we
-    // stop it ourselves and, if we're in that known-bad context, say why.
+    stopWatchRef.current?.();
+    // Watchdog: in iOS *home-screen web apps* (not the native shell) the web
+    // geolocation callbacks can never fire. Stop the spinner and say why.
     if (watchdogRef.current) clearTimeout(watchdogRef.current);
     watchdogRef.current = setTimeout(() => {
       if (youRef.current) return; // a fix arrived — nothing to do
       setLocating(false);
       setGeoError(
-        isStandaloneIOS()
-          ? "iPhone blocks GPS in installed web apps. Open sporos.app in Safari for the GPS features."
+        isStandaloneIOS() && !hasNativeGeo()
+          ? "iPhone blocks GPS in home-screen web apps. Use the Sporos app from TestFlight, or open sporos.app in Safari."
           : "Couldn't get a location fix — make sure location is allowed, then retry.",
       );
     }, 12000);
     // Stage 1 — coarse (Wi-Fi/cell): fast, works indoors, gets a dot on the map.
-    navigator.geolocation.getCurrentPosition(
-      onFix,
-      (err) => {
+    getPosition({ highAccuracy: false, maximumAgeMs: 60000, timeoutMs: 10000 })
+      .then(onFix)
+      .catch((err: GeoFailure) => {
         // Only surface stage-1 failure if the watch hasn't delivered anything.
         if (!youRef.current) {
           setLocating(false);
           setGeoError(geoMessage(err.code));
         }
-      },
-      { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 },
-    );
+      });
     // Stage 2 — precise GPS watch: upgrades the dot as the chip locks on and
     // keeps it live while walking. Errors here are soft once we have any fix.
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    stopWatchRef.current = watchPosition(
+      { highAccuracy: true, maximumAgeMs: 2000, timeoutMs: 30000 },
       onFix,
       (err) => {
         if (!youRef.current) setGeoError(geoMessage(err.code));
       },
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
     );
   }
 
@@ -202,7 +198,7 @@ export function GolfGps({
     map.on("click", (e) => onSetPinRef.current([e.lngLat.lng, e.lngLat.lat]));
 
     return () => {
-      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      stopWatchRef.current?.();
       if (watchdogRef.current) clearTimeout(watchdogRef.current);
       map.remove();
       mapRef.current = null;
