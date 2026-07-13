@@ -20,14 +20,14 @@ function metersBetween(a: [number, number], b: [number, number]): number {
 }
 const toYards = (m: number) => m * 1.09361;
 
-// Per-hole GPS panel: satellite aerial (with road/place labels for orientation),
-// live location via Mapbox's GeolocateControl, and a draggable pin on the green.
-// Shows live yards-to-pin (haversine).
+// Per-hole GPS panel: satellite aerial (with road/place labels), live location,
+// and a draggable pin on the green. Shows live yards-to-pin (haversine).
 //
-// Location deliberately runs through GeolocateControl, not a bare watchPosition:
-// iOS only reliably grants geolocation from a user gesture, and the control's
-// on-map ⊙ button is exactly that. We still try an automatic trigger once the
-// map loads for platforms that allow it.
+// Location is TWO-STAGE, started from our own button (a user gesture, which iOS
+// requires): first a coarse fix (enableHighAccuracy: false — Wi-Fi/cell, works
+// indoors and resolves in ~a second), then a high-accuracy GPS watch that
+// silently upgrades precision once the chip locks on. A high-accuracy-only
+// request stalls forever indoors, which read as "GPS can't locate me".
 export function GolfGps({
   pin,
   onSetPin,
@@ -44,6 +44,9 @@ export function GolfGps({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const pinMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const youMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const centeredRef = useRef(false);
   // Keep the latest callbacks/props without re-running the map-init effect.
   const onSetPinRef = useRef(onSetPin);
   onSetPinRef.current = onSetPin;
@@ -51,10 +54,67 @@ export function GolfGps({
   pinRef.current = pin;
 
   const [you, setYou] = useState<[number, number] | null>(null);
+  const youRef = useRef(you);
+  youRef.current = you;
   const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(false);
   const [courseMsg, setCourseMsg] = useState<string | null>(null);
+
+  function onFix(pos: GeolocationPosition) {
+    setGeoError(null);
+    setLocating(false);
+    const c: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+    setYou(c);
+    setAccuracy(pos.coords.accuracy);
+    // Center on the first fix only — after that the golfer pans freely.
+    const map = mapRef.current;
+    if (map && !centeredRef.current) {
+      centeredRef.current = true;
+      map.flyTo({ center: c, zoom: 17, duration: 800 });
+    }
+  }
+
+  function geoMessage(code: number): string {
+    return code === 1
+      ? "Location permission denied — allow it when prompted, or in phone settings."
+      : code === 2
+        ? "Location unavailable — check Settings → Privacy → Location Services."
+        : "Location timed out — tap Locate me to retry.";
+  }
+
+  // Gesture-driven locate: coarse fix now, GPS-precision watch after.
+  function locate() {
+    if (!("geolocation" in navigator)) {
+      setGeoError("This device has no location support.");
+      return;
+    }
+    setLocating(true);
+    setGeoError(null);
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    // Stage 1 — coarse (Wi-Fi/cell): fast, works indoors, gets a dot on the map.
+    navigator.geolocation.getCurrentPosition(
+      onFix,
+      (err) => {
+        // Only surface stage-1 failure if the watch hasn't delivered anything.
+        if (!youRef.current) {
+          setLocating(false);
+          setGeoError(geoMessage(err.code));
+        }
+      },
+      { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 },
+    );
+    // Stage 2 — precise GPS watch: upgrades the dot as the chip locks on and
+    // keeps it live while walking. Errors here are soft once we have any fix.
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      onFix,
+      (err) => {
+        if (!youRef.current) setGeoError(geoMessage(err.code));
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
+    );
+  }
 
   // Pull every hole's green from OpenStreetMap around the player (or, without a
   // GPS fix yet, around the current map view) and set all pins at once.
@@ -80,7 +140,7 @@ export function GolfGps({
     }
   }
 
-  // Init the map + geolocate control once.
+  // Init the map once.
   useEffect(() => {
     if (!TOKEN || !containerRef.current) return;
     mapboxgl.accessToken = TOKEN;
@@ -98,45 +158,27 @@ export function GolfGps({
     // Tap the aerial to set / move the pin.
     map.on("click", (e) => onSetPinRef.current([e.lngLat.lng, e.lngLat.lat]));
 
-    const geo = new mapboxgl.GeolocateControl({
-      // Generous timeout: a cold GPS fix (indoors, or PWA just opened) can take
-      // 20s+; accept a cached position up to 30s old to get a first answer fast.
-      positionOptions: { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 },
-      trackUserLocation: true,
-      showUserHeading: true,
-      showAccuracyCircle: true,
-    });
-    map.addControl(geo, "top-right");
-    geo.on("geolocate", (pos) => {
-      setGeoError(null);
-      setYou([pos.coords.longitude, pos.coords.latitude]);
-      setAccuracy(pos.coords.accuracy);
-    });
-    geo.on("error", (err) => {
-      setGeoError(
-        err.code === 1
-          ? "Location permission denied — allow it when prompted, or in phone settings."
-          : err.code === 2
-            ? "Location unavailable — check Settings → Privacy → Location Services (Precise on)."
-            : "GPS timed out — tap ⊙ to retry.",
-      );
-    });
-    // Auto-start where the platform allows it (Android, already-granted iOS).
-    // On a fresh iOS visit this may be ignored — the ⊙ button is the real path.
-    map.once("load", () => {
-      try {
-        geo.trigger();
-      } catch {
-        /* not fatal — user taps the control */
-      }
-    });
-
     return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
       map.remove();
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync the live "you" dot.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !you) return;
+    if (!youMarkerRef.current) {
+      const el = document.createElement("div");
+      el.style.cssText =
+        "width:16px;height:16px;border-radius:50%;background:#3b82f6;border:2px solid #fff;box-shadow:0 0 0 3px rgba(59,130,246,0.35)";
+      youMarkerRef.current = new mapboxgl.Marker({ element: el }).setLngLat(you).addTo(map);
+    } else {
+      youMarkerRef.current.setLngLat(you);
+    }
+  }, [you]);
 
   // Sync the draggable green pin.
   useEffect(() => {
@@ -187,26 +229,20 @@ export function GolfGps({
             </>
           ) : (
             <span className="text-xs">
-              {!you ? "Tap ⊙ (top-right) to turn on GPS" : "Tap the green to set the pin"}
+              {!you ? "Tap 📍 Locate me below" : "Tap the green to set the pin"}
             </span>
           )}
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs text-[var(--muted)]">
-        <span>
-          {geoError
-            ? geoError
-            : accuracy != null
-              ? `GPS ±${Math.round(toYards(accuracy))} yds`
-              : "GPS off — tap ⊙ on the map"}
-        </span>
-        {pin && (
-          <button type="button" onClick={() => onSetPinRef.current(null)} className="hover:underline">
-            Clear pin
-          </button>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={locate}
+          disabled={locating}
+          className="rounded-lg bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-[var(--on-brand)] hover:opacity-90 disabled:opacity-60"
+        >
+          {locating ? "Locating…" : you ? "📍 Re-center GPS" : "📍 Locate me"}
+        </button>
         <button
           type="button"
           onClick={autoLoadPins}
@@ -215,7 +251,24 @@ export function GolfGps({
         >
           {loadingCourse ? "Loading course…" : "⛳ Auto-load pins from course map"}
         </button>
-        {courseMsg && <span className="text-xs text-[var(--muted)]">{courseMsg}</span>}
+        {pin && (
+          <button
+            type="button"
+            onClick={() => onSetPinRef.current(null)}
+            className="text-xs text-[var(--muted)] hover:underline"
+          >
+            Clear pin
+          </button>
+        )}
+      </div>
+      <div className="text-xs text-[var(--muted)]">
+        {geoError
+          ? geoError
+          : accuracy != null
+            ? `GPS ±${Math.round(toYards(accuracy))} yds`
+            : courseMsg ?? "GPS off — tap Locate me"}
+        {courseMsg && accuracy != null ? ` · ${courseMsg}` : ""}
+        {courseMsg && geoError ? ` · ${courseMsg}` : ""}
       </div>
     </div>
   );
