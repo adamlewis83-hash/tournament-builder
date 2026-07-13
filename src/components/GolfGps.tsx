@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { fetchOsmPins } from "@/lib/osmGolf";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -24,9 +25,15 @@ const toYards = (m: number) => m * 1.09361;
 export function GolfGps({
   pin,
   onSetPin,
+  holes,
+  startHole = 1,
+  onSetAllPins,
 }: {
   pin: [number, number] | null;
   onSetPin: (coords: [number, number] | null) => void;
+  holes: number;
+  startHole?: number;
+  onSetAllPins: (pins: ([number, number] | null)[]) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -42,6 +49,32 @@ export function GolfGps({
   const [you, setYou] = useState<[number, number] | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [loadingCourse, setLoadingCourse] = useState(false);
+  const [courseMsg, setCourseMsg] = useState<string | null>(null);
+
+  // Pull every hole's green from OpenStreetMap around the player (or, without a
+  // GPS fix yet, around the current map view) and set all pins at once.
+  async function autoLoadPins() {
+    const map = mapRef.current;
+    const origin: [number, number] | null =
+      you ?? (map ? [map.getCenter().lng, map.getCenter().lat] : null);
+    if (!origin) return;
+    setLoadingCourse(true);
+    setCourseMsg(null);
+    try {
+      const { pins, found } = await fetchOsmPins(origin, holes, startHole);
+      if (found === 0) {
+        setCourseMsg("No course data here in OpenStreetMap — tap greens manually.");
+      } else {
+        onSetAllPins(pins);
+        setCourseMsg(`Loaded ${found} of ${holes} greens from OpenStreetMap.`);
+      }
+    } catch {
+      setCourseMsg("Couldn't reach OpenStreetMap — try again or tap manually.");
+    } finally {
+      setLoadingCourse(false);
+    }
+  }
 
   // Init the map + geolocation watch once.
   useEffect(() => {
@@ -169,6 +202,17 @@ export function GolfGps({
             Clear pin
           </button>
         )}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={autoLoadPins}
+          disabled={loadingCourse}
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--hover)] disabled:opacity-60"
+        >
+          {loadingCourse ? "Loading course…" : "⛳ Auto-load pins from course map"}
+        </button>
+        {courseMsg && <span className="text-xs text-[var(--muted)]">{courseMsg}</span>}
       </div>
     </div>
   );

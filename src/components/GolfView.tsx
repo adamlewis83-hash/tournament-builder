@@ -214,6 +214,9 @@ export function GolfView({ t }: { t: Tournament }) {
                     key={h}
                     pin={g.pins?.[h] ?? null}
                     onSetPin={(c) => setGolfPin(t.id, h, c)}
+                    holes={g.holes}
+                    startHole={startHole}
+                    onSetAllPins={(pins) => pins.forEach((c, i) => c && setGolfPin(t.id, i, c))}
                   />
                 </div>
               )}
