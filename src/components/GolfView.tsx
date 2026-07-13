@@ -40,6 +40,15 @@ export function GolfView({ t }: { t: Tournament }) {
       : "stroke";
   const strokeLike = mode === "stroke" || mode === "scramble";
   const isNassau = mode === "nassau";
+  // Disc golf is scored exactly like golf but has its own vocabulary — swap the
+  // player-facing words (labels only; all scoring math is unchanged).
+  const isDisc = /disc\s*golf/i.test(t.sport);
+  const shot = isDisc ? "throw" : "stroke";
+  const shots = isDisc ? "throws" : "strokes";
+  const modeBlurb =
+    isDisc && mode === "stroke"
+      ? "Count every throw — lowest net total wins. Standard disc golf."
+      : GOLF_MODE_BLURBS[mode];
   const rows = computeGolf(t, mode);
   const started = rows.filter((r) => r.thru > 0);
   const minFront = started.length ? Math.min(...started.map((r) => r.frontNet)) : 0;
@@ -79,9 +88,9 @@ export function GolfView({ t }: { t: Tournament }) {
       {!isScramble && (
         <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">
           <span className="font-semibold text-[var(--foreground)]">{GOLF_MODE_LABELS[mode]}</span> —{" "}
-          {GOLF_MODE_BLURBS[mode]}{" "}
+          {modeBlurb}{" "}
           <span className="opacity-80">
-            Enter each player&apos;s strokes once; all four scoring views track live from the same
+            Enter each player&apos;s {shots} once; all four scoring views track live from the same
             card — switch tabs anytime.
           </span>
         </p>
@@ -379,7 +388,7 @@ export function GolfView({ t }: { t: Tournament }) {
           </tbody>
         </table>
         <p className="mt-2 px-1 text-[10px] text-[var(--muted)] flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> = a handicap stroke on that hole
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> = a handicap {shot} on that hole
         </p>
       </Card>
       )}
