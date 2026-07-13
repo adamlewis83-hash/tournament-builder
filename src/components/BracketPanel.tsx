@@ -26,14 +26,14 @@ export function BracketPanel({ t }: { t: Tournament }) {
   if (!hasFinals) {
     return (
       <Card className="p-6 text-center">
-        <p className="font-medium">Finals bracket: top {t.config.advanceCount} advance</p>
+        <p className="font-medium">Seed the bracket — top {t.config.advanceCount} advance</p>
         <p className="text-sm text-[var(--muted)] mt-1 mb-3">
           {t.playStyle === "doubles"
             ? `Seeds are paired best-with-worst (e.g. 1 & ${t.config.advanceCount} vs 2 & ${t.config.advanceCount - 1}).`
             : "Seeds are drawn from the current standings."}
           {!rrComplete && " You can generate now or wait until every round-robin game is in."}
         </p>
-        <Button onClick={() => generateFinals(t.id)}>Generate bracket →</Button>
+        <Button onClick={() => generateFinals(t.id)}>Seed it →</Button>
       </Card>
     );
   }

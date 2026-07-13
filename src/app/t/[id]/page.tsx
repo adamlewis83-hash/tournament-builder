@@ -8,6 +8,7 @@ import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { isGrantedScorer } from "@/lib/perms";
 import { Badge, Button, Card, StatusPill } from "@/components/ui";
 import { tournamentStatus } from "@/lib/status";
+import { StageChips } from "@/components/StageChips";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SetupPanel } from "@/components/SetupPanel";
 import { ScheduleView } from "@/components/ScheduleView";
@@ -104,6 +105,7 @@ function TournamentDetail({ id }: { id: string }) {
         <p className="text-sm text-[var(--muted)] mt-1">
           {t.sport} · {t.participants.length} participants
         </p>
+        <StageChips t={t} />
       </div>
 
       {t.spectator && (

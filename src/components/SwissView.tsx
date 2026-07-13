@@ -52,7 +52,7 @@ export function SwissView({ t }: { t: Tournament }) {
           </span>
           <span className="text-[var(--muted)]">
             {" "}
-            · {curComplete ? "complete" : "in progress"}
+            · {curComplete ? "complete" : "play on"}
             {playersWithBye && " · odd player count → one bye per round"}
           </span>
         </div>

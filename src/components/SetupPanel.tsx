@@ -625,6 +625,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
         </div>
 
         <div className="mt-auto pt-5">
+          {(t.format === "single-elim" || t.format === "double-elim") && (
+            <h3 className="mb-1 font-semibold">Seed the bracket</h3>
+          )}
           {!canGenerate && (
             <p className="text-sm text-amber-500 mb-2">
               {t.format === "double-elim"
@@ -645,7 +648,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
                   ? "Start — Game 1 →"
                   : t.format === "round-robin" || t.format === "pool-bracket"
                     ? "Generate schedule →"
-                    : "Generate bracket →"}
+                    : "Seed it → generate bracket"}
           </Button>
         </div>
       </Card>

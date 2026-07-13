@@ -40,6 +40,8 @@ export function ScheduleView({
       ? matches.filter((m) => m.round === activeRound && bothSides(m)).sort(byCourt)
       : [];
   const heroIds = new Set(heroes.map((m) => m.id));
+  // The round currently being played gets the "play on" nudge in its heading.
+  const playOnRound = rounds.find((r) => !roundDone(r));
 
   return (
     <div className="space-y-6">
@@ -82,6 +84,9 @@ export function ScheduleView({
                   {r}
                 </span>
                 Round {r}
+                {r === playOnRound && (
+                  <span className="text-xs font-medium text-[var(--brand)]">— play on</span>
+                )}
               </h3>
               {showMaster && <MasterClock tournamentId={tournamentId} round={r} />}
             </div>
