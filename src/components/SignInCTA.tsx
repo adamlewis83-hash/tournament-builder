@@ -22,7 +22,7 @@ export function SignInCTA() {
 
   async function recoverKey(k: string) {
     setLibraryKey(k);
-    mergeCloud(await fetchLibrary(k));
+    mergeCloud((await fetchLibrary(k)).tournaments);
     window.location.reload();
   }
 

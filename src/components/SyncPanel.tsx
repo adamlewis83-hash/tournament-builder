@@ -17,7 +17,7 @@ export function SyncPanel() {
 
   async function recoverKey(k: string) {
     setLibraryKey(k);
-    const list = await fetchLibrary(k);
+    const { tournaments: list } = await fetchLibrary(k);
     mergeCloud(list);
     window.location.reload();
   }

@@ -20,6 +20,9 @@ export function CloudSync() {
   const mergeCloud = useStore((s) => s.mergeCloud);
   const mergeFriends = useStore((s) => s.mergeFriends);
   const mergeCourses = useStore((s) => s.mergeCourses);
+  const pruneDeleted = useStore((s) => s.pruneDeleted);
+  // Ids the cloud reports as deleted — never push these back up.
+  const deleted = useRef<Set<string>>(new Set());
   const started = useRef(false);
   const lastPushed = useRef<Map<string, number>>(new Map());
   const prevIds = useRef<Set<string>>(new Set());
@@ -34,8 +37,14 @@ export function CloudSync() {
     started.current = true;
     owner.current = getLibraryKey();
     (async () => {
-      const remote = await fetchLibrary(owner.current);
+      const { tournaments: remote, deletedIds } = await fetchLibrary(owner.current);
       if (remote.length) mergeCloud(remote);
+      // Prune anything the cloud says was deleted BEFORE the re-push below —
+      // otherwise this device's stale copy would resurrect it for everyone.
+      if (deletedIds.length) {
+        deleted.current = new Set(deletedIds);
+        pruneDeleted(deletedIds);
+      }
       const all = useStore.getState().tournaments;
       for (const t of all) {
         lastPushed.current.set(t.id, t.updatedAt);
@@ -57,7 +66,7 @@ export function CloudSync() {
       lastCoursesSig.current = JSON.stringify(courses);
       putCourses(owner.current, courses);
     })();
-  }, [hydrated, mergeCloud, mergeFriends, mergeCourses]);
+  }, [hydrated, mergeCloud, mergeFriends, mergeCourses, pruneDeleted]);
 
   // Push diffs (debounced) on any store change.
   useEffect(() => {
@@ -66,8 +75,14 @@ export function CloudSync() {
       const state = useStore.getState();
       const all = state.tournaments;
       const ids = new Set(all.map((t) => t.id));
-      for (const id of prevIds.current) if (!ids.has(id)) deleteTournamentRemote(owner.current, id);
+      for (const id of prevIds.current) {
+        if (!ids.has(id)) {
+          deleted.current.add(id);
+          deleteTournamentRemote(owner.current, id);
+        }
+      }
       for (const t of all) {
+        if (deleted.current.has(t.id)) continue; // tombstoned — don't resurrect
         if (lastPushed.current.get(t.id) !== t.updatedAt) {
           lastPushed.current.set(t.id, t.updatedAt);
           putTournament(owner.current, t);

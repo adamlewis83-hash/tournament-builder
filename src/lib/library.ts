@@ -40,14 +40,20 @@ export function signOut() {
   localStorage.setItem(KEY, randomKey());
 }
 
-export async function fetchLibrary(owner: string): Promise<Tournament[]> {
+/** Cloud library: live tournaments plus the ids this owner has deleted (tombstones). */
+export async function fetchLibrary(
+  owner: string,
+): Promise<{ tournaments: Tournament[]; deletedIds: string[] }> {
   try {
     const res = await fetch(`/api/library?owner=${encodeURIComponent(owner)}`, { cache: "no-store" });
-    if (!res.ok) return [];
+    if (!res.ok) return { tournaments: [], deletedIds: [] };
     const json = await res.json();
-    return (json.tournaments ?? []) as Tournament[];
+    return {
+      tournaments: (json.tournaments ?? []) as Tournament[],
+      deletedIds: (json.deletedIds ?? []) as string[],
+    };
   } catch {
-    return [];
+    return { tournaments: [], deletedIds: [] };
   }
 }
 

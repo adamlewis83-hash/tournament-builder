@@ -58,6 +58,10 @@ model OwnedTournament {
   data      Json
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+  // Tombstone. Deleting soft-deletes so other devices learn about it: a device
+  // that was closed during the delete still holds a stale copy, and its
+  // re-push on next load would otherwise resurrect the tournament forever.
+  deletedAt DateTime?
 
   @@index([ownerId])
   @@map("owned_tournaments")

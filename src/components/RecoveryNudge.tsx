@@ -24,7 +24,7 @@ export function RecoveryNudge() {
 
   async function recoverKey(k: string) {
     setLibraryKey(k);
-    mergeCloud(await fetchLibrary(k));
+    mergeCloud((await fetchLibrary(k)).tournaments);
     window.location.reload();
   }
 

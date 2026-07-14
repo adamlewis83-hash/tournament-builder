@@ -71,6 +71,7 @@ interface State {
   removeTournament: (id: string) => void;
   duplicateTournament: (id: string) => string | null;
   mergeCloud: (list: Tournament[]) => void;
+  pruneDeleted: (ids: string[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
   setScorers: (id: string, names: string[]) => void;
   setMatchClock: (id: string, matchId: string, action: "start" | "pause" | "reset") => void;
@@ -412,6 +413,16 @@ export const useStore = create<State>()(
 
       removeTournament: (id) =>
         set((s) => ({ tournaments: s.tournaments.filter((t) => t.id !== id) })),
+
+      // Drop local copies the cloud says were deleted (tombstones). Without this a
+      // device that was closed during a delete keeps its stale copy and re-pushes
+      // it on next load, resurrecting the tournament everywhere.
+      pruneDeleted: (ids) =>
+        set((s) => {
+          const gone = new Set(ids);
+          const kept = s.tournaments.filter((t) => !gone.has(t.id));
+          return kept.length === s.tournaments.length ? {} : { tournaments: kept };
+        }),
 
       duplicateTournament: (id) => {
         const src = get().tournaments.find((t) => t.id === id);
