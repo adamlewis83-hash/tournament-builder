@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         ← Back to Sporos
       </Link>
       <h1 className="mt-3 text-2xl font-bold">Privacy Policy</h1>
-      <p className="mt-1 text-sm text-[var(--muted)]">Last updated: June 2026</p>
+      <p className="mt-1 text-sm text-[var(--muted)]">Last updated: July 2026</p>
 
       <p className="mt-5 text-[var(--foreground)]">
         Sporos is a tournament organizer and live-scoring app operated by LewCrew Labs LLC. We built it to
@@ -45,6 +45,13 @@ export default function PrivacyPage() {
           code so others can follow along. Any <b>cheers/comments</b> you or spectators post (with the
           display name you choose) are stored for that session.
         </li>
+        <li>
+          <b>Location (only when you use it).</b> In golf and disc-golf features, if you tap to locate
+          yourself, the app reads your device&apos;s GPS to show live distance to the pin and to find courses
+          near you. Your location is used on your device and sent to our mapping providers (below) to
+          load the map and course data. We do <b>not</b> store your location on our servers, link it to
+          your identity, or track you with it.
+        </li>
       </ul>
 
       <H>What we don&apos;t do</H>
@@ -52,7 +59,7 @@ export default function PrivacyPage() {
         <li>No advertising and no ad networks.</li>
         <li>No selling or renting of your data to anyone.</li>
         <li>No third-party analytics or cross-site tracking.</li>
-        <li>No collection of location, contacts, or device identifiers.</li>
+        <li>No selling, storing, or tracking of your location, and no access to your contacts or device identifiers.</li>
       </ul>
 
       <H>Service providers</H>
@@ -64,6 +71,14 @@ export default function PrivacyPage() {
         </li>
         <li>
           <b>Resend</b> — sends the one-time recovery codes to your email.
+        </li>
+        <li>
+          <b>Mapbox</b> — provides the satellite map used for golf/disc-golf GPS. When you use the map,
+          your location and map requests are sent to Mapbox to render it.
+        </li>
+        <li>
+          <b>OpenStreetMap</b> (Overpass API) — supplies course and green data. When you auto-load a
+          course or search for courses near you, the search location is sent to OpenStreetMap.
         </li>
         <li>
           <b>Unsplash</b> — supplies the background photos on the home screen (no personal data is sent).
