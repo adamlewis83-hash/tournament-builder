@@ -60,7 +60,7 @@ export function Champion({
           ))}
         </div>
         <div className="mt-2 text-2xl font-extrabold">
-          {label} <span className="font-bold">is crowned</span>
+          {label} <span className="font-bold">{champ.length > 1 ? "are" : "is"} crowned</span>
         </div>
         {runnerUp && runnerUp.length > 0 && (
           <div className="mt-1.5 text-sm text-[var(--muted)]">
