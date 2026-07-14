@@ -15,6 +15,35 @@ import { FriendPicker } from "./FriendPicker";
 // Sample data is generated on demand for however many entries the host wants to test with.
 const samplePlayers = (n: number) => Array.from({ length: n }, (_, i) => `Player ${i + 1}`);
 
+// Spell out what "top N advance" actually produces. N counts PLAYERS, and in
+// doubles they pair off (best-with-worst), so N players become N/2 teams — which
+// is why "top 4" in doubles is a single final, not a bracket. Showing the real
+// shape live beats making people infer it.
+function finalsPreview(n: number, doubles: boolean, playerCount: number): string {
+  const advancing = Math.max(0, Math.min(n, playerCount));
+  const teams = doubles ? Math.floor(advancing / 2) : advancing;
+  if (playerCount === 0) return "Add players to preview the bracket.";
+  if (teams < 2)
+    return doubles
+      ? `Top ${advancing} players → ${teams} team — need at least 4 to make a bracket.`
+      : `Top ${advancing} → need at least 2 for a bracket.`;
+  const games = teams - 1;
+  const rounds = Math.ceil(Math.log2(teams));
+  const shape =
+    rounds === 1
+      ? "Final only"
+      : rounds === 2
+        ? "Semifinals → Final"
+        : rounds === 3
+          ? "Quarterfinals → Final"
+          : `${rounds} rounds → Final`;
+  const g = `${games} game${games > 1 ? "s" : ""}`;
+  if (!doubles) return `Top ${advancing} → ${shape} (${g})`;
+  // An odd number can't pair evenly — generateFinals drops the middle seed.
+  const odd = advancing % 2 === 1 ? ` · seed ${Math.floor(advancing / 2) + 1} is left out — use an even number` : "";
+  return `Top ${advancing} players → ${teams} teams → ${shape} (${g})${odd}`;
+}
+
 function NumberField({
   label,
   value,
@@ -514,12 +543,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
           )}
           {(t.format === "round-robin" || t.format === "pool-bracket") && (
             <NumberField
-              label="Finals: top N advance"
+              label="Finals: top N players advance"
               value={cfg.advanceCount}
               min={2}
               max={64}
               onChange={(v) => setCfg({ advanceCount: v })}
-              hint="Optional playoff after the rounds — the top N in the standings seed a knockout bracket (see the Bracket tab). Leave it at/above your player count to include everyone."
+              hint={`${finalsPreview(cfg.advanceCount, isDoubles, count)} — the top finishers in the standings seed a knockout bracket (see the Bracket tab). Leave it at/above your player count to include everyone.`}
             />
           )}
           {t.format === "kotc" && (
