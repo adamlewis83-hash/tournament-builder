@@ -21,8 +21,10 @@ export default function PrivacyPage() {
       <p className="mt-5 text-[var(--foreground)]">
         Sporos is a tournament organizer and live-scoring app operated by LewCrew Labs LLC. We built it to
         be private by default: your data lives on your device, and we collect as little as possible.
-        This policy explains what we store, why, and your choices. There are no accounts, passwords,
-        ads, or trackers, and we never sell your data.
+        This policy explains what we store, why, and your choices. There are no ads, no trackers, and
+        no passwords — and we never sell your data. An account is entirely optional: Sporos works fully
+        without one, and signing in with your email only exists so you can back up and restore your
+        tournaments across devices.
       </p>
 
       <H>What we store</H>
