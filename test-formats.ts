@@ -130,7 +130,9 @@ function playBracket(matches: Match[]): Match[] {
   throw new Error("bracket did not converge (possible infinite loop)");
 }
 
-const COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 16, 24];
+// Party sizes, plus the awkward ones: 30 and 33 are not powers of two (bracket byes)
+// and odd counts leave someone sitting out each round.
+const COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 16, 24, 30, 33];
 
 // ---- Round robin (singles + doubles) ----
 for (const n of COUNTS) {
@@ -640,10 +642,10 @@ check("isWon — no target means the host ends it", () => {
 // A live game must never finish a tournament — for every sport, in every format
 // that sport offers whose result comes from matches.
 for (const sport of SPORTS)
-  for (const fmt of formatsForSport(sport).filter((f) => MATCH_DRIVEN.has(f))) {
+  for (const fmt of formatsForSport(sport).filter((f) => MATCH_DRIVEN.has(f)))
+    for (const n of [8, 16, 30]) {
     const style: PlayStyle = playStylesForFormat(fmt)[0];
-    check(`live game blocks completion — ${sport} / ${fmt} / ${style}`, () => {
-      const n = fmt === "ryder" ? 8 : 8;
+    check(`live game blocks completion — ${sport} / ${fmt} / ${style} / n=${n}`, () => {
       const P = players(n, fmt === "ryder");
       const t = tour({
         sport,
@@ -786,19 +788,26 @@ const placementStyles = (fmt: Format): PlayStyle[] => {
   const s = playStylesForFormat(fmt).filter((x) => x === "singles" || x === "doubles");
   return s.length ? s : ["singles"];
 };
+// Mirrors records.rosterOf — a team participant expands to the people on it.
+const rosterOfAll = (t: Tournament): string[] =>
+  t.participants.flatMap((p) => (p.members?.length ? p.members : [p.name]));
 
-for (const sport of SPORTS)
-  for (const fmt of formatsForSport(sport).filter((f) => f !== "custom" && f !== "ladder"))
-    for (const style of placementStyles(fmt))
-    for (const advanceCount of [2, 4]) {
-      check(`placement numbering — ${sport} / ${fmt} / ${style} / top ${advanceCount}`, () => {
-        const P = players(12, fmt === "ryder");
+function checkPlacementNumbering(
+  sport: string,
+  fmt: Format,
+  style: PlayStyle,
+  advanceCount: number,
+  n: number,
+  thirdPlace = true,
+) {
+  check(`placement numbering — ${sport} / ${fmt} / ${style} / top ${advanceCount} / n=${n}${thirdPlace ? "" : " / no bronze"}`, () => {
+        const P = players(n, fmt === "ryder");
         const t = tour({
           sport,
           format: fmt,
           playStyle: style,
           participants: P,
-          config: cfg({ rounds: 2, courts: 2, poolCount: 2, advanceCount, thirdPlace: true }),
+          config: cfg({ rounds: 2, courts: 2, poolCount: 2, advanceCount, thirdPlace }),
         });
         t.matches = fmt === "ryder" ? genRyder(P, { foursomes: 1, fourball: 1, singles: 1 }) : buildMatches(t);
         if (fmt === "golf") {
@@ -849,8 +858,62 @@ for (const sport of SPORTS)
         // Everyone rostered lands somewhere, exactly once.
         const named = places.flatMap((p) => p.names);
         assert(new Set(named).size === named.length, `someone placed twice: ${named.join(",")}`);
+        // Nobody is dropped: a finished event places its whole field.
+        assert(
+          named.length === rosterOfAll(t).length,
+          `${named.length} of ${rosterOfAll(t).length} players placed`,
+        );
+  });
+}
+
+// Every sport × every format it offers, at a normal party size.
+for (const sport of SPORTS)
+  for (const fmt of formatsForSport(sport).filter((f) => f !== "custom" && f !== "ladder"))
+    for (const style of placementStyles(fmt))
+      for (const advanceCount of [2, 4]) checkPlacementNumbering(sport, fmt, style, advanceCount, 12);
+
+// Size sweep — the numbering must hold for a big field, not just a 12-player night.
+// 30 and 33 are the awkward ones: not powers of two, so the finals bracket carries byes,
+// and an odd count leaves someone sitting out each round.
+for (const n of [4, 8, 16, 20, 24, 30, 32, 33])
+  for (const style of ["singles", "doubles"] as PlayStyle[])
+    for (const advanceCount of [2, 4, 8, 16])
+      for (const thirdPlace of [true, false]) {
+        if (advanceCount > n) continue;
+        checkPlacementNumbering("Pickleball", "round-robin", style, advanceCount, n, thirdPlace);
+      }
+
+// ---- Nobody is silently benched ----
+// Rotating doubles builds rounds × games-per-round games, and games per round are capped
+// by COURTS, not headcount — so a big field can outrun the schedule and some players get
+// zero games. SetupPanel warns using the arithmetic below; if the scheduler and the
+// warning ever disagree, the warning is lying to the host. This pins them together.
+for (const n of [8, 12, 16, 24, 30, 33])
+  for (const courts of [1, 2, 4, 8])
+    for (const rounds of [1, 3, 5, 10])
+      check(`bench warning matches the schedule — n=${n} / ${courts} courts / ${rounds} rounds`, () => {
+        const P = players(n);
+        const ms = genDoublesRR(P.map((p) => p.id), rounds, courts);
+        const games = new Map<string, number>();
+        for (const m of ms) [...m.sideA, ...m.sideB].forEach((id) => games.set(id, (games.get(id) ?? 0) + 1));
+        const actualBenched = P.filter((p) => !games.get(p.id)).length;
+
+        // The exact arithmetic SetupPanel shows the host.
+        const perGame = 4;
+        const maxCourts = Math.max(1, Math.floor(n / perGame));
+        const seatsPerRound = Math.min(Math.max(1, courts), maxCourts) * perGame;
+        const predicted = Math.max(0, n - rounds * seatsPerRound);
+
+        assert(
+          predicted === actualBenched,
+          `warning says ${predicted} benched, scheduler benched ${actualBenched}`,
+        );
+        // And the round count it recommends must genuinely seat everyone.
+        const roundsForAll = Math.ceil(n / seatsPerRound);
+        const fixed = genDoublesRR(P.map((p) => p.id), roundsForAll, courts);
+        const played = new Set(fixed.flatMap((m) => [...m.sideA, ...m.sideB]));
+        assert(played.size === n, `advice of ${roundsForAll} rounds still leaves ${n - played.size} out`);
       });
-    }
 
 // ---- Summary ----
 console.log(`\n${"=".repeat(50)}`);

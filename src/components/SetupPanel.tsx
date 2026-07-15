@@ -183,6 +183,16 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const fieldSize = teamMode ? teamCount : count;
   const maxCourts = Math.max(1, Math.floor(fieldSize / perGame));
   const courtsCapped = fieldSize > 0 && cfg.courts > maxCourts;
+
+  // Rotating-partner formats build exactly `rounds × games-per-round` games, and games
+  // per round are capped by courts — not by headcount. So a big field can outrun the
+  // schedule: past that many seats, players simply never get a game. (Singles round-robin
+  // pairs everyone with everyone, so it can't run out.) Warn rather than silently bench.
+  const rotatingField = (t.format === "round-robin" && isDoubles) || isSocial;
+  const seatsPerRound = Math.min(Math.max(1, cfg.courts), maxCourts) * perGame;
+  const seats = cfg.rounds * seatsPerRound;
+  const benched = rotatingField && fieldSize > 0 ? Math.max(0, fieldSize - seats) : 0;
+  const roundsForAll = seatsPerRound > 0 ? Math.ceil(fieldSize / seatsPerRound) : 0;
   const update = (next: { name: string; members: string[] }[]) => {
     setLocalTeams(next);
     setTeamsStore(t.id, build(next));
@@ -531,6 +541,14 @@ export function SetupPanel({ t }: { t: Tournament }) {
               {maxCourts === 1 ? "court runs" : "courts run"} at once ({perGame} per game) — the other{" "}
               {cfg.courts - maxCourts} sit idle. Add {(maxCourts + 1) * perGame - fieldSize} more{" "}
               {teamMode ? "teams" : "players"} to fill another court.
+            </p>
+          )}
+          {benched > 0 && (
+            <p className="col-span-2 -mt-2 text-xs text-amber-500">
+              {benched} of your {fieldSize} players never get a game — {cfg.rounds}{" "}
+              {cfg.rounds === 1 ? "round" : "rounds"} on {Math.min(cfg.courts, maxCourts)}{" "}
+              {Math.min(cfg.courts, maxCourts) === 1 ? "court" : "courts"} is only {seats} spots. Use{" "}
+              {roundsForAll} {roundsForAll === 1 ? "round" : "rounds"} (or add courts) so everyone plays.
             </p>
           )}
           {t.format === "pool-bracket" && (
