@@ -1,7 +1,7 @@
 "use client";
 
 import { Tournament } from "@/lib/types";
-import { useStore } from "@/lib/store";
+import { finalsStarted, useStore } from "@/lib/store";
 import { isFinal } from "@/lib/score";
 import { Button, Card } from "./ui";
 import { BracketView } from "./BracketView";
@@ -22,16 +22,19 @@ export function BracketPanel({ t }: { t: Tournament }) {
   );
   const rrComplete = rrMatches.length > 0 && rrMatches.every(isFinal);
   const hasFinals = finals.length > 0;
+  const started = finalsStarted(t.matches);
 
   if (!hasFinals) {
     return (
       <Card className="p-6 text-center">
-        <p className="font-medium">Seed the bracket — top {t.config.advanceCount} advance</p>
+        <p className="font-medium">Play off for the title — top {t.config.advanceCount} advance</p>
         <p className="text-sm text-[var(--muted)] mt-1 mb-3">
+          This is the knockout played <em>after</em> the round robin — it doesn&apos;t change your
+          schedule.{" "}
           {t.playStyle === "doubles"
-            ? `Seeds are paired best-with-worst (e.g. 1 & ${t.config.advanceCount} vs 2 & ${t.config.advanceCount - 1}).`
-            : "Seeds are drawn from the current standings."}
-          {!rrComplete && " You can generate now or wait until every round-robin game is in."}
+            ? `The top ${t.config.advanceCount} are re-paired into new teams, best with worst (1 & ${t.config.advanceCount} vs 2 & ${t.config.advanceCount - 1}), so the draw is even.`
+            : "The top seeds are taken straight from the standings."}
+          {!rrComplete && " Seed it now and it keeps up with the standings until the first game starts."}
         </p>
         <Button onClick={() => generateFinals(t.id)}>Seed it →</Button>
       </Card>
@@ -41,7 +44,14 @@ export function BracketPanel({ t }: { t: Tournament }) {
   return (
     <Card className="p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Finals bracket</h3>
+        <div>
+          <h3 className="font-semibold">Finals bracket</h3>
+          <p className="text-xs text-[var(--muted)]">
+            {started
+              ? "Under way — the draw is locked, so results stay put."
+              : "Tracking the standings. Locks as soon as the first finals game is scored."}
+          </p>
+        </div>
         <Button
           variant="outline"
           onClick={() => generateFinals(t.id)}

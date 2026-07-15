@@ -228,6 +228,7 @@ export interface TournamentConfig {
   rounds: number; // round-robin rounds
   courts: number; // simultaneous games
   pointsTo: number; // games played to N — live scoring auto-finishes a game here
+  randomDraw?: boolean; // shuffle the draw instead of using the order players were typed. Default true.
   winBy?: number; // margin needed to win: 1 = straight up, 2 = pickleball/tennis. Default 2 (see lib/score).
   winByTwo?: boolean; // superseded by winBy; still read so older tournaments keep their rules.
   timeLimitMin: number; // 0 = no clock; otherwise games end at N points OR this many minutes, whichever first

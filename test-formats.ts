@@ -2,7 +2,7 @@
    Run: npx tsx test-formats.ts                                                            */
 import { genSinglesRR, genDoublesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./src/lib/schedule";
 import { genSingleElim, genSingleElimSides, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
-import { buildMatches } from "./src/lib/store";
+import { buildMatches, buildFinals, resyncFinals, shuffled } from "./src/lib/store";
 import { genRyder, genRyderSession, ryderScore, RyderSessionType } from "./src/lib/ryder";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
@@ -788,6 +788,15 @@ const placementStyles = (fmt: Format): PlayStyle[] => {
   const s = playStylesForFormat(fmt).filter((x) => x === "singles" || x === "doubles");
   return s.length ? s : ["singles"];
 };
+// Who is drawn against whom in the finals, order-independent — the thing that must
+// track the standings while the bracket is unplayed.
+const seedSig = (t: Tournament): string =>
+  t.matches
+    .filter((m) => m.phase !== "rr" && m.phase !== "pool")
+    .map((m) => `${m.phase}:${m.round}:${m.order}:${[...m.sideA].sort().join("+")}v${[...m.sideB].sort().join("+")}`)
+    .sort()
+    .join("|");
+
 // Mirrors records.rosterOf — a team participant expands to the people on it.
 const rosterOfAll = (t: Tournament): string[] =>
   t.participants.flatMap((p) => (p.members?.length ? p.members : [p.name]));
@@ -914,6 +923,160 @@ for (const n of [8, 12, 16, 24, 30, 33])
         const played = new Set(fixed.flatMap((m) => [...m.sideA, ...m.sideB]));
         assert(played.size === n, `advice of ${roundsForAll} rounds still leaves ${n - played.size} out`);
       });
+
+// ---- The finals bracket must never be stale or duplicated ----
+// Seeding the bracket early froze whoever led at that moment. Play the round robin out
+// and the wrong people were still in the final — Standings said "top 4 advance" with one
+// name while the bracket had another, and nothing said so. An unplayed draw is only a
+// projection, so it tracks the standings until someone actually starts playing it.
+for (const style of ["singles", "doubles"] as PlayStyle[])
+  for (const n of [8, 12, 16, 30]) {
+    check(`bracket tracks standings until it starts — ${style} / n=${n}`, () => {
+      const P = players(n);
+      const t = tour({
+        format: "round-robin",
+        playStyle: style,
+        participants: P,
+        config: cfg({ rounds: 3, courts: 2, advanceCount: 4, thirdPlace: true }),
+      });
+      t.matches = buildMatches(t);
+
+      // Seed the bracket with an EMPTY table — the footgun the app allows.
+      t.matches = [...t.matches, ...buildFinals(t)];
+      const seededEarly = seedSig(t);
+
+      // Now play the round robin, with the BACK half of the field winning everything,
+      // so the true top 4 cannot be who was seeded from an empty table.
+      const strong = new Set(P.slice(-Math.ceil(n / 2)).map((p) => p.id));
+      let out = t;
+      for (const m of out.matches.filter((m) => m.phase === "rr")) {
+        if (!m.sideA.length || !m.sideB.length) continue;
+        const aStrong = m.sideA.filter((i) => strong.has(i)).length;
+        const bStrong = m.sideB.filter((i) => strong.has(i)).length;
+        const aWins = aStrong >= bStrong;
+        m.scoreA = aWins ? 11 : 3;
+        m.scoreB = aWins ? 3 : 11;
+        m.final = true;
+        out = resyncFinals(out); // what the store now does on every score
+      }
+
+      // The seeded draw must have followed the results.
+      const want = seedSig({ ...out, matches: [...out.matches.filter((m) => m.phase === "rr"), ...buildFinals(out)] });
+      assert(seedSig(out) === want, `bracket is stale: ${seedSig(out)} vs standings ${want}`);
+      if (n >= 12) assert(seedSig(out) !== seededEarly, "test is vacuous — the draw never needed to change");
+
+      // Exactly one bronze match, ever — re-seeding used to stack up copies.
+      const bronze = out.matches.filter((m) => m.phase === "placement");
+      assert(bronze.length <= 1, `${bronze.length} bronze matches`);
+    });
+
+    check(`a started bracket is never rewritten — ${style} / n=${n}`, () => {
+      const P = players(n);
+      const t = tour({
+        format: "round-robin",
+        playStyle: style,
+        participants: P,
+        config: cfg({ rounds: 3, courts: 2, advanceCount: 4, thirdPlace: true }),
+      });
+      t.matches = buildMatches(t);
+      for (const m of t.matches) {
+        if (!m.sideA.length || !m.sideB.length) continue;
+        m.scoreA = 11;
+        m.scoreB = 3;
+        m.final = true;
+      }
+      t.matches = [...t.matches, ...buildFinals(t)];
+      // Someone starts the final.
+      const f = t.matches.find((m) => m.phase === "winners" && m.sideA.length && m.sideB.length);
+      if (!f) return;
+      f.scoreA = 5;
+      f.scoreB = 4;
+      f.final = false;
+      const locked = seedSig(t);
+      // Re-scoring a round-robin game must NOT redraw a final that's under way.
+      const rr = t.matches.find((m) => m.phase === "rr")!;
+      rr.scoreA = 3;
+      rr.scoreB = 11;
+      const after = resyncFinals(t);
+      assert(seedSig(after) === locked, "a live final was redrawn under the players");
+    });
+  }
+
+// The bronze match is part of the bracket, not the round robin: its result must not
+// move the standings, and clearing the bracket must take it with it.
+check("bronze match belongs to the bracket, not the standings", () => {
+  const P = players(12);
+  const t = tour({
+    format: "round-robin",
+    participants: P,
+    config: cfg({ rounds: 3, courts: 2, advanceCount: 4, thirdPlace: true }),
+  });
+  t.matches = buildMatches(t);
+  for (const m of t.matches) {
+    if (!m.sideA.length || !m.sideB.length) continue;
+    m.scoreA = 11;
+    m.scoreB = 3;
+    m.final = true;
+  }
+  const before = computeStandings(P, t.matches.filter((m) => m.phase === "rr")).map((r) => r.participantId + ":" + r.wins).join(",");
+  t.matches = [...t.matches, ...buildFinals(t)];
+  const bronze = t.matches.find((m) => m.phase === "placement");
+  assert(bronze, "no bronze match generated");
+  bronze!.scoreA = 11;
+  bronze!.scoreB = 2;
+  bronze!.final = true;
+  // buildFinals seeds from base matches — the bronze result must not leak into them.
+  const after = computeStandings(
+    P,
+    t.matches.filter((m) => m.phase === "rr"),
+  ).map((r) => r.participantId + ":" + r.wins).join(",");
+  assert(before === after, "bronze match result changed the round-robin standings");
+});
+
+// ---- The draw is a draw, not the order you typed ----
+// Every generator seeds off the roster list, so without a shuffle the schedule just reads
+// down the order players were entered: type a couple in together and they partner up every
+// single time. `order` is the seam generate() shuffles through.
+for (const n of [8, 12, 16, 30]) {
+  check(`shuffled draw changes the matchups — n=${n}`, () => {
+    const P = players(n);
+    const ids = P.map((p) => p.id);
+    const t = tour({ format: "round-robin", playStyle: "doubles", participants: P, config: cfg({ rounds: 3, courts: 3 }) });
+    const sig = (ms: Match[]) => ms.map((m) => `${m.round}:${m.sideA.join("+")}v${m.sideB.join("+")}`).join("|");
+
+    const typed = sig(buildMatches(t, ids));
+    // Same order in ⇒ same schedule out: the generator itself stays reproducible.
+    assert(typed === sig(buildMatches(t, ids)), "same order produced two different schedules");
+
+    // Across many shuffles the draw must actually move.
+    const seen = new Set<string>();
+    for (let i = 0; i < 25; i++) seen.add(sig(buildMatches(t, shuffled(ids))));
+    assert(seen.size > 1, "shuffling the order changed nothing — the draw is not random");
+  });
+
+  check(`typed order is honoured when random draw is off — n=${n}`, () => {
+    const P = players(n);
+    const ids = P.map((p) => p.id);
+    const t = tour({ format: "round-robin", playStyle: "doubles", participants: P, config: cfg({ rounds: 1, courts: 2 }) });
+    const first = buildMatches(t, ids).filter((m) => m.round === 1 && m.sideA.length && m.sideB.length)[0];
+    // With the list untouched, round 1 opens with the first four people typed.
+    assert(first, "no round-1 game");
+    const opening = [...first.sideA, ...first.sideB];
+    assert(
+      opening.every((id) => ids.slice(0, 4).includes(id)),
+      `round 1 should open with the first four typed, got ${opening.join(",")}`,
+    );
+  });
+}
+
+check("shuffled keeps everyone exactly once", () => {
+  const ids = players(30).map((p) => p.id);
+  for (let i = 0; i < 50; i++) {
+    const s = shuffled(ids);
+    assert(s.length === ids.length, `shuffle changed the roster size: ${s.length}`);
+    assert(new Set(s).size === ids.length, "shuffle duplicated or dropped someone");
+  }
+});
 
 // ---- Summary ----
 console.log(`\n${"=".repeat(50)}`);

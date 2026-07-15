@@ -188,6 +188,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
   // per round are capped by courts — not by headcount. So a big field can outrun the
   // schedule: past that many seats, players simply never get a game. (Singles round-robin
   // pairs everyone with everyone, so it can't run out.) Warn rather than silently bench.
+  // Formats whose draw is built from the roster order. Golf/ladder/score-challenge have
+  // no draw to shuffle, and Ryder builds its own sessions with a shuffle of its own.
+  const isBracket = t.format === "single-elim" || t.format === "double-elim" || t.format === "pool-bracket";
+  const drawOrderMatters =
+    isBracket || t.format === "round-robin" || t.format === "swiss" || t.format === "kotc" || isSocial;
+
   const rotatingField = (t.format === "round-robin" && isDoubles) || isSocial;
   const seatsPerRound = Math.min(Math.max(1, cfg.courts), maxCourts) * perGame;
   const seats = cfg.rounds * seatsPerRound;
@@ -505,6 +511,28 @@ export function SetupPanel({ t }: { t: Tournament }) {
                     : "Rounds everyone plays"
               }
             />
+          )}
+          {drawOrderMatters && (
+            <label className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">
+              <span className="text-sm">
+                <span className="font-medium">Random draw</span>
+                <span className="block text-xs text-[var(--muted)]">
+                  {(cfg.randomDraw ?? true)
+                    ? isBracket
+                      ? "Seeds are drawn at random — regenerate for a new draw."
+                      : "Partners and matchups are drawn at random — regenerate for a new draw."
+                    : isBracket
+                      ? "Off: the order you type is the seed order (first plays last)."
+                      : "Off: matchups follow the order you type players in."}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={cfg.randomDraw ?? true}
+                onChange={(e) => setCfg({ randomDraw: e.target.checked })}
+                className="h-5 w-5 shrink-0 accent-[var(--brand)]"
+              />
+            </label>
           )}
           {t.format === "score-challenge" && (
             <label className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">

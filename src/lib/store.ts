@@ -166,8 +166,16 @@ interface State {
   applyRemote: (id: string, data: Tournament, version: number) => void;
 }
 
+// Everything the finals bracket owns. "placement" (the bronze match) belongs here
+// too: leaving it out treated it as a round-robin game, so its result counted toward
+// the standings, "Clear bracket" left it on the schedule, and re-seeding stacked up a
+// second copy. Records already counts it as a finals phase — these must agree.
 const isFinalsPhase = (m: Match) =>
-  m.phase === "winners" || m.phase === "losers" || m.phase === "final" || m.phase === "championship";
+  m.phase === "winners" ||
+  m.phase === "losers" ||
+  m.phase === "final" ||
+  m.phase === "championship" ||
+  m.phase === "placement";
 
 // Apply a start/pause/reset to one clock, returning the next state (or null to clear it).
 // start resumes from the paused remainder, or the full time when idle; expired clocks stay put.
@@ -190,8 +198,121 @@ function nextClock(
   return { endAt: now + remaining * 1000 };
 }
 
-export function buildMatches(t: Tournament): Match[] {
-  const ids = t.participants.map((p) => p.id);
+/**
+ * The finals bracket implied by the CURRENT standings — who'd advance if the
+ * round robin ended right now. Pure, so it can be re-derived any time.
+ */
+export function buildFinals(t: Tournament): Match[] {
+  const baseMatches = t.matches.filter((m) => !isFinalsPhase(m));
+  let finals: Match[] = [];
+
+  if (t.format === "round-robin") {
+    const standings = computeStandings(t.participants, baseMatches, t.config.tiebreaker, t.config.rankByWinPct);
+    const n = Math.min(t.config.advanceCount, standings.length);
+    const seedIds = standings.slice(0, n).map((r) => r.participantId);
+    if (t.playStyle === "doubles") {
+      // Pair best with worst of the advancing group: (1&N) vs (2&N-1) ...
+      const sides: string[][] = [];
+      for (let i = 0; i < Math.floor(seedIds.length / 2); i++) {
+        sides.push([seedIds[i], seedIds[seedIds.length - 1 - i]]);
+      }
+      finals = genSingleElimSides(sides, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
+    } else {
+      finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
+    }
+    // Bronze medal: when the finals bracket has a semifinal, genSingleElim above
+    // already added a semifinal-losers 3rd-place game. Only when the final is just two
+    // teams (no semifinal) do the NEXT tier play off — doubles 5&8 vs 6&7, singles 5 vs 6.
+    const wantBronze = t.config.bronzeMatch ?? t.config.thirdPlace;
+    if (wantBronze && !finals.some((m) => m.phase === "placement")) {
+      const need = t.playStyle === "doubles" ? 4 : 2;
+      const b = standings.slice(n, n + need).map((r) => r.participantId);
+      if (b.length === need) {
+        finals.push({
+          id: uid(),
+          phase: "placement",
+          round: 1,
+          order: 99,
+          label: "Bronze Medal Match",
+          sideA: need === 4 ? [b[0], b[3]] : [b[0]],
+          sideB: need === 4 ? [b[1], b[2]] : [b[1]],
+          scoreA: null,
+          scoreB: null,
+        });
+      }
+    }
+  } else if (t.format === "pool-bracket") {
+    // Seed across pools: all pool winners first, then runners-up, etc.
+    const poolIds = Array.from(new Set(baseMatches.map((m) => m.poolId).filter(Boolean))) as string[];
+    const perPool = poolIds.map((pid) =>
+      computeStandings(
+        t.participants,
+        baseMatches.filter((m) => m.poolId === pid),
+        t.config.tiebreaker,
+        t.config.rankByWinPct,
+      ),
+    );
+    const advancePerPool = Math.max(1, Math.ceil(t.config.advanceCount / Math.max(1, poolIds.length)));
+    const seeds: string[] = [];
+    for (let rank = 0; rank < advancePerPool; rank++) {
+      for (const pool of perPool) {
+        if (pool[rank]) seeds.push(pool[rank].participantId);
+      }
+    }
+    const seedIds = seeds.slice(0, t.config.advanceCount);
+    finals =
+      t.config.bracketType === "double"
+        ? genDoubleElim(seedIds)
+        : genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
+  }
+  return finals;
+}
+
+/** Has anyone actually started playing the finals? Once they have, the draw is locked. */
+export function finalsStarted(matches: Match[]): boolean {
+  return matches.some((m) => isFinalsPhase(m) && (m.scoreA !== null || m.scoreB !== null));
+}
+
+/**
+ * Keep an unplayed finals bracket honest. Seeding the bracket early used to freeze
+ * whoever was top at that moment — play the round robin out and the wrong people were
+ * still in the final, with nothing to say so. While no finals game has been played the
+ * draw is just a projection, so re-derive it from the current standings; the moment a
+ * finals game has a score the draw is locked and left alone.
+ */
+export function resyncFinals(t: Tournament): Tournament {
+  if (!t.matches.some(isFinalsPhase)) return t; // no bracket seeded — nothing to keep in sync
+  if (finalsStarted(t.matches)) return t; // under way — never rewrite a live draw
+  const next = buildFinals(t);
+  const sig = (ms: Match[]) =>
+    ms
+      .filter(isFinalsPhase)
+      .map((m) => `${m.phase}:${m.round}:${m.order}:${m.sideA.join("+")}v${m.sideB.join("+")}`)
+      .sort()
+      .join("|");
+  if (sig(t.matches) === sig(next)) return t; // already correct — keep object identity
+  return { ...t, matches: [...t.matches.filter((m) => !isFinalsPhase(m)), ...next] };
+}
+
+/** Fisher-Yates. Used for the draw, so who you type first doesn't decide who you play. */
+export function shuffled<T>(list: T[]): T[] {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * `order` overrides the draw order; without it the roster order is used as typed.
+ * Every generator below seeds off this list — in doubles it decides who partners
+ * whom, in a bracket it decides the seeds — so the caller (generate) shuffles it
+ * unless the host asked to keep their typed order. Kept as a parameter rather than
+ * shuffling in here so this stays pure and a rebuild is reproducible.
+ */
+export function buildMatches(t: Tournament, order?: string[]): Match[] {
+  const ids = order ?? t.participants.map((p) => p.id);
   const { rounds, courts, poolCount } = t.config;
 
   switch (t.format) {
@@ -950,7 +1071,15 @@ export const useStore = create<State>()(
             t.id === id
               ? {
                   ...t,
-                  matches: buildMatches(t),
+                  // Draw order, not roster order: without this the schedule just reads down
+                  // the list you typed, so whoever you enter together plays together every
+                  // time. Regenerating gives a genuinely different draw.
+                  matches: buildMatches(
+                    t,
+                    (t.config.randomDraw ?? true)
+                      ? shuffled(t.participants.map((p) => p.id))
+                      : t.participants.map((p) => p.id),
+                  ),
                   ...(t.format === "score-challenge"
                     ? { scoreChallenge: t.scoreChallenge ?? { scores: {} } }
                     : {}),
@@ -1031,7 +1160,7 @@ export const useStore = create<State>()(
             if (target && isFinalsPhase(target)) {
               matches = propagateBracket(matches.map((m) => ({ ...m })));
             }
-            return { ...t, matches, updatedAt: Date.now() };
+            return resyncFinals({ ...t, matches, updatedAt: Date.now() });
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b });
@@ -1055,7 +1184,7 @@ export const useStore = create<State>()(
             if (final && target && isFinalsPhase(target)) {
               matches = propagateBracket(matches.map((m) => ({ ...m })));
             }
-            return { ...t, matches, updatedAt: Date.now() };
+            return resyncFinals({ ...t, matches, updatedAt: Date.now() });
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b, final });
@@ -1087,7 +1216,7 @@ export const useStore = create<State>()(
             if (fFinal && isFinalsPhase(cur)) {
               matches = propagateBracket(matches.map((m) => ({ ...m })));
             }
-            return { ...t, matches, updatedAt: Date.now() };
+            return resyncFinals({ ...t, matches, updatedAt: Date.now() });
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b, final });
@@ -1115,7 +1244,7 @@ export const useStore = create<State>()(
             if (final && target && isFinalsPhase(target)) {
               matches = propagateBracket(matches.map((m) => ({ ...m })));
             }
-            return { ...t, matches, updatedAt: Date.now() };
+            return resyncFinals({ ...t, matches, updatedAt: Date.now() });
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b, final });
@@ -1144,69 +1273,7 @@ export const useStore = create<State>()(
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
-            const baseMatches = t.matches.filter((m) => !isFinalsPhase(m));
-
-            let finals: Match[] = [];
-            if (t.format === "round-robin") {
-              const standings = computeStandings(t.participants, baseMatches, t.config.tiebreaker, t.config.rankByWinPct);
-              const n = Math.min(t.config.advanceCount, standings.length);
-              const seedIds = standings.slice(0, n).map((r) => r.participantId);
-              if (t.playStyle === "doubles") {
-                // Pair best with worst of the advancing group: (1&N) vs (2&N-1) ...
-                const sides: string[][] = [];
-                for (let i = 0; i < Math.floor(seedIds.length / 2); i++) {
-                  sides.push([seedIds[i], seedIds[seedIds.length - 1 - i]]);
-                }
-                finals = genSingleElimSides(sides, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
-              } else {
-                finals = genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
-              }
-              // Bronze medal: when the finals bracket has a semifinal, genSingleElim above
-              // already added a semifinal-losers 3rd-place game. Only when the final is just two
-              // teams (no semifinal) do the NEXT tier play off — doubles 5&8 vs 6&7, singles 5 vs 6.
-              const wantBronze = t.config.bronzeMatch ?? t.config.thirdPlace;
-              if (wantBronze && !finals.some((m) => m.phase === "placement")) {
-                const need = t.playStyle === "doubles" ? 4 : 2;
-                const b = standings.slice(n, n + need).map((r) => r.participantId);
-                if (b.length === need) {
-                  finals.push({
-                    id: uid(),
-                    phase: "placement",
-                    round: 1,
-                    order: 99,
-                    label: "Bronze Medal Match",
-                    sideA: need === 4 ? [b[0], b[3]] : [b[0]],
-                    sideB: need === 4 ? [b[1], b[2]] : [b[1]],
-                    scoreA: null,
-                    scoreB: null,
-                  });
-                }
-              }
-            } else if (t.format === "pool-bracket") {
-              // Seed across pools: all pool winners first, then runners-up, etc.
-              const poolIds = Array.from(new Set(baseMatches.map((m) => m.poolId).filter(Boolean))) as string[];
-              const perPool = poolIds.map((pid) =>
-                computeStandings(
-                  t.participants,
-                  baseMatches.filter((m) => m.poolId === pid),
-                  t.config.tiebreaker,
-                  t.config.rankByWinPct,
-                ),
-              );
-              const advancePerPool = Math.max(1, Math.ceil(t.config.advanceCount / Math.max(1, poolIds.length)));
-              const seeds: string[] = [];
-              for (let rank = 0; rank < advancePerPool; rank++) {
-                for (const pool of perPool) {
-                  if (pool[rank]) seeds.push(pool[rank].participantId);
-                }
-              }
-              const seedIds = seeds.slice(0, t.config.advanceCount);
-              finals =
-                t.config.bracketType === "double"
-                  ? genDoubleElim(seedIds)
-                  : genSingleElim(seedIds, "winners", { thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace });
-            }
-            return { ...t, matches: [...baseMatches, ...finals], updatedAt: Date.now() };
+            return { ...t, matches: [...t.matches.filter((m) => !isFinalsPhase(m)), ...buildFinals(t)], updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);
