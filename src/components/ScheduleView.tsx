@@ -4,10 +4,12 @@ import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { MatchCard, MasterClock } from "./MatchCard";
 import { NowOnCourt } from "./NowOnCourt";
+import { isFinal } from "@/lib/score";
 
 const bothSides = (m: Match) => m.sideA.length > 0 && m.sideB.length > 0;
-const recorded = (m: Match) => m.scoreA !== null && m.scoreB !== null; // a result is in
-const needsPlay = (m: Match) => bothSides(m) && !recorded(m);
+// A game in progress is NOT a result — isFinal keeps a live 1–1 on court instead
+// of treating it as a finished game (see lib/score).
+const needsPlay = (m: Match) => bothSides(m) && !isFinal(m);
 const byCourt = (a: Match, b: Match) => (a.court ?? 0) - (b.court ?? 0);
 
 export function ScheduleView({

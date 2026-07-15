@@ -190,6 +190,12 @@ export interface Match {
 
   scoreA: number | null;
   scoreB: number | null;
+  // Is the result in? Distinguishes a live score from a finished one — without it,
+  // scoring point-by-point ends the game the moment both sides have any number.
+  //   undefined = legacy/typed result (both scores present ⇒ final)
+  //   false     = being scored live, still on court
+  //   true      = finished (target reached, or the host ended it)
+  final?: boolean;
 
   // Bracket routing
   nextMatchId?: string;
@@ -221,7 +227,8 @@ export const TIEBREAKER_LABELS: Record<Tiebreaker, string> = {
 export interface TournamentConfig {
   rounds: number; // round-robin rounds
   courts: number; // simultaneous games
-  pointsTo: number; // games played to N (display hint)
+  pointsTo: number; // games played to N — live scoring auto-finishes a game here
+  winByTwo?: boolean; // must win by 2 (pickleball/tennis) vs first to N straight up. Default true.
   timeLimitMin: number; // 0 = no clock; otherwise games end at N points OR this many minutes, whichever first
   advanceCount: number; // top N advance from RR / overall pools
   poolCount: number; // pool-bracket: number of pools

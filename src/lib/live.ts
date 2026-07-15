@@ -3,7 +3,9 @@ import { propagateBracket } from "./bracket";
 
 // A patch is a minimal, mergeable mutation applied server-side to the stored tournament.
 export type LivePatch =
-  | { kind: "matchScore"; matchId: string; a: number | null; b: number | null }
+  // `final` rides along so point-by-point scoring syncs its in-progress state to
+  // spectators. Omitted keeps the legacy "both scores = result in" meaning.
+  | { kind: "matchScore"; matchId: string; a: number | null; b: number | null; final?: boolean }
   | { kind: "golfScore"; participantId: string; hole: number; strokes: number | null }
   | { kind: "replace"; data: Tournament };
 
@@ -24,6 +26,8 @@ export function applyPatch(data: Tournament, patch: LivePatch): Tournament {
     if (m) {
       m.scoreA = patch.a;
       m.scoreB = patch.b;
+      if (patch.final === undefined) delete m.final;
+      else m.final = patch.final;
       // re-derive bracket advancement (no-op for non-bracket matches)
       next.matches = propagateBracket(next.matches);
     }

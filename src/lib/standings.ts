@@ -1,4 +1,5 @@
 import { Match, Participant, Tiebreaker } from "./types";
+import { isFinal } from "./score";
 
 export interface Standing {
   participantId: string;
@@ -14,8 +15,10 @@ export interface Standing {
   rank: number;
 }
 
+// A game in progress hasn't been played yet — its running score would otherwise
+// land in the table as a win or a tie before it's over.
 function isPlayed(m: Match): boolean {
-  return m.scoreA !== null && m.scoreB !== null;
+  return isFinal(m);
 }
 
 /**

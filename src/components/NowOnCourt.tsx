@@ -4,6 +4,7 @@ import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Side, MatchTimer } from "./MatchCard";
+import { isFinal } from "@/lib/score";
 
 // The featured "on court now" match — big tappable scores + large steppers, a Leading badge,
 // and the synced court timer. Used only in the round-robin schedule; the compact MatchCard
@@ -18,24 +19,29 @@ export function NowOnCourt({
   match: Match;
 }) {
   const t = useStore((s) => s.tournaments.find((x) => x.id === tournamentId));
-  const setScore = useStore((s) => s.setScore);
+  const scoreLive = useStore((s) => s.scoreLive);
+  const bumpScore = useStore((s) => s.bumpScore);
+  const endMatch = useStore((s) => s.endMatch);
   const timeLimitMin = t?.config.timeLimitMin ?? 0;
   const canEdit = t ? canEditScores(t) : false;
 
   const a = match.scoreA;
   const b = match.scoreB;
-  const decided = a != null && b != null && a !== b;
-  const aLead = (a ?? 0) > (b ?? 0) && (a != null || b != null);
-  const bLead = (b ?? 0) > (a ?? 0) && (a != null || b != null);
+  const decided = isFinal(match) && a !== b;
+  const started = a !== null || b !== null;
+  const aLead = (a ?? 0) > (b ?? 0) && started;
+  const bLead = (b ?? 0) > (a ?? 0) && started;
+  const target = t?.config.pointsTo ?? 0;
 
+  // Every edit here is live: the game keeps playing until it's won or the host
+  // ends it, so a point-by-point score never reads as a final result.
   const commit = (side: "A" | "B", v: number | null) => {
-    if (side === "A") setScore(tournamentId, match.id, v, match.scoreB);
-    else setScore(tournamentId, match.id, match.scoreA, v);
+    if (side === "A") scoreLive(tournamentId, match.id, v, match.scoreB);
+    else scoreLive(tournamentId, match.id, match.scoreA, v);
   };
-  const step = (side: "A" | "B", delta: number) => {
-    const cur = side === "A" ? a : b;
-    commit(side, Math.max(0, (cur ?? 0) + delta));
-  };
+  // Steppers go through the store so rapid taps stay atomic (computing from the
+  // prop here would let two quick taps both read the same stale score).
+  const step = (side: "A" | "B", delta: number) => bumpScore(tournamentId, match.id, side, delta);
 
   return (
     <div className="rounded-2xl border border-[var(--brand)]/30 bg-[var(--surface)] shadow-sm overflow-hidden">
@@ -114,6 +120,36 @@ export function NowOnCourt({
           );
         })}
       </div>
+
+      {canEdit && (
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] px-3 py-2">
+          <span className="text-[11px] text-[var(--muted)]">
+            {isFinal(match)
+              ? "Final"
+              : target > 0
+                ? `First to ${target}${(t?.config.winByTwo ?? true) ? ", win by 2" : ""}`
+                : "Tap End game when it's over"}
+          </span>
+          {isFinal(match) ? (
+            <button
+              type="button"
+              onClick={() => endMatch(tournamentId, match.id, false)}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition hover:bg-[var(--hover)]"
+            >
+              Reopen
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => endMatch(tournamentId, match.id, true)}
+              disabled={!started}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--hover)] disabled:opacity-40"
+            >
+              End game
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

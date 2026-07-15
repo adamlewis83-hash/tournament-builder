@@ -13,6 +13,7 @@ import {
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
+import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
 import { genRyder, genRyderSession, RyderSessionType } from "./ryder";
 import { matchStatus } from "./ryderGolf";
@@ -148,6 +149,13 @@ interface State {
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
   setScore: (id: string, matchId: string, a: number | null, b: number | null) => void;
+  /** Live scoring: keeps the game on court, auto-finishing only when it's won. */
+  scoreLive: (id: string, matchId: string, a: number | null, b: number | null) => void;
+  /** Live +/- a point. Reads the current score inside the setter so fast taps can't
+   *  clobber each other the way passing a stale prop value would. */
+  bumpScore: (id: string, matchId: string, side: "A" | "B", delta: number) => void;
+  /** Host ends the game where it stands (time called, conceded, etc). */
+  endMatch: (id: string, matchId: string, final: boolean) => void;
   setMatchSides: (id: string, matchId: string, sideA: string[], sideB: string[]) => void;
   generateFinals: (id: string) => void;
   clearFinals: (id: string) => void;
@@ -489,7 +497,7 @@ export const useStore = create<State>()(
             const clocks = { ...(t.clocks ?? {}) };
             for (const m of t.matches) {
               if (m.round !== round) continue;
-              const decided = m.scoreA !== null && m.scoreB !== null && m.scoreA !== m.scoreB;
+              const decided = isFinal(m) && m.scoreA !== m.scoreB;
               if (!m.sideA.length || !m.sideB.length || decided) continue;
               const nc = nextClock(clocks[m.id], action, total, now);
               if (nc) clocks[m.id] = nc;
@@ -965,8 +973,7 @@ export const useStore = create<State>()(
             if (t.id !== id) return t;
             const maxRound = t.matches.reduce((mx, m) => Math.max(mx, m.round), 0);
             const cur = t.matches.filter((m) => m.round === maxRound);
-            const complete =
-              cur.length > 0 && cur.every((m) => m.scoreA !== null && m.scoreB !== null);
+            const complete = cur.length > 0 && cur.every(isFinal);
             if (!complete) return t;
             const ids = t.participants.map((p) => p.id);
 
@@ -1028,6 +1035,90 @@ export const useStore = create<State>()(
           }),
         }));
         pushPatch(id, { kind: "matchScore", matchId, a, b });
+      },
+
+      // Live scoring: the game stays on court while points go in, and finishes
+      // itself only when it's actually won (target reached, +2 if required).
+      // A clock never ends it — the host does, via endMatch.
+      scoreLive: (id, matchId, a, b) => {
+        if (blocked(id)) return;
+        let final = false;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            final = isWon(a, b, t.config);
+            let matches = t.matches.map((m) =>
+              m.id === matchId ? { ...m, scoreA: a, scoreB: b, final } : m,
+            );
+            const target = matches.find((m) => m.id === matchId);
+            // Only advance a bracket once the game is actually over.
+            if (final && target && isFinalsPhase(target)) {
+              matches = propagateBracket(matches.map((m) => ({ ...m })));
+            }
+            return { ...t, matches, updatedAt: Date.now() };
+          }),
+        }));
+        pushPatch(id, { kind: "matchScore", matchId, a, b, final });
+      },
+
+      // Tap +/- a point. Everything is derived from the CURRENT match inside the
+      // setter, so two quick taps can't both compute from the same stale score.
+      bumpScore: (id, matchId, side, delta) => {
+        if (blocked(id)) return;
+        let a: number | null = null;
+        let b: number | null = null;
+        let final = false;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const cur = t.matches.find((m) => m.id === matchId);
+            if (!cur) return t;
+            a = cur.scoreA;
+            b = cur.scoreB;
+            if (side === "A") a = Math.max(0, (a ?? 0) + delta);
+            else b = Math.max(0, (b ?? 0) + delta);
+            final = isWon(a, b, t.config);
+            const fa = a;
+            const fb = b;
+            const fFinal = final;
+            let matches = t.matches.map((m) =>
+              m.id === matchId ? { ...m, scoreA: fa, scoreB: fb, final: fFinal } : m,
+            );
+            if (fFinal && isFinalsPhase(cur)) {
+              matches = propagateBracket(matches.map((m) => ({ ...m })));
+            }
+            return { ...t, matches, updatedAt: Date.now() };
+          }),
+        }));
+        pushPatch(id, { kind: "matchScore", matchId, a, b, final });
+      },
+
+      // Host ends (or reopens) a game where it stands — time called, conceded,
+      // or a format with no fixed target.
+      endMatch: (id, matchId, final) => {
+        if (blocked(id)) return;
+        let a: number | null = null;
+        let b: number | null = null;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            let matches = t.matches.map((m) => {
+              if (m.id !== matchId) return m;
+              // Ending with a blank side scores it 0 rather than leaving a hole.
+              const sa = final ? (m.scoreA ?? 0) : m.scoreA;
+              const sb = final ? (m.scoreB ?? 0) : m.scoreB;
+              a = sa;
+              b = sb;
+              return { ...m, scoreA: sa, scoreB: sb, final };
+            });
+            const target = matches.find((m) => m.id === matchId);
+            if (final && target && isFinalsPhase(target)) {
+              matches = propagateBracket(matches.map((m) => ({ ...m })));
+            }
+            return { ...t, matches, updatedAt: Date.now() };
+          }),
+        }));
+        pushPatch(id, { kind: "matchScore", matchId, a, b, final });
       },
 
       setMatchSides: (id, matchId, sideA, sideB) => {

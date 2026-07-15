@@ -1,4 +1,5 @@
 import { Match, Tournament } from "./types";
+import { isFinal } from "./score";
 import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { ryderScore } from "./ryder";
@@ -16,8 +17,9 @@ const finalsPhase = (m: Match) =>
   m.phase === "championship" ||
   m.phase === "placement";
 
-const allScored = (ms: Match[]) =>
-  ms.length > 0 && ms.every((m) => m.scoreA !== null && m.scoreB !== null);
+// A game still being played isn't a result — otherwise the last game's first point
+// crowns a champion mid-rally (see lib/score).
+const allScored = (ms: Match[]) => ms.length > 0 && ms.every(isFinal);
 
 /** Best-effort "is it finished, and who won" across every format. */
 export function getResult(t: Tournament): TournamentResult {

@@ -4,9 +4,9 @@ import { computeBbb, computeGolf, computeMixedOverall, formatToPar } from "./gol
 import { ryderScore } from "./ryder";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
+import { isFinal } from "./score";
 
-const decided = (m: Match) =>
-  m.scoreA !== null && m.scoreB !== null && m.scoreA !== m.scoreB;
+const decided = (m: Match) => isFinal(m) && m.scoreA !== m.scoreB;
 const winSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.sideA : m.sideB);
 const loseSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.sideB : m.sideA);
 
@@ -50,7 +50,7 @@ export function getFinalRows(t: Tournament): FinalRow[] {
   }
 
   if (t.format === "americano" || t.format === "mexicano") {
-    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
+    const scored = t.matches.filter(isFinal);
     return pointsLeaderboard(t.participants, scored).map((r) => ({
       name: r.name,
       stat: `${r.pointsFor} pt`,
@@ -62,7 +62,7 @@ export function getFinalRows(t: Tournament): FinalRow[] {
   // field keeps its round-robin position. W-L is shown when a row's people share a record.
   const s = computeStandings(
     t.participants,
-    t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null),
+    t.matches.filter(isFinal),
     t.config.tiebreaker,
     t.config.rankByWinPct,
   );
@@ -148,7 +148,7 @@ export function getPlacements(t: Tournament): Placement[] {
     return out;
   }
   if (t.format === "americano" || t.format === "mexicano") {
-    const scored = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null);
+    const scored = t.matches.filter(isFinal);
     return pointsLeaderboard(t.participants, scored).map((r, i) => ({
       names: [r.name],
       rank: i + 1,
@@ -158,7 +158,7 @@ export function getPlacements(t: Tournament): Placement[] {
 
   const ms = t.matches;
   const base = ms.filter((m) => m.phase === "rr" || m.phase === "pool");
-  const scored = ms.filter((m) => m.scoreA !== null && m.scoreB !== null);
+  const scored = ms.filter(isFinal);
   const standings = computeStandings(
     t.participants,
     base.some((m) => m.scoreA !== null) ? base : scored,

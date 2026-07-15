@@ -7,6 +7,7 @@ import { SportIcon } from "@/components/SportIcon";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS, Tournament } from "@/lib/types";
 import { getResult } from "@/lib/result";
+import { isFinal } from "@/lib/score";
 import { colorForName } from "@/lib/colors";
 import { Badge, Card, StatusPill } from "@/components/ui";
 import { tournamentStatus } from "@/lib/status";
@@ -16,7 +17,7 @@ import { getLibraryKey, deleteTournamentRemote } from "@/lib/library";
 // clean game count (ladder / score-challenge / custom-before-matches) — the status pill carries it.
 function cardProgress(t: Tournament): { done: number; total: number } | null {
   if (t.matches.length) {
-    const done = t.matches.filter((m) => m.scoreA !== null && m.scoreB !== null).length;
+    const done = t.matches.filter(isFinal).length;
     return { done, total: t.matches.length };
   }
   if (t.format === "golf" && t.golf) {

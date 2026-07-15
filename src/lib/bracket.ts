@@ -1,4 +1,5 @@
 import { Match, Phase } from "./types";
+import { isFinal } from "./score";
 import { uid } from "./id";
 
 function makeMatch(p: Partial<Match>): Match {
@@ -36,8 +37,8 @@ export function seedOrder(p: number): number[] {
   return seeds;
 }
 
-const decided = (m: Match) =>
-  m.scoreA !== null && m.scoreB !== null && m.scoreA !== m.scoreB;
+// A live score never advances anyone — the game has to be final first (see lib/score).
+const decided = (m: Match) => isFinal(m) && m.scoreA !== m.scoreB;
 
 /**
  * Re-derive every downstream slot in an elimination bracket from the current scores.

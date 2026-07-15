@@ -2,6 +2,7 @@
 
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { isFinal } from "@/lib/score";
 import { Button, Card } from "./ui";
 import { BracketView } from "./BracketView";
 
@@ -19,8 +20,7 @@ export function BracketPanel({ t }: { t: Tournament }) {
       m.phase === "championship" ||
       m.phase === "placement",
   );
-  const rrComplete =
-    rrMatches.length > 0 && rrMatches.every((m) => m.scoreA !== null && m.scoreB !== null);
+  const rrComplete = rrMatches.length > 0 && rrMatches.every(isFinal);
   const hasFinals = finals.length > 0;
 
   if (!hasFinals) {

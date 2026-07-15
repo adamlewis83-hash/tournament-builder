@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Crown } from "@/components/icons";
 import { Match, Participant } from "@/lib/types";
 import { bracketChampion } from "@/lib/bracket";
+import { isFinal } from "@/lib/score";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Confetti } from "./Confetti";
@@ -11,7 +12,7 @@ import { Confetti } from "./Confetti";
 // The runner-up is whoever lost the deciding match (mirrors bracketChampion's
 // notion of which match decided it).
 function bracketRunnerUp(matches: Match[]): string[] | null {
-  const decided = (m: Match) => m.scoreA !== null && m.scoreB !== null;
+  const decided = isFinal;
   const reset = matches.find((m) => m.phase === "championship");
   if (reset && reset.sideA.length && reset.sideB.length && decided(reset)) {
     return (reset.scoreA as number) > (reset.scoreB as number) ? reset.sideB : reset.sideA;

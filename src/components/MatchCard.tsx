@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
+import { isFinal } from "@/lib/score";
 import { colorFor } from "@/lib/colors";
 
 // One shared audio context, unlocked by any clock tap (a user gesture) so the buzzer can play.
@@ -269,8 +270,7 @@ export function MatchCard({
     (s) => s.tournaments.find((t) => t.id === tournamentId)?.config.timeLimitMin ?? 0
   );
   const both = match.sideA.length > 0 && match.sideB.length > 0;
-  const decided =
-    match.scoreA !== null && match.scoreB !== null && match.scoreA !== match.scoreB;
+  const decided = isFinal(match) && match.scoreA !== match.scoreB;
   const showTimer = timeLimitMin > 0 && both && !decided;
   const aWin = decided && (match.scoreA as number) > (match.scoreB as number);
   const bWin = decided && (match.scoreB as number) > (match.scoreA as number);
