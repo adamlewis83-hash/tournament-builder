@@ -1,4 +1,5 @@
 import { Match, Participant } from "./types";
+import { isFinal } from "./score";
 import { uid } from "./id";
 
 function makeMatch(p: Partial<Match>): Match {
@@ -127,7 +128,7 @@ export function ryderScore(matches: Match[]): RyderScore {
   let b = 0;
   let played = 0;
   for (const m of ryder) {
-    if (m.scoreA === null || m.scoreB === null) continue;
+    if (!isFinal(m) || m.scoreA === null || m.scoreB === null) continue; // a live match hasn't earned a point yet
     played++;
     if (m.scoreA > m.scoreB) a += 1;
     else if (m.scoreB > m.scoreA) b += 1;

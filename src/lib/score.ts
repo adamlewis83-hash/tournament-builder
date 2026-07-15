@@ -17,15 +17,28 @@ export function isLive(m: Match): boolean {
 }
 
 /**
- * Has someone won outright? Reaching the target ends it; with winByTwo (the
- * default — pickleball, tennis, ping pong) they must also lead by 2, so 11–10
- * plays on. No clock rule here: a timed game is ended by the host, never
- * automatically, so a long rally is never cut off mid-point.
+ * How far ahead you must be to win. 1 = straight up (first to the target takes
+ * it), 2 = the pickleball/tennis default. Clamped to at least 1 so an empty or
+ * junk box can never make a game unwinnable.
+ *
+ * `winByTwo` is the older boolean form of this setting — read it so tournaments
+ * created before the margin was a number keep their rules.
+ */
+export function winMargin(cfg: Pick<TournamentConfig, "winBy" | "winByTwo">): number {
+  const n = cfg.winBy ?? (cfg.winByTwo === false ? 1 : 2);
+  return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 2;
+}
+
+/**
+ * Has someone won outright? Reaching the target ends it, and they must also lead
+ * by the margin — so at first-to-11 win-by-2, 11–10 plays on. No clock rule
+ * here: a timed game is ended by the host, never automatically, so a long rally
+ * is never cut off mid-point.
  */
 export function isWon(
   a: number | null,
   b: number | null,
-  cfg: Pick<TournamentConfig, "pointsTo" | "winByTwo">,
+  cfg: Pick<TournamentConfig, "pointsTo" | "winBy" | "winByTwo">,
 ): boolean {
   if (a === null || b === null) return false;
   const target = cfg.pointsTo;
@@ -33,5 +46,5 @@ export function isWon(
   const hi = Math.max(a, b);
   const lo = Math.min(a, b);
   if (hi < target) return false;
-  return (cfg.winByTwo ?? true) ? hi - lo >= 2 : hi > lo;
+  return hi - lo >= winMargin(cfg);
 }

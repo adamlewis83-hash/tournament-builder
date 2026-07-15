@@ -16,6 +16,7 @@ import {
   effectiveHandicap,
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
+import { isFinal, isWon, winMargin } from "./src/lib/score";
 import { getRanking, getFinalRows } from "./src/lib/records";
 import {
   formatsForSport,
@@ -566,6 +567,178 @@ for (const fmt of MATCH_FORMATS)
           if (m.sideB.length) assert(m.sideB.length === want, `${fmt}/${style} sideB=${m.sideB.length}, want ${want}`);
         }
       });
+
+// ---- Live scoring: a game runs until it's won or the host ends it ----
+// The bug this guards: a match used to be "done" the instant both sides had a
+// number, so 1–1 was a final result and the last game's first point crowned a
+// champion. Every format that decides itself from match results is swept here.
+
+// Formats whose completion comes from match scores. The rest finish on their own
+// terms (golf on holes, score-challenge on posted numbers, ladder/custom never).
+// Ryder is match-driven too but builds through genRyder, so it gets its own case below.
+const MATCH_DRIVEN = new Set<Format>([
+  "round-robin", "swiss", "kotc", "single-elim", "double-elim",
+  "pool-bracket", "americano", "mexicano",
+]);
+
+check("isFinal — legacy match with both scores reads as done", () => {
+  assert(isFinal({ scoreA: 11, scoreB: 5 } as Match), "legacy scored match should be final");
+  assert(!isFinal({ scoreA: 11, scoreB: null } as Match), "half-scored match is not final");
+  assert(!isFinal({ scoreA: null, scoreB: null } as Match), "unscored match is not final");
+});
+check("isFinal — `final` overrides the score-presence guess", () => {
+  assert(!isFinal({ scoreA: 1, scoreB: 1, final: false } as Match), "live 1-1 must not be final");
+  assert(isFinal({ scoreA: 5, scoreB: 3, final: true } as Match), "host-ended game must be final");
+  assert(isFinal({ scoreA: null, scoreB: null, final: true } as Match), "explicit final wins over no scores");
+});
+
+// The margin box: any number ≥1, default 2, junk clamped rather than trusted.
+for (const [label, c, want] of [
+  ["default", {}, 2],
+  ["win by 2", { winBy: 2 }, 2],
+  ["straight up", { winBy: 1 }, 1],
+  ["win by 3", { winBy: 3 }, 3],
+  ["zero clamps to 1", { winBy: 0 }, 1],
+  ["negative clamps to 1", { winBy: -5 }, 1],
+  ["fractional floors", { winBy: 2.9 }, 2],
+  ["NaN falls back to 2", { winBy: NaN }, 2],
+  ["legacy winByTwo:false", { winByTwo: false }, 1],
+  ["legacy winByTwo:true", { winByTwo: true }, 2],
+  ["winBy overrides legacy", { winBy: 1, winByTwo: true }, 1],
+] as [string, Partial<TournamentConfig>, number][])
+  check(`winMargin — ${label}`, () => {
+    const got = winMargin(c as TournamentConfig);
+    assert(got === want, `winMargin=${got}, want ${want}`);
+  });
+
+check("isWon — win-by-2 keeps 11–10 alive, ends 12–10", () => {
+  const c = cfg({ pointsTo: 11, winBy: 2 });
+  assert(!isWon(1, 1, c), "1-1 must keep playing");
+  assert(!isWon(10, 9, c), "below target must keep playing");
+  assert(!isWon(11, 10, c), "11-10 must keep playing at win-by-2");
+  assert(isWon(11, 9, c), "11-9 should win");
+  assert(isWon(12, 10, c), "12-10 should win");
+  assert(!isWon(11, 11, c), "tie at target must keep playing");
+  assert(!isWon(null, 5, c), "half-entered score never wins");
+});
+check("isWon — straight up ends at 11–10", () => {
+  const c = cfg({ pointsTo: 11, winBy: 1 });
+  assert(isWon(11, 10, c), "11-10 should win straight up");
+  assert(!isWon(11, 11, c), "11-11 is not a win");
+  assert(!isWon(10, 0, c), "below target never wins");
+});
+check("isWon — win by 3 needs the full margin", () => {
+  const c = cfg({ pointsTo: 11, winBy: 3 });
+  assert(!isWon(12, 10, c), "12-10 is only 2 clear");
+  assert(isWon(13, 10, c), "13-10 should win at win-by-3");
+});
+check("isWon — no target means the host ends it", () => {
+  const c = cfg({ pointsTo: 0 });
+  assert(!isWon(21, 0, c), "with no target nothing auto-finishes");
+});
+
+// A live game must never finish a tournament — for every sport, in every format
+// that sport offers whose result comes from matches.
+for (const sport of SPORTS)
+  for (const fmt of formatsForSport(sport).filter((f) => MATCH_DRIVEN.has(f))) {
+    const style: PlayStyle = playStylesForFormat(fmt)[0];
+    check(`live game blocks completion — ${sport} / ${fmt} / ${style}`, () => {
+      const n = fmt === "ryder" ? 8 : 8;
+      const P = players(n, fmt === "ryder");
+      const t = tour({
+        sport,
+        format: fmt,
+        playStyle: style,
+        participants: P,
+        config: cfg({ rounds: 2, courts: 2, poolCount: 2, advanceCount: 2 }),
+      });
+      t.matches = buildMatches(t);
+      const playable = t.matches.filter((m) => m.sideA.length && m.sideB.length);
+      assert(playable.length > 0, "no playable matches generated");
+
+      // Play every game out the legacy way (scores, no `final`) — the baseline.
+      for (const m of t.matches) {
+        if (!m.sideA.length || !m.sideB.length) continue;
+        m.scoreA = 11;
+        m.scoreB = 5;
+        m.final = undefined;
+      }
+      t.matches = propagateBracket(t.matches);
+      const done = getResult(t);
+
+      // Now put one game back on court. Nothing may read as finished while it's live.
+      const live = t.matches.find((m) => m.sideA.length && m.sideB.length)!;
+      live.final = false;
+      t.matches = propagateBracket(t.matches);
+      const during = getResult(t);
+      if (done.complete)
+        assert(!during.complete, `crowned "${during.winner}" while a game was still live`);
+
+      // Standings must not count the live game either. Every player on both sides
+      // gets a "played", so a match is worth however many people are on it.
+      const rr = t.matches.filter((m) => m.phase === "rr" || m.phase === "pool");
+      if (rr.length) {
+        const played = computeStandings(P, rr).reduce((s, r) => s + r.played, 0);
+        const wantPlayed = rr
+          .filter((m) => m.sideA.length && m.sideB.length && m.final !== false)
+          .reduce((s, m) => s + m.sideA.length + m.sideB.length, 0);
+        assert(played === wantPlayed, `standings counted ${played} played, want ${wantPlayed}`);
+      }
+
+      // Host ends it → the tournament finishes exactly as it did before.
+      live.final = true;
+      t.matches = propagateBracket(t.matches);
+      const after = getResult(t);
+      assert(
+        after.complete === done.complete && after.winner === done.winner,
+        `ending the game changed the outcome: ${done.winner} → ${after.winner}`,
+      );
+    });
+  }
+
+// Ryder: a live match can't decide the cup. Note the cup clinches at half the
+// points, so a dead-rubber match genuinely can't change the result — the live
+// match has to be the deciding one for this to prove anything. Splitting the
+// other matches evenly keeps both teams short of the clinch line.
+for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
+  check(`live game blocks completion — ${sport} / ryder`, () => {
+    const P = players(8, true);
+    const ms = genRyder(P, { foursomes: 1, fourball: 1, singles: 1 });
+    const t = tour({ sport, format: "ryder", participants: P, matches: ms, config: cfg({ ryderSingles: 1 }) });
+    ms.forEach((m, i) => {
+      m.scoreA = i % 2 === 0 ? 1 : 0; // alternate winners → neither side clinches
+      m.scoreB = i % 2 === 0 ? 0 : 1;
+      m.final = undefined;
+    });
+
+    ms[0].final = false; // still out on the course
+    const during = ryderScore(ms);
+    assert(during.status === "in-progress", `cup decided (${during.status}) with a live match`);
+    assert(!getResult(t).complete, `crowned "${getResult(t).winner}" with a live match`);
+    assert(during.played === ms.length - 1, `live match counted as played (${during.played}/${ms.length})`);
+
+    ms[0].final = true; // host posts the result
+    assert(getResult(t).complete, "cup should be decided once the last match is final");
+  });
+
+// Live scoring drives the round-robin hero card, so walk a real game point by
+// point for every sport that offers it — 1–1 stays on, the winning point ends it.
+for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("round-robin")))
+  for (const [mode, winBy, endA, endB] of [
+    ["win by 2", 2, 12, 10],
+    ["straight up", 1, 11, 10],
+  ] as [string, number, number, number][])
+    check(`point-by-point — ${sport} / ${mode}`, () => {
+      const c = cfg({ pointsTo: 11, winBy });
+      // Rally up to the score just before the winning point; nothing may finish early.
+      for (let a = 0; a <= endA; a++)
+        for (let b = 0; b <= endB; b++) {
+          const won = isWon(a, b, c);
+          const shouldWin = Math.max(a, b) >= 11 && Math.abs(a - b) >= winBy;
+          assert(won === shouldWin, `${sport}: ${a}-${b} won=${won}, want ${shouldWin}`);
+        }
+      assert(isWon(endA, endB, c), `${sport}: ${endA}-${endB} should end the game`);
+    });
 
 // ---- Summary ----
 console.log(`\n${"=".repeat(50)}`);

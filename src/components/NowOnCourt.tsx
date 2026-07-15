@@ -4,7 +4,7 @@ import { Match, Participant } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Side, MatchTimer } from "./MatchCard";
-import { isFinal } from "@/lib/score";
+import { isFinal, winMargin } from "@/lib/score";
 
 // The featured "on court now" match — big tappable scores + large steppers, a Leading badge,
 // and the synced court timer. Used only in the round-robin schedule; the compact MatchCard
@@ -32,6 +32,7 @@ export function NowOnCourt({
   const aLead = (a ?? 0) > (b ?? 0) && started;
   const bLead = (b ?? 0) > (a ?? 0) && started;
   const target = t?.config.pointsTo ?? 0;
+  const margin = t ? winMargin(t.config) : 2;
 
   // Every edit here is live: the game keeps playing until it's won or the host
   // ends it, so a point-by-point score never reads as a final result.
@@ -127,7 +128,7 @@ export function NowOnCourt({
             {isFinal(match)
               ? "Final"
               : target > 0
-                ? `First to ${target}${(t?.config.winByTwo ?? true) ? ", win by 2" : ""}`
+                ? `First to ${target}${margin > 1 ? `, win by ${margin}` : ""}`
                 : "Tap End game when it's over"}
           </span>
           {isFinal(match) ? (

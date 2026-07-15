@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tiebreaker, TIEBREAKER_LABELS, Tournament, TournamentConfig } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { winMargin } from "@/lib/score";
 import { colorForIndex } from "@/lib/colors";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
@@ -569,22 +570,18 @@ export function SetupPanel({ t }: { t: Tournament }) {
             onChange={(v) => setCfg({ pointsTo: v })}
             hint="Scoring target — live scoring ends the game here"
           />
-          <label className="block">
-            <span className="text-sm font-medium">Win by</span>
-            <select
-              value={(cfg.winByTwo ?? true) ? "2" : "1"}
-              onChange={(e) => setCfg({ winByTwo: e.target.value === "2" })}
-              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-            >
-              <option value="2">Win by 2 (pickleball, tennis)</option>
-              <option value="1">Straight up — first to {cfg.pointsTo} wins</option>
-            </select>
-            <span className="mt-1 block text-xs text-[var(--muted)]">
-              {(cfg.winByTwo ?? true)
-                ? `A game keeps going at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by 2.`
-                : `The first side to ${cfg.pointsTo} wins, even by one point.`}
-            </span>
-          </label>
+          <NumberField
+            label="Win by"
+            value={winMargin(cfg)}
+            min={1}
+            max={10}
+            onChange={(v) => setCfg({ winBy: v, winByTwo: undefined })}
+            hint={
+              winMargin(cfg) > 1
+                ? `Keeps playing at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by ${winMargin(cfg)}. 1 = first to ${cfg.pointsTo} wins.`
+                : `First side to ${cfg.pointsTo} wins, even by one point. Set 2 for pickleball or tennis.`
+            }
+          />
           <NumberField
             label="Time limit (min)"
             value={cfg.timeLimitMin ?? 0}
