@@ -1,7 +1,7 @@
 /* Headless glitch sweep: every format × many sizes × sports, through generate→score→result.
    Run: npx tsx test-formats.ts                                                            */
 import { genSinglesRR, genDoublesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./src/lib/schedule";
-import { genSingleElim, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
+import { genSingleElim, genSingleElimSides, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
 import { buildMatches } from "./src/lib/store";
 import { genRyder, genRyderSession, ryderScore, RyderSessionType } from "./src/lib/ryder";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
@@ -17,7 +17,7 @@ import {
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
-import { getRanking, getFinalRows } from "./src/lib/records";
+import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
 import {
   formatsForSport,
   SPORTS,
@@ -739,6 +739,118 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("round-robi
         }
       assert(isWon(endA, endB, c), `${sport}: ${endA}-${endB} should end the game`);
     });
+
+// Mirrors store.generateFinals for round-robin: top N advance, doubles pair
+// best-with-worst, and when the final is only two teams the next tier down plays a
+// bronze match. Without this the placement sweep below never builds a podium, so it
+// would silently pass while the bug it guards is wide open.
+function addFinals(t: Tournament, advanceCount: number, thirdPlace: boolean): Match[] {
+  const base = t.matches.filter((m) => m.phase === "rr");
+  const st = computeStandings(t.participants, base, t.config.tiebreaker, t.config.rankByWinPct);
+  const n = Math.min(advanceCount, st.length);
+  const seedIds = st.slice(0, n).map((r) => r.participantId);
+  let finals: Match[] = [];
+  if (t.playStyle === "doubles") {
+    const sides: string[][] = [];
+    for (let i = 0; i < Math.floor(seedIds.length / 2); i++) sides.push([seedIds[i], seedIds[seedIds.length - 1 - i]]);
+    if (sides.length >= 2) finals = genSingleElimSides(sides, "winners", { thirdPlace });
+  } else if (seedIds.length >= 2) {
+    finals = genSingleElim(seedIds, "winners", { thirdPlace });
+  }
+  if (thirdPlace && finals.length && !finals.some((m) => m.phase === "placement")) {
+    const need = t.playStyle === "doubles" ? 4 : 2;
+    const b = st.slice(n, n + need).map((r) => r.participantId);
+    if (b.length === need)
+      finals.push({
+        id: "bronze", phase: "placement", round: 1, order: 99, label: "Bronze Medal Match",
+        sideA: need === 4 ? [b[0], b[3]] : [b[0]],
+        sideB: need === 4 ? [b[1], b[2]] : [b[1]],
+        scoreA: null, scoreB: null,
+      });
+  }
+  return finals;
+}
+
+// ---- Placement numbering: places, counted once, never skipped ----
+// The bug this guards: the podium was numbered by place (1st, 2nd, 3rd, 4th) while
+// the field kept its raw round-robin number, so a results list read
+// "🥉 🥉 4th 4th 9th 10th" — a repeated number followed by a jump. Every place must
+// now appear exactly once, in order, with no gaps. Partners share a place, so a
+// place can cover several names; that's the only legitimate repeat.
+// Doubles is where this bites: partners share a place, so a raw round-robin number
+// no longer equals the place and the two systems diverge. Singles hides the bug —
+// one player per place makes them coincide — so both styles are swept.
+// golf/ryder declare no play styles (they're neither singles nor doubles), so they
+// fall back to one pass rather than being silently dropped from the sweep.
+const placementStyles = (fmt: Format): PlayStyle[] => {
+  const s = playStylesForFormat(fmt).filter((x) => x === "singles" || x === "doubles");
+  return s.length ? s : ["singles"];
+};
+
+for (const sport of SPORTS)
+  for (const fmt of formatsForSport(sport).filter((f) => f !== "custom" && f !== "ladder"))
+    for (const style of placementStyles(fmt))
+    for (const advanceCount of [2, 4]) {
+      check(`placement numbering — ${sport} / ${fmt} / ${style} / top ${advanceCount}`, () => {
+        const P = players(12, fmt === "ryder");
+        const t = tour({
+          sport,
+          format: fmt,
+          playStyle: style,
+          participants: P,
+          config: cfg({ rounds: 2, courts: 2, poolCount: 2, advanceCount, thirdPlace: true }),
+        });
+        t.matches = fmt === "ryder" ? genRyder(P, { foursomes: 1, fourball: 1, singles: 1 }) : buildMatches(t);
+        if (fmt === "golf") {
+          t.golf = defaultGolf(9, P.map((p) => p.id));
+          // Every card filled, all different, so the leaderboard has a strict order.
+          P.forEach((p, i) => (t.golf!.scores[p.id] = Array.from({ length: 9 }, () => 3 + (i % 4))));
+        }
+        for (const m of t.matches) {
+          if (!m.sideA.length || !m.sideB.length) continue;
+          m.scoreA = 11;
+          m.scoreB = 4 + (m.round % 3);
+        }
+        // Round-robin only crowns a podium once its finals bracket exists — build and
+        // play it, or this sweep never reaches the code that numbers the field.
+        // Doubles with only 2 advancing is a single team, so the app builds no bracket
+        // at all; that's a legitimate pure-standings result, not a vacuous test.
+        if (fmt === "round-robin") {
+          const finals = addFinals(t, advanceCount, true);
+          if (finals.length) {
+            t.matches = propagateBracket([...t.matches, ...finals]);
+            for (let guard = 0; guard < 50; guard++) {
+              const next = t.matches.find((m) => m.phase !== "rr" && m.sideA.length && m.sideB.length && m.scoreA === null);
+              if (!next) break;
+              next.scoreA = 11;
+              next.scoreB = 6;
+              t.matches = propagateBracket(t.matches);
+            }
+            assert(t.matches.some((m) => m.phase !== "rr"), "finals vanished — sweep would be vacuous");
+          }
+        }
+        t.matches = propagateBracket(t.matches);
+
+        const places = getPlacements(t);
+        if (!places.length) return; // nothing finished — nothing to number
+        const ranks = places.map((p) => p.rank);
+        // Placements come back best → worst.
+        for (let i = 1; i < ranks.length; i++)
+          assert(ranks[i] > ranks[i - 1], `places out of order: ${ranks.join(",")}`);
+        // Each place counted once, no gaps: 1, 2, 3, … k.
+        assert(ranks[0] === 1, `first place is ${ranks[0]}, want 1`);
+        ranks.forEach((r, i) => assert(r === i + 1, `place ${r} at index ${i} — gap in ${ranks.join(",")}`));
+        // A medal must sit on the place it names.
+        for (const p of places) {
+          if (p.medal === "gold") assert(p.rank === 1, `gold at place ${p.rank}`);
+          if (p.medal === "silver") assert(p.rank === 2, `silver at place ${p.rank}`);
+          if (p.medal === "bronze") assert(p.rank === 3, `bronze at place ${p.rank}`);
+        }
+        // Everyone rostered lands somewhere, exactly once.
+        const named = places.flatMap((p) => p.names);
+        assert(new Set(named).size === named.length, `someone placed twice: ${named.join(",")}`);
+      });
+    }
 
 // ---- Summary ----
 console.log(`\n${"=".repeat(50)}`);

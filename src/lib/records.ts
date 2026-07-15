@@ -108,8 +108,8 @@ function rosterOf(t: Tournament, ids: string[]): string[] {
 }
 
 export interface Placement {
-  names: string[]; // everyone sharing this finishing position (doubles partners together)
-  rank: number; // displayed finishing number (1, 2, then 5, 6… when a top-4 advanced)
+  names: string[]; // everyone sharing this finishing place (doubles partners together)
+  rank: number; // finishing PLACE, counted once each: 1st, 2nd, 3rd… never skipped
   medal?: "gold" | "silver" | "bronze";
 }
 
@@ -130,11 +130,16 @@ function toPlacements(t: Tournament, rankByPid: Map<string, number>, hasThird: b
 }
 
 /**
- * Finishing placements (best → worst). Doubles/team results keep partners together
- * and sharing a rank: in a round-robin whose top players advance to a paired final,
- * the winning duo are both 1st, the losing duo both 2nd, and everyone who didn't
- * advance keeps their round-robin position (so with a top-4 final the next player is
- * 5th). Bronze is only awarded when a real 3rd-place is contested.
+ * Finishing placements (best → worst), numbered by PLACE — each place counted once,
+ * never skipped: 1st, 2nd, 3rd, 4th, 5th… Partners share a place, so the winning duo
+ * are both 1st and the losing duo both 2nd, and the field that didn't advance picks up
+ * at the next place below the podium.
+ *
+ * Place, not position: with a top-4 doubles final, four people finish ahead of the best
+ * non-advancer, but they occupy two places (1st and 2nd), so that player is 3rd — not
+ * 5th. Mixing the two numbered the podium by place and the field by position, which read
+ * as a glitch (…🥉 4th, 4th, then 9th). Bronze is only awarded when a real 3rd place is
+ * contested.
  */
 export function getPlacements(t: Tournament): Placement[] {
   if (t.format === "golf") {
@@ -205,10 +210,15 @@ export function getPlacements(t: Tournament): Placement[] {
       }
     }
   }
-  // Everyone not placed by the bracket keeps their round-robin standing.
-  for (const p of t.participants) {
-    if (!rank.has(p.id)) rank.set(p.id, rrRank.get(p.id) ?? 999);
-  }
+  // Everyone the bracket didn't place keeps their round-robin ORDER, but is numbered
+  // as the next place below the podium — their raw round-robin number would collide
+  // with the podium's places and leave gaps (a top-4 final would jump 2nd → 5th).
+  const podium = [...rank.values()];
+  const nextPlace = podium.length ? Math.max(...podium) + 1 : 1;
+  t.participants
+    .filter((p) => !rank.has(p.id))
+    .sort((a, b) => (rrRank.get(a.id) ?? 999) - (rrRank.get(b.id) ?? 999))
+    .forEach((p, i) => rank.set(p.id, nextPlace + i));
 
   return toPlacements(t, rank, hasThird);
 }
