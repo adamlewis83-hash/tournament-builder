@@ -346,9 +346,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const holeIdx = Array.from({ length: holes }, (_, i) => offset + i);
 
   return (
-    <div className="space-y-5">
+    // Scoring (which game — Stroke, Skins, Wolf…) leads, because that's the decision the
+    // host is here to make; course and players follow. It used to sit last, nearly two
+    // phone-screens down, so the game types read as missing. `order` drives the visual
+    // sequence off the same DOM.
+    <div className="flex flex-col gap-5">
       {/* Course */}
-      <Card className="p-5">
+      <Card className="p-5 order-2">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold">Course</h2>
           <Link href="/courses" className="text-xs text-[var(--brand)] hover:underline">
@@ -692,7 +696,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       </Card>
 
       {/* Players + handicaps */}
-      <Card className="p-5">
+      <Card className="p-5 order-3">
         <div className="flex items-center justify-between mb-1 gap-2">
           <div className="flex items-center gap-2">
             <h2 className="font-semibold">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
@@ -843,8 +847,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
       </Card>
 
       {/* Scoring mode */}
-      <Card className="p-5">
-        <h2 className="font-semibold mb-3">Scoring</h2>
+      <Card className="p-5 order-1">
+        <h2 className="font-semibold mb-3">Scoring — pick your game</h2>
         <div className="flex flex-wrap gap-2">
           {MODES.map((m) => (
             <button
@@ -895,8 +899,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
             </p>
             {teamMode && (
               <p className="text-xs text-[var(--muted)] mb-3">
-                Enter your teams above (e.g. <span className="font-medium">Player 1 &amp; Player 2</span>) —
-                one score per team per hole.
+                Enter your teams in Players &amp; handicaps below (e.g.{" "}
+                <span className="font-medium">Player 1 &amp; Player 2</span>) — one score per team per hole.
               </p>
             )}
             <div className="space-y-2">
@@ -969,7 +973,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         )}
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end order-4">
         <Button onClick={handleGenerate} disabled={!valid} className="px-6 py-3">
           Start scorecard →
         </Button>
