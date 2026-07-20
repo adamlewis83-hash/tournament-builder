@@ -70,7 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <PullToRefresh />
         <CloudSync />
         <TopBar />
-        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24">
+        <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
         <footer className="no-print relative z-10 border-t border-[var(--border)] py-4 pb-24 text-center text-xs text-[var(--muted)]">

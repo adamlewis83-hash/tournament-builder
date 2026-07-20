@@ -20,7 +20,7 @@ const items = [
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav className="no-print fixed bottom-0 inset-x-0 z-30 border-t border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-xl">
+    <nav className="no-print fixed bottom-0 inset-x-0 z-30 border-t border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto max-w-6xl grid grid-cols-5">
         {items.map(({ href, label, Icon, match }) => {
           const active = match(path);
