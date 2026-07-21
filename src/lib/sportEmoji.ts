@@ -15,6 +15,7 @@ const RULES: [RegExp, string][] = [
   [/chess/i, "♟️"],
   [/video|esport|game/i, "🎮"],
   [/board/i, "🎲"],
+  [/cup ?pong/i, "🥤"], // Cup Pong (né Beer Pong — renamed for the 4+ age rating)
   [/beer|spike/i, "🍺"],
   [/badmin/i, "🏸"],
   [/racquet|squash/i, "🥎"],

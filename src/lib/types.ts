@@ -335,7 +335,7 @@ export const SPORTS: string[] = [
   "Badminton",
   "Racquetball",
   "Pop-A-Shot",
-  "Beer Pong",
+  "Cup Pong",
   "Chess",
   "Video Games / Esports",
   "Board Games",
@@ -370,7 +370,8 @@ const KOTC_SPORTS = new Set([
   "Racquetball",
   "Spikeball",
   "Cornhole",
-  "Beer Pong",
+  "Cup Pong",
+  "Beer Pong", // legacy alias — tournaments created before the rename keep their formats
   "Foosball",
   "Basketball",
   "Volleyball",
@@ -387,7 +388,8 @@ const AMERICANO_SPORTS = new Set([
   "Racquetball",
   "Spikeball",
   "Cornhole",
-  "Beer Pong",
+  "Cup Pong",
+  "Beer Pong", // legacy alias
   "Foosball",
 ]);
 const SCORE_CHALLENGE_SPORTS = new Set([

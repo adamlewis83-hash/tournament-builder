@@ -308,7 +308,7 @@ const RULES: [RegExp, Key][] = [
   [/dart/i, "darts"],
   [/pool|billiard|snooker/i, "pool"],
   [/bowl/i, "bowling"],
-  [/beer/i, "beerpong"],
+  [/cup ?pong|beer/i, "beerpong"], // same cup-and-ball glyph — "Cup Pong" is the shipping name
   [/chess/i, "chess"],
   [/video|esport|arcade/i, "videogames"],
   [/board/i, "boardgames"],
