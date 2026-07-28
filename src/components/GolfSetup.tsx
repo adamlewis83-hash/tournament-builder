@@ -223,7 +223,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     const r = await searchCourses(q);
     if (r.notConfigured) {
       setTeeFinding(false);
-      setTeeFindMsg("Course search isn't set up — add your tees manually below.");
+      setTeeFindMsg("Course search is temporarily unavailable — add your tees manually below.");
       return;
     }
     const match = r.courses.find((c) => c.name.toLowerCase() === q.toLowerCase()) ?? r.courses[0];
@@ -396,7 +396,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </div>
           {notConfigured && (
             <p className="text-xs text-amber-400 mt-1">
-              Course search isn&apos;t set up yet (no API key configured).
+              Course search is temporarily unavailable — enter your course manually below.
             </p>
           )}
           {results.length > 0 && (

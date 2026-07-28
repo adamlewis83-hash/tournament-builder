@@ -77,6 +77,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           Sporos · plays offline · saved on your device ·{" "}
           <Link href="/privacy" className="hover:underline">
             Privacy
+          </Link>{" "}
+          ·{" "}
+          <Link href="/support" className="hover:underline">
+            Support
           </Link>
         </footer>
         <BottomNav />

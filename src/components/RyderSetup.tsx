@@ -217,7 +217,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
             </Button>
           </div>
           {notConfigured && (
-            <p className="text-xs text-amber-400 mt-1">Course search isn&apos;t set up yet.</p>
+            <p className="text-xs text-amber-400 mt-1">Course search is temporarily unavailable.</p>
           )}
           {results.length > 0 && (
             <div className="mt-2 rounded-lg border border-[var(--border)] divide-y divide-[var(--border)] max-h-56 overflow-auto">

@@ -28,7 +28,7 @@ export function EmailBackup({
     setMsg("");
     const r = await sendRecoveryCode(email.trim());
     setBusy(false);
-    if (r.notConfigured) return setMsg("Email backup isn't set up yet.");
+    if (r.notConfigured) return setMsg("Sign-in is temporarily unavailable — please try again later.");
     if (!r.ok) return setMsg("Couldn't send — check the address and try again.");
     setStage("code");
     setMsg(`We emailed a 6-digit code to ${email.trim()}.`);

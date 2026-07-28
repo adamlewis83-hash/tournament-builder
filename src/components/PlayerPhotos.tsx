@@ -158,7 +158,7 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
                 </div>
                 {teeNotConfigured && (
                   <p className="mt-1 text-[11px] text-amber-400">
-                    Course search isn&apos;t set up yet — add your tees manually below.
+                    Course search is temporarily unavailable — add your tees manually below.
                   </p>
                 )}
                 {teeResults.length > 0 && (
