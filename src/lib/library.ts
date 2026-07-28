@@ -40,6 +40,26 @@ export function signOut() {
   localStorage.setItem(KEY, randomKey());
 }
 
+/** Delete the account: erase the email link and every cloud backup from the
+ *  server, then detach this device to a fresh anonymous library. Tournaments
+ *  already on this device stay on this device. */
+export async function deleteAccount(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/account", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner: getLibraryKey() }),
+    });
+    if (!res.ok) return false;
+  } catch {
+    return false;
+  }
+  localStorage.removeItem(ACCOUNT_EMAIL_KEY);
+  localStorage.setItem(KEY, randomKey());
+  return true;
+}
+
 /** Cloud library: live tournaments plus the ids this owner has deleted (tombstones). */
 export async function fetchLibrary(
   owner: string,

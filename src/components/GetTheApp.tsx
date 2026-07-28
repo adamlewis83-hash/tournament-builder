@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 // Store links — set each to the live URL the moment that app is published, and the
 // badge flips from "Coming soon" to a real link. No other change needed.
 const PLAY_STORE_URL: string | null = null; // e.g. "https://play.google.com/store/apps/details?id=com.lewcrewlabs.sporos"
@@ -65,6 +67,16 @@ function Badge({
 }
 
 export function GetTheApp() {
+  // Inside the native iOS/Android shell this section is noise at best and an
+  // App Review flag at worst (other-platform badges, "install the web app"
+  // instructions) — the user already has the app. Web only.
+  const [native, setNative] = useState(true);
+  useEffect(() => {
+    const w = window as { Capacitor?: { isNativePlatform?: () => boolean } };
+    setNative(!!w.Capacitor?.isNativePlatform?.());
+  }, []);
+  if (native) return null;
+
   return (
     <section className="mt-10 text-center">
       <h2 className="text-lg font-bold">Get Sporos on your phone</h2>

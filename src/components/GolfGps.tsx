@@ -122,7 +122,7 @@ export function GolfGps({
       setLocating(false);
       setGeoError(
         isStandaloneIOS() && !hasNativeGeo()
-          ? "iPhone blocks GPS in home-screen web apps. Use the Sporos app from TestFlight, or open sporos.app in Safari."
+          ? "iPhone blocks GPS in home-screen web apps. Use the Sporos iOS app, or open sporos.app in Safari."
           : "Couldn't get a location fix — make sure location is allowed, then retry.",
       );
     }, 12000);

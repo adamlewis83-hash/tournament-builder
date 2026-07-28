@@ -91,8 +91,9 @@ export default function PrivacyPage() {
       <p className="text-[var(--foreground)]">
         Local data stays until you delete a tournament or clear app storage. Cloud backups remain until
         you delete the tournament or stop backing up. Live sessions and their cheers persist with the
-        session. To delete your cloud data or email link, or to request removal, email us and we&apos;ll take
-        care of it.
+        session. You can delete your account at any time in the app — <b>Settings → Account &amp; sync →
+        Delete account</b> — which permanently erases your email link and every cloud backup from our
+        servers. You can also email us with any removal request and we&apos;ll take care of it.
       </p>
 
       <H>Children</H>
