@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 // Store links — set each to the live URL the moment that app is published, and the
 // badge flips from "Coming soon" to a real link. No other change needed.
 const PLAY_STORE_URL: string | null = null; // e.g. "https://play.google.com/store/apps/details?id=com.lewcrewlabs.sporos"
-const APP_STORE_URL: string | null = null; // e.g. "https://apps.apple.com/app/idXXXXXXXXX"
+const APP_STORE_URL: string | null =
+  "https://apps.apple.com/us/app/sporos-tournament-builder/id6787539978";
 
 function AppleLogo() {
   return (
