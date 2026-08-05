@@ -8,6 +8,7 @@ import { isFinal } from "@/lib/score";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { Confetti } from "./Confetti";
+import { RatePrompt } from "./RatePrompt";
 
 // The runner-up is whoever lost the deciding match (mirrors bracketChampion's
 // notion of which match decided it).
@@ -75,6 +76,7 @@ export function Champion({
           To the Record Book →
         </Link>
       </div>
+      <RatePrompt />
     </>
   );
 }
