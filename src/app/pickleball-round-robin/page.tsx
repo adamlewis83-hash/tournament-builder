@@ -8,6 +8,7 @@ export const metadata = {
 };
 
 const related = [
+  { href: "/pickleball-tournament", label: "Pickleball tournament maker" },
   { href: "/bracket-maker", label: "Bracket maker" },
   { href: "/golf-scorecard", label: "Golf scorecard & skins" },
   { href: "/cornhole-bracket", label: "Cornhole bracket" },
