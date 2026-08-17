@@ -30,18 +30,22 @@ Tip: film each segment separately and cut them — snappier than one take.
 
 Little life update: I built an app. 🌱🏆
 
-It started because our Saturday pickleball group could never keep the bracket
-straight — someone always ran it off a whiteboard photo that was wrong by
-round two. So I spent my nights building Sporos: pick a sport, pick a format,
-and it builds the bracket or schedule in seconds. Everyone scores from their
-own phone, friends can follow along live, and somebody gets *crowned* at the
-end.
+Anyone who's been to one of our family or work tournaments knows the drill:
+every year, same thing — me at the kitchen table the night before, redrawing
+the same bracket from scratch, and by the semifinals nobody can agree on who
+actually played who. After enough years of that, I finally just built the
+thing I kept wishing existed.
 
-Pickleball, golf (with real handicaps and skins), cornhole, cup pong, tennis,
-board games — basically anything you can compete at.
+It's called Sporos: pick a sport, pick a format, and it builds the bracket or
+schedule in seconds. Everyone scores from their own phone, people can follow
+along live, and somebody gets properly *crowned* at the end — with every
+champion saved in a record book, so the trash talk finally has receipts.
+
+Pickleball, golf (real handicaps and skins), cornhole, cup pong, tennis,
+board games — anything you can compete at.
 
 It's free, no ads, and as of this week it's officially on the App Store,
-which still feels fake to type. Link in bio. If you try it, run your next
+which still feels fake to type. Link in bio. Run your next family showdown or
 game night on it and tell me what breaks — and if you like it, a rating
 genuinely helps a tiny app get found. 🙏
 
