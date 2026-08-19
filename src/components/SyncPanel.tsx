@@ -9,6 +9,7 @@ import { EmailBackup } from "./EmailBackup";
 
 export function SyncPanel() {
   const mergeCloud = useStore((s) => s.mergeCloud);
+  const clearLocal = useStore((s) => s.clearLocal);
   const [email, setEmail] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
@@ -25,13 +26,21 @@ export function SyncPanel() {
   }
 
   function doSignOut() {
+    // Offline sign-out could strand unsynced changes — backups push within
+    // seconds of any change, but be honest when we can't be sure.
+    const offlineNote =
+      typeof navigator !== "undefined" && !navigator.onLine
+        ? "\n\n⚠ You're offline — changes made since your last connection may not be backed up yet."
+        : "";
     if (
       !confirm(
-        "Sign out? Your tournaments stay safe in your account — sign back in with your email anytime to get them on any device.",
+        "Sign out? Your tournaments, friends, and courses are backed up to your account and will be removed from this device. Sign back in with your email anytime to get them all back." +
+          offlineNote,
       )
     )
       return;
     signOut();
+    clearLocal();
     window.location.reload();
   }
 

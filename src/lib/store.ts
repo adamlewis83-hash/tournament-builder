@@ -71,6 +71,7 @@ interface State {
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
   duplicateTournament: (id: string) => string | null;
+  clearLocal: () => void;
   mergeCloud: (list: Tournament[]) => void;
   pruneDeleted: (ids: string[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
@@ -542,6 +543,13 @@ export const useStore = create<State>()(
 
       removeTournament: (id) =>
         set((s) => ({ tournaments: s.tournaments.filter((t) => t.id !== id) })),
+
+      // Sign-out hygiene: remove the whole library from this device. The cloud
+      // copy under the signed-in account is untouched — signing back in pulls
+      // it all back. Without this, the next account on this device inherits the
+      // previous one's tournaments in the Record Book (and would cross-upload
+      // them to its own cloud library).
+      clearLocal: () => set(() => ({ tournaments: [], friends: [], courses: [] })),
 
       // Drop local copies the cloud says were deleted (tombstones). Without this a
       // device that was closed during a delete keeps its stale copy and re-pushes
