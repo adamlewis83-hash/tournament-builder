@@ -31,10 +31,10 @@ import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./li
 
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
-  courts: 3,
+  courts: 4,
   pointsTo: 11,
   timeLimitMin: 0,
-  advanceCount: 16, // default: bracket the whole field (capped at player count); lower it for a top-N finals
+  advanceCount: 8, // top-8 finals by default (capped at player count); raise it to bracket the whole field
 
   poolCount: 2,
   bracketType: "single",

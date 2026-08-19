@@ -7,6 +7,7 @@ import { useStore, useTournament } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { isGrantedScorer } from "@/lib/perms";
 import { Badge, Button, Card, StatusPill } from "@/components/ui";
+import { Settings } from "@/components/icons";
 import { tournamentStatus } from "@/lib/status";
 import { StageChips } from "@/components/StageChips";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -87,7 +88,7 @@ function TournamentDetail({ id }: { id: string }) {
             {t.generated && !t.spectator && (
               <Button
                 variant="outline"
-                className="px-2.5 py-1.5"
+                className="px-3 py-1.5 border-[var(--brand)]/50 text-[var(--brand)] font-semibold"
                 onClick={() => {
                   if (
                     confirm(
@@ -97,6 +98,7 @@ function TournamentDetail({ id }: { id: string }) {
                     reset(t.id);
                 }}
               >
+                <Settings className="h-4 w-4" />
                 Edit setup
               </Button>
             )}
