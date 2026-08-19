@@ -256,6 +256,12 @@ export function SetupPanel({ t }: { t: Tournament }) {
     if (teamMode) setTeamsStore(t.id, build(teams));
     else setParticipants(t.id, names);
     generate(t.id);
+    // The generate button sits at the bottom of a long form; the schedule that
+    // replaces it inherits that scroll offset and opens mid-page (~Round 2).
+    // Scroll now and once more after the re-render commits (not rAF — that
+    // stalls in backgrounded tabs).
+    window.scrollTo(0, 0);
+    setTimeout(() => window.scrollTo(0, 0), 0);
   }
 
   if (t.format === "ryder")
