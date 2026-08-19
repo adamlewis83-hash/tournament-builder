@@ -18,8 +18,8 @@
 | Time | Shot | What to show |
 |------|------|--------------|
 | 0–4s | Home | The three tournament cards (LIVE/FINAL pills visible). Slow scroll. |
-| 4–10s | New tournament | Tap +, tap Pickleball, tap a format tile, Create. Show how fast setup is. |
-| 10–16s | Seed it | Player list filled → tap "Seed it → generate bracket" → bracket pops in. |
+| 4–10s | New tournament | Tap +, tap Pickleball, tap **Single Elimination**, Create. Show how fast setup is. |
+| 10–16s | Bracket reveal | Player list filled → tap **"Seed it → generate bracket"** → bracket pops in. (That button text only appears for elimination brackets — round robin says "Generate schedule", which is less dramatic on camera.) |
 | 16–22s | Live scoring | Cup Pong Night: the "On court now" card, tap + a few times, LEADING badge. |
 | 22–28s | The crown | Sunset Open: champion screen — "Sam Rivera & Riley Chen is crowned", confetti, podium. |
 | 28–30s | End | Home screen or the App Store page. (Text overlay: "Sporos — free on the App Store") |
