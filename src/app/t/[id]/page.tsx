@@ -8,6 +8,9 @@ import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { isGrantedScorer } from "@/lib/perms";
 import { Badge, Button, Card, StatusPill } from "@/components/ui";
 import { Settings } from "@/components/icons";
+import { isFinal } from "@/lib/score";
+import { bracketChampion } from "@/lib/bracket";
+import { Tournament } from "@/lib/types";
 import { tournamentStatus } from "@/lib/status";
 import { StageChips } from "@/components/StageChips";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -46,6 +49,7 @@ function TournamentDetail({ id }: { id: string }) {
   const t = useTournament(id);
   const patch = useStore((s) => s.patchTournament);
   const reset = useStore((s) => s.resetToSetup);
+  const generateFinals = useStore((s) => s.generateFinals);
   const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
   useLiveSync(id, t?.liveCode, t?.liveVersion);
 
@@ -136,6 +140,15 @@ function TournamentDetail({ id }: { id: string }) {
       {t.generated && t.format === "round-robin" && (
         <div className="space-y-4">
           <Champion matches={t.matches} participants={t.participants} />
+          <FinalsNudge
+            t={t}
+            tab={tab}
+            onGo={(needsSeed) => {
+              if (needsSeed) generateFinals(t.id);
+              setTab("bracket");
+              window.scrollTo(0, 0);
+            }}
+          />
           <div className="inline-flex rounded-lg border bg-[var(--surface)] p-1">
             <TabButton active={tab === "schedule"} onClick={() => setTab("schedule")}>
               Schedule
@@ -221,5 +234,41 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+// Round-robin → finals handoff. When the last RR game is scored nothing used
+// to happen — you had to know to open the Bracket tab. This banner appears the
+// moment the round robin completes and walks you into the finals.
+function FinalsNudge({
+  t,
+  tab,
+  onGo,
+}: {
+  t: Tournament;
+  tab: string;
+  onGo: (needsSeed: boolean) => void;
+}) {
+  if (tab === "bracket") return null;
+  const rr = t.matches.filter((m) => m.phase === "rr");
+  const rrDone = rr.length > 0 && rr.every(isFinal);
+  if (!rrDone) return null;
+  if (bracketChampion(t.matches)) return null; // crowned — Champion banner owns this moment
+  const hasFinals = t.matches.some((m) => m.phase !== "rr");
+  if (!hasFinals && t.spectator) return null; // spectators can't seed
+  return (
+    <Card className="p-4 flex flex-wrap items-center justify-between gap-3 border-[var(--win)]/50 glow-brand">
+      <div>
+        <p className="font-semibold">🎉 Round robin complete</p>
+        <p className="text-sm text-[var(--muted)]">
+          {hasFinals
+            ? "The finals bracket is ready — play on."
+            : `Time for the playoffs — the top ${t.config.advanceCount} advance.`}
+        </p>
+      </div>
+      <Button onClick={() => onGo(!hasFinals)}>
+        {hasFinals ? "Play the finals →" : "Seed the finals →"}
+      </Button>
+    </Card>
   );
 }

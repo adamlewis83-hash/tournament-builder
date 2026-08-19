@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Match, Participant } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
+import { NowOnCourt } from "./NowOnCourt";
 import { BracketDiagram } from "./BracketDiagram";
 
 function ModeToggle({
@@ -111,7 +112,9 @@ export function BracketView({
   const hasLosers = losers.length > 0;
   const tree = [...winners, ...finals]; // the single-elim winners → final tree
 
-  const [mode, setMode] = useState<"round" | "full">("full");
+  // Default to the scoring view — hosts land here to enter results; the full
+  // diagram is one tap away for the overview.
+  const [mode, setMode] = useState<"round" | "full">("round");
   const [pinnedRound, setPinnedRound] = useState<number | null>(null);
 
   const decided = (m: Match) => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB;
@@ -218,10 +221,37 @@ export function BracketView({
       </div>
 
       {mode === "round" ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {shownMatches.map((m) => (
-            <MatchCard key={m.id} tournamentId={tournamentId} participants={participants} match={m} />
-          ))}
+        // Live games get the big stepper cards (same as the schedule's "on
+        // court now"); decided or not-yet-ready games stay compact.
+        <div className="space-y-3">
+          {shownMatches.some((m) => ready(m) && !decided(m)) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {shownMatches
+                .filter((m) => ready(m) && !decided(m))
+                .map((m) => (
+                  <NowOnCourt
+                    key={m.id}
+                    tournamentId={tournamentId}
+                    participants={participants}
+                    match={m}
+                  />
+                ))}
+            </div>
+          )}
+          {shownMatches.some((m) => !ready(m) || decided(m)) && (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {shownMatches
+                .filter((m) => !ready(m) || decided(m))
+                .map((m) => (
+                  <MatchCard
+                    key={m.id}
+                    tournamentId={tournamentId}
+                    participants={participants}
+                    match={m}
+                  />
+                ))}
+            </div>
+          )}
         </div>
       ) : (
         <BracketDiagram matches={matches} participants={participants} />
