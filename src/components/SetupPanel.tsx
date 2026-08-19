@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Tiebreaker, TIEBREAKER_LABELS, Tournament, TournamentConfig } from "@/lib/types";
+import {
+  Format,
+  FORMAT_LABELS,
+  PLAYSTYLE_LABELS,
+  playStylesForFormat,
+  Tiebreaker,
+  TIEBREAKER_LABELS,
+  Tournament,
+  TournamentConfig,
+} from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { winMargin } from "@/lib/score";
 import { colorForIndex } from "@/lib/colors";
@@ -282,6 +291,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
   return (
     <div className="space-y-5">
       <RegistrationPanel t={t} />
+      <FormatSwitcher t={t} onChange={(p) => patch(t.id, p)} />
       <div className="grid lg:grid-cols-2 gap-5">
       {teamMode ? (
         <Card className="p-5">
@@ -748,5 +758,73 @@ export function SetupPanel({ t }: { t: Tournament }) {
       </Card>
       </div>
     </div>
+  );
+}
+
+// Pre-generation format/play-style switcher: picking the wrong tile on the
+// create form used to mean starting the whole tournament over. Golf and Ryder
+// have dedicated setup flows, so they're neither offered nor reachable here.
+const SWITCHABLE_FORMATS = (Object.keys(FORMAT_LABELS) as Format[]).filter(
+  (f) => f !== "golf" && f !== "ryder",
+);
+
+function FormatSwitcher({
+  t,
+  onChange,
+}: {
+  t: Tournament;
+  onChange: (p: Partial<Tournament>) => void;
+}) {
+  const styles = playStylesForFormat(t.format);
+
+  function setFormat(f: Format) {
+    if (f === t.format) return;
+    const valid = playStylesForFormat(f);
+    onChange(valid.includes(t.playStyle) ? { format: f } : { format: f, playStyle: valid[0] });
+  }
+
+  return (
+    <Card className="p-5 space-y-3">
+      <div>
+        <h2 className="font-semibold">Format &amp; play style</h2>
+        <p className="text-sm text-[var(--muted)]">
+          Picked the wrong one? Change it here — anything goes until you generate.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {SWITCHABLE_FORMATS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFormat(f)}
+            className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+              t.format === f
+                ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                : "border-[var(--border)] hover:bg-[var(--hover)]"
+            }`}
+          >
+            {FORMAT_LABELS[f]}
+          </button>
+        ))}
+      </div>
+      {styles.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {styles.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onChange({ playStyle: s })}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                t.playStyle === s
+                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              {PLAYSTYLE_LABELS[s]}
+            </button>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
