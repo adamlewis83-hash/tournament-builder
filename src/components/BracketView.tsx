@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Match, Participant } from "@/lib/types";
+import { isFinal } from "@/lib/score";
 import { MatchCard } from "./MatchCard";
 import { NowOnCourt } from "./NowOnCourt";
 import { BracketDiagram } from "./BracketDiagram";
@@ -117,7 +118,10 @@ export function BracketView({
   const [mode, setMode] = useState<"round" | "full">("round");
   const [pinnedRound, setPinnedRound] = useState<number | null>(null);
 
-  const decided = (m: Match) => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB;
+  // A live steppers game carries final:false while points go in — 2–0 mid-game
+  // is NOT a result. Legacy typed scores (no final flag) still count once both
+  // boxes are filled and unequal.
+  const decided = (m: Match) => isFinal(m) && m.scoreA !== m.scoreB;
   const ready = (m: Match) => m.sideA.length > 0 && m.sideB.length > 0;
   const roundName = (count: number) =>
     count === 1 ? "Final" : count === 2 ? "Semifinals" : count === 4 ? "Quarterfinals" : `Round of ${count * 2}`;
