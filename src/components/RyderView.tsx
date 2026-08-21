@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
 import { ryderScore, RyderSessionType } from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
-import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText } from "@/lib/ryderGolf";
+import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText, sessionCard } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
@@ -26,12 +26,13 @@ function RyderMatchCard({
 
   const ents = entitiesForMatch(m);
   const st = matchStatus(t, m);
+  const card = sessionCard(t, m.round) ?? g;
   const sc = g.scores[m.id] ?? {};
   const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "?";
   const sideNames = (ids: string[]) => ids.map(nameOf).join(" / ");
   const colLabel = (key: string) =>
     key === "A" ? teamNames[0] : key === "B" ? teamNames[1] : nameOf(key).split(" ")[0];
-  const holes = Array.from({ length: g.holes }, (_, i) => i);
+  const holes = Array.from({ length: card.holes }, (_, i) => i);
   const statusColor =
     st.upA > st.upB ? "text-[var(--brand)]" : st.upB > st.upA ? "text-rose-300" : "text-[var(--muted)]";
 
@@ -91,7 +92,7 @@ function RyderMatchCard({
                       {h + 1}
                     </td>
                     <td className="px-1 py-1 text-center text-[var(--muted)] border-t border-[var(--border)]">
-                      {g.pars[h]}
+                      {card.pars[h]}
                     </td>
                     {ents.map((e) => {
                       const strokes = entityStrokes(t, m, e.key, h);
@@ -152,6 +153,80 @@ function RyderMatchCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// Multi-course cups: pick which course (and which nine) one session plays on.
+// Options come from the cup's default course plus the host's saved courses;
+// save the day's courses in /courses (or via Course search in Edit setup) first.
+function SessionCourseControl({ t, round }: { t: Tournament; round: number }) {
+  const savedCourses = useStore((s) => s.courses);
+  const setSessionCourse = useStore((s) => s.setRyderSessionCourse);
+  const g = t.ryderGolf;
+  if (!g) return null;
+  const nineHoles = g.holes <= 9;
+  const current = g.sessionCourses?.[round];
+
+  // Re-rank a nine's stroke indexes 1..9 (their 18-hole values would bunch the
+  // handicap strokes when only nine are in play).
+  const rerank = (si: number[]) => {
+    const order = si.map((v, i) => [v, i] as const).sort((a, b) => a[0] - b[0]);
+    const out = Array(si.length).fill(0);
+    order.forEach(([, idx], rank) => (out[idx] = rank + 1));
+    return out;
+  };
+  const slice = (pars: number[], si: number[], nine: "front" | "back") => {
+    const from = nine === "back" ? 9 : 0;
+    return { pars: pars.slice(from, from + 9), strokeIndex: rerank(si.slice(from, from + 9)) };
+  };
+
+  const apply = (v: string) => {
+    if (v === "default") return setSessionCourse(t.id, round, null);
+    const [cid, nine] = v.split("|") as [string, "front" | "back" | undefined];
+    const c = savedCourses.find((x) => x.id === cid);
+    if (!c) return;
+    if (nineHoles && c.holes >= 18 && nine) {
+      const cut = slice(c.pars, c.strokeIndex, nine);
+      setSessionCourse(t.id, round, { courseName: c.name, nine, ...cut });
+    } else {
+      setSessionCourse(t.id, round, {
+        courseName: c.name,
+        pars: c.pars.slice(0, nineHoles ? 9 : c.holes),
+        strokeIndex: nineHoles ? rerank(c.strokeIndex.slice(0, 9)) : c.strokeIndex.slice(0, c.holes),
+      });
+    }
+  };
+
+  const value = current
+    ? (() => {
+        const c = savedCourses.find((x) => x.name === current.courseName);
+        return c ? `${c.id}${current.nine ? `|${current.nine}` : ""}` : "custom";
+      })()
+    : "default";
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => apply(e.target.value)}
+      className="max-w-[220px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs outline-none focus:border-[var(--brand)]"
+      title="Course this session is played on"
+    >
+      <option value="default">⛳ {g.courseName ?? "Default course"}{nineHoles ? " · front 9" : ""}</option>
+      {savedCourses.map((c) =>
+        nineHoles && c.holes >= 18 ? (
+          ["front", "back"].map((n) => (
+            <option key={`${c.id}|${n}`} value={`${c.id}|${n}`}>
+              ⛳ {c.name} · {n} 9
+            </option>
+          ))
+        ) : (
+          <option key={c.id} value={c.id}>
+            ⛳ {c.name}
+          </option>
+        ),
+      )}
+      {value === "custom" && <option value="custom">⛳ {current?.courseName ?? "Custom"}</option>}
+    </select>
   );
 }
 
@@ -228,14 +303,14 @@ export function RyderView({ t }: { t: Tournament }) {
   const addRyderSession = useStore((s) => s.addRyderSession);
   const removeRyderRound = useStore((s) => s.removeRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
-  const score = ryderScore(t.matches);
+  const score = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
   const ryder = t.matches.filter((m) => m.phase === "ryder");
   const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
   const teamA = t.participants.filter((p) => p.team === 0);
   const teamB = t.participants.filter((p) => p.team === 1);
 
   const winnerName = score.status === "a-wins" ? nameA : score.status === "b-wins" ? nameB : null;
-  const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
+  const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(2).replace(/0$/, ""));
 
   // Live projection: official points plus in-progress matches counted as they stand
   // now (leader gets the point, all-square splits) — updates hole by hole.
@@ -307,7 +382,7 @@ export function RyderView({ t }: { t: Tournament }) {
         )}
         <p className="text-center text-xs text-[var(--muted)] mt-2">
           {score.status === "in-progress"
-            ? `${fmt(score.clinch)} points wins the cup · ${score.played}/${score.total} matches played`
+            ? `${fmt(score.clinch)} points wins the cup · ${fmt(score.a + score.b)}/${fmt(score.total)} points decided`
             : "Final result"}
         </p>
       </Card>
@@ -396,8 +471,9 @@ export function RyderView({ t }: { t: Tournament }) {
         const label = ms[0].label ?? `Round ${round}`;
         return (
           <div key={round}>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="font-semibold">{label}</h3>
+              {!noEdit && <SessionCourseControl t={t} round={round} />}
               {editing && !noEdit && (
                 <button
                   onClick={() => {

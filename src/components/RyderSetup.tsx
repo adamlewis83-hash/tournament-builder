@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
+import { RyderSessionType, TEAM_SESSION_TYPES } from "@/lib/ryder";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { defaultCourse } from "@/lib/golf";
@@ -20,6 +21,7 @@ interface CourseState {
 export function RyderSetup({ t }: { t: Tournament }) {
   const setRyderTeams = useStore((s) => s.setRyderTeams);
   const generate = useStore((s) => s.generate);
+  const addRyderSession = useStore((s) => s.addRyderSession);
   const patch = useStore((s) => s.patchTournament);
   const savedCourses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
@@ -28,14 +30,12 @@ export function RyderSetup({ t }: { t: Tournament }) {
 
   const [nameA, setNameA] = useState(t.config.teamNames?.[0] ?? "Team A");
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
-  // Session counts as raw text so a field can be cleared and retyped; clamp to 0–6 when used.
-  const [foursomes, setFoursomes] = useState(String(t.config.ryderFoursomes ?? 0));
-  const [fourball, setFourball] = useState(String(t.config.ryderFourball ?? 0));
-  const [singles, setSingles] = useState(String(t.config.ryderSingles ?? 0));
-  const clampN = (s: string) => Math.max(0, Math.min(6, Math.floor(Number(s) || 0)));
-  const nFoursomes = clampN(foursomes);
-  const nFourball = clampN(fourball);
-  const nSingles = clampN(singles);
+  // The day's program: an ordered list of sessions, one per round, planned up
+  // front (or left empty to build rounds captain-style as the cup unfolds).
+  const [program, setProgram] = useState<RyderSessionType[]>([]);
+  const [scoring, setScoring] = useState<"match" | "session" | "round18">(
+    t.config.ryderScoring ?? "match",
+  );
   const [courseSaved, setCourseSaved] = useState(false);
 
   const toText = (team: 0 | 1) =>
@@ -158,9 +158,10 @@ export function RyderSetup({ t }: { t: Tournament }) {
     patch(t.id, {
       config: {
         ...t.config,
-        ryderFoursomes: nFoursomes,
-        ryderFourball: nFourball,
-        ryderSingles: nSingles,
+        ryderFoursomes: 0,
+        ryderFourball: 0,
+        ryderSingles: 0,
+        ryderScoring: scoring,
       },
     });
     setRyderTeams(
@@ -176,6 +177,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
       },
     );
     generate(t.id);
+    // Pre-planned program: create each session now, in order. Pairings default
+    // to lineup order and stay editable per session in the match view.
+    for (const ty of program) addRyderSession(t.id, ty, false);
   }
 
   return (
@@ -268,7 +272,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
         <div className="mt-3 mb-2 flex items-center gap-2 text-sm">
           <span className="text-[var(--muted)]">Each session is</span>
           <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
-            {([18, 9] as const).map((n) => (
+            {([18, 9, 6] as const).map((n) => (
               <button
                 key={n}
                 type="button"
@@ -498,39 +502,116 @@ export function RyderSetup({ t }: { t: Tournament }) {
       </div>
 
       <Card className="p-5">
-        <h2 className="font-semibold mb-1">
-          Sessions <span className="text-[var(--muted)] font-normal text-sm">(optional)</span>
-        </h2>
+        <h2 className="font-semibold mb-1">The program</h2>
         <p className="text-sm text-[var(--muted)] mb-3">
-          Leave these at 0 to build each round <b>as the cup unfolds</b> — add Foursomes, Fourball, or
-          Singles from the match view and set the pairings yourself (or randomize). Or pre-load some
-          here. Foursomes = alternate shot · Fourball = best ball · Singles = 1v1.
+          Go <b>Traditional</b> (foursomes, fourball, singles — every match worth a point) or build
+          your own cup: any run of games, in order, with the pairings set fresh each session.
         </p>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "Foursomes", value: foursomes, set: setFoursomes, num: nFoursomes },
-            { label: "Fourball", value: fourball, set: setFourball, num: nFourball },
-            { label: "Singles", value: singles, set: setSingles, num: nSingles },
-          ].map((s) => (
-            <label key={s.label} className="block">
-              <span className="text-sm font-medium">{s.label}</span>
-              <input
-                type="number"
-                min={0}
-                max={6}
-                value={s.value}
-                onChange={(e) => s.set(e.target.value)}
-                onBlur={() => s.set(String(s.num))}
-                className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-center bg-[var(--surface)]"
-              />
-            </label>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="px-3 py-1.5"
+            onClick={() => {
+              setProgram(["Foursomes", "Fourball", "Singles"]);
+              setScoring("match");
+            }}
+          >
+            🏆 Traditional Ryder Cup
+          </Button>
+          <Button variant="outline" className="px-3 py-1.5" onClick={() => setProgram([])}>
+            Clear — build as we play
+          </Button>
+        </div>
+
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5">
+          Add sessions in playing order
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {(
+            [
+              "Fourball",
+              "Foursomes",
+              "Best Ball",
+              "Shamble",
+              "Scramble",
+              "Vegas",
+              "Singles",
+              "Team Scramble",
+              "Team Alt Shot",
+              "Team Stableford",
+            ] as RyderSessionType[]
+          ).map((ty) => (
+            <button
+              key={ty}
+              type="button"
+              onClick={() => setProgram((p) => [...p, ty])}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs hover:bg-[var(--hover)]"
+            >
+              + {ty}{TEAM_SESSION_TYPES.includes(ty) ? " (all play)" : ""}
+            </button>
+          ))}
+        </div>
+        {program.length > 0 && (
+          <ol className="mb-3 space-y-1">
+            {program.map((ty, i) => (
+              <li
+                key={`${ty}-${i}`}
+                className="flex items-center justify-between rounded-lg bg-[var(--subtle)] px-3 py-1.5 text-sm"
+              >
+                <span>
+                  <span className="font-bold text-[var(--muted)] mr-2">{i + 1}.</span>
+                  {ty}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setProgram((p) => p.filter((_, j) => j !== i))}
+                  className="text-xs text-[var(--muted)] hover:text-rose-400"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="text-xs text-[var(--muted)] mb-4">
+          {program.length === 0
+            ? "No program yet — you can also add sessions one at a time from the match view as the day unfolds."
+            : `${program.length} session${program.length > 1 ? "s" : ""} of ${course.holes} holes each. Pairings are set per session in the match view (or randomized).`}
+        </p>
+
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5">
+          Cup scoring
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["match", "1 point per match", "classic Ryder Cup"],
+              ["session", "1 point per session", "matches split the session's point"],
+              ["round18", "1 point per 18 holes", "sessions share the point across each 18"],
+            ] as const
+          ).map(([val, label, hint]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setScoring(val)}
+              className={`rounded-lg border px-3 py-1.5 text-left text-sm transition ${
+                scoring === val
+                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              <span className="block font-medium">{label}</span>
+              <span className="block text-[10px] text-[var(--muted)]">{hint}</span>
+            </button>
           ))}
         </div>
       </Card>
 
       <div className="flex justify-end">
         <Button onClick={handleGenerate} disabled={!canGenerate} className="px-6 py-3">
-          {nFoursomes + nFourball + nSingles === 0 ? "Start the cup →" : "Generate matches →"}
+          {program.length === 0
+            ? "Start the cup →"
+            : `Generate ${program.length} session${program.length > 1 ? "s" : ""} →`}
         </Button>
       </div>
     </div>

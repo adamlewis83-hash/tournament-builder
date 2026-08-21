@@ -917,31 +917,34 @@ export function GolfSetup({ t }: { t: Tournament }) {
               {segments.map((seg, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span className="text-[var(--muted)]">Holes</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={holes}
-                    value={seg.from}
-                    onChange={(e) => {
-                      const next = [...segments];
-                      next[i] = { ...next[i], from: Number(e.target.value) || 1 };
-                      setSegments(next);
-                    }}
-                    className="w-14 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center bg-[var(--surface)]"
-                  />
-                  <span className="text-[var(--muted)]">–</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={holes}
-                    value={seg.to}
-                    onChange={(e) => {
-                      const next = [...segments];
-                      next[i] = { ...next[i], to: Number(e.target.value) || 1 };
-                      setSegments(next);
-                    }}
-                    className="w-14 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center bg-[var(--surface)]"
-                  />
+                  {/* 0 is the "being edited/empty" state so the box can be cleared
+                      and retyped; clamp to a real hole number on blur. */}
+                  {(["from", "to"] as const).map((field, fi) => (
+                    <span key={field} className="flex items-center gap-2">
+                      {fi === 1 && <span className="text-[var(--muted)]">–</span>}
+                      <input
+                        type="number"
+                        min={1}
+                        max={holes}
+                        value={seg[field] || ""}
+                        onChange={(e) => {
+                          const next = [...segments];
+                          next[i] = {
+                            ...next[i],
+                            [field]: e.target.value === "" ? 0 : Number(e.target.value),
+                          };
+                          setSegments(next);
+                        }}
+                        onBlur={() => {
+                          const next = [...segments];
+                          const v = Math.max(1, Math.min(holes, next[i][field] || 1));
+                          next[i] = { ...next[i], [field]: v };
+                          setSegments(next);
+                        }}
+                        className="w-14 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center bg-[var(--surface)]"
+                      />
+                    </span>
+                  ))}
                   <select
                     value={seg.format}
                     onChange={(e) => {

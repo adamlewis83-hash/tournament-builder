@@ -142,22 +142,45 @@ export interface RyderScore {
   status: "in-progress" | "a-wins" | "b-wins" | "tie";
 }
 
-export function ryderScore(matches: Match[]): RyderScore {
+export type RyderScoring = "match" | "session" | "round18";
+
+export function ryderScore(
+  matches: Match[],
+  scoring: RyderScoring = "match",
+  sessionHoles = 18,
+): RyderScore {
   const ryder = matches.filter((m) => m.phase === "ryder");
+  // Scoring units: "match" = every match is a unit; "session" = each round is a
+  // 1-point unit split across its matches; "round18" = each 18 holes is the
+  // unit — with 9-hole sessions, consecutive rounds pair up (front + back nine)
+  // and split the point across all their matches.
+  // Sessions per 18: 9-hole sessions chunk in pairs, 6-hole in threes.
+  const chunk = scoring === "round18" && sessionHoles < 18 ? Math.max(1, Math.round(18 / sessionHoles)) : 1;
+  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((x, y) => x - y);
+  const unitOf = new Map<number, number>();
+  rounds.forEach((r, i) => unitOf.set(r, scoring === "match" ? r : Math.floor(i / chunk)));
+  const unitSize = new Map<number, number>();
+  for (const m of ryder) {
+    const u = unitOf.get(m.round) ?? 0;
+    unitSize.set(u, (unitSize.get(u) ?? 0) + 1);
+  }
+  const weight = (m: Match) =>
+    scoring === "match" ? 1 : 1 / (unitSize.get(unitOf.get(m.round) ?? 0) ?? 1);
   let a = 0;
   let b = 0;
   let played = 0;
   for (const m of ryder) {
     if (!isFinal(m) || m.scoreA === null || m.scoreB === null) continue; // a live match hasn't earned a point yet
     played++;
-    if (m.scoreA > m.scoreB) a += 1;
-    else if (m.scoreB > m.scoreA) b += 1;
+    const w = weight(m);
+    if (m.scoreA > m.scoreB) a += w;
+    else if (m.scoreB > m.scoreA) b += w;
     else {
-      a += 0.5;
-      b += 0.5;
+      a += w / 2;
+      b += w / 2;
     }
   }
-  const total = ryder.length;
+  const total = scoring === "match" ? ryder.length : unitSize.size;
   const clinch = total / 2 + 0.5;
   let status: RyderScore["status"] = "in-progress";
   if (a >= clinch) status = "a-wins";

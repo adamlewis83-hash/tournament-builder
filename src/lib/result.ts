@@ -77,7 +77,7 @@ export function getResult(t: Tournament): TournamentResult {
   }
 
   if (t.format === "ryder") {
-    const sc = ryderScore(t.matches);
+    const sc = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
     if (sc.status === "a-wins") return { complete: true, winner: t.config.teamNames?.[0] ?? "Team A" };
     if (sc.status === "b-wins") return { complete: true, winner: t.config.teamNames?.[1] ?? "Team B" };
     if (sc.status === "tie") return { complete: true, winner: "Tie" };

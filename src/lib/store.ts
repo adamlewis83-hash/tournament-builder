@@ -118,6 +118,16 @@ interface State {
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   removeRyderRound: (id: string, round: number) => void;
+  setRyderSessionCourse: (
+    id: string,
+    round: number,
+    card: {
+      courseName?: string;
+      nine?: "front" | "back";
+      pars: number[];
+      strokeIndex: number[];
+    } | null,
+  ) => void;
   setGolfPlayers: (
     id: string,
     input: {
@@ -894,6 +904,21 @@ export const useStore = create<State>()(
               ? { ...t, matches: t.matches.filter((m) => m.round !== round), updatedAt: Date.now() }
               : t,
           ),
+        }));
+        pushReplace(id);
+      },
+
+      // Multi-course cups: assign (or clear) the course card one session plays on.
+      setRyderSessionCourse: (id, round, card) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.ryderGolf) return t;
+            const sessionCourses = { ...(t.ryderGolf.sessionCourses ?? {}) };
+            if (card) sessionCourses[round] = card;
+            else delete sessionCourses[round];
+            return { ...t, ryderGolf: { ...t.ryderGolf, sessionCourses }, updatedAt: Date.now() };
+          }),
         }));
         pushReplace(id);
       },

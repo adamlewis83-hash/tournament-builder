@@ -225,6 +225,14 @@ export interface RyderGolf {
   // matchId -> entityKey -> per-hole gross. entityKey is a participantId (singles/fourball)
   // or "A"/"B" for a Foursomes team ball.
   scores: Record<string, Record<string, (number | null)[]>>;
+  // Multi-course cups: an optional per-session (round number) card override —
+  // e.g. four 18-hole rounds at four courses, each split into front/back nine
+  // sessions. pars/strokeIndex are pre-sliced to the session length, with the
+  // stroke index re-ranked 1..n within the nine.
+  sessionCourses?: Record<
+    number,
+    { courseName?: string; nine?: "front" | "back"; pars: number[]; strokeIndex: number[] }
+  >;
 }
 
 export type Tiebreaker = "record" | "diff" | "headToHead" | "pointsFor";
@@ -255,6 +263,14 @@ export interface TournamentConfig {
   ryderFoursomes: number; // Ryder Cup: # of Foursomes (alternate shot) sessions
   ryderFourball: number; // Ryder Cup: # of Fourball (best ball) sessions
   ryderSingles: number; // Ryder Cup: # of Singles sessions
+  // Ryder Cup scoring granularity:
+  //   "match" (default) — classic: every match is worth 1 point.
+  //   "session"         — each session (round) is worth 1 point, split across
+  //                       its matches (a 2-match pairs session pays ½ per match).
+  //   "round18"         — each 18 holes is worth 1 point: with 9-hole sessions,
+  //                       consecutive sessions pair up (front+back nine) and
+  //                       split the point across all their matches.
+  ryderScoring?: "match" | "session" | "round18";
   golfMode: GolfMode; // golf scoring mode
   scoreLowWins: boolean; // Score Challenge: lowest total wins (e.g. disc golf) vs highest
 }
@@ -293,7 +309,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   "pool-bracket": "Pool Play → Bracket",
   americano: "Americano",
   mexicano: "Mexicano",
-  ryder: "Ryder Cup (Team Match Play)",
+  ryder: "Ryder Cup Style (Team Golf)",
   golf: "Golf",
   custom: "Custom (build your own)",
   "score-challenge": "Score Challenge",
@@ -315,7 +331,7 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   mexicano:
     "Like Americano, but each round's matchups are set by the current standings (top players paired together & against) to keep games balanced. Individual points decide it.",
   ryder:
-    "Two teams face off in pairs + singles matches. Each match is worth a point (½ for a tie); first team past half the points wins the cup. Great for golf.",
+    "Two teams battle for the cup — traditional Ryder Cup (foursomes, fourball, singles) or build your own: any mix of Best Ball, Shamble, Scramble, Vegas & team games in 6-, 9-, or 18-hole sessions, one course or many.",
   golf:
     "Hole-by-hole scorecard with handicaps. Score it as Stroke Play (gross/net), Stableford, Skins, or a team Scramble — switch anytime.",
   custom:
