@@ -301,12 +301,15 @@ export interface RyderGolf {
 //   "match"      — hole by hole; most holes won takes it (can close out early).
 //   "stroke"     — lowest net total over the session takes it.
 //   "stableford" — points vs par each hole; most points takes it.
-export type RyderMethod = "match" | "stroke" | "stableford";
+export type RyderMethod = "match" | "stroke" | "stableford" | "vegas";
 
 export const RYDER_METHOD_LABELS: Record<RyderMethod, { label: string; hint: string }> = {
   match: { label: "Match play", hint: "hole by hole — most holes won wins, and it can close out early" },
   stroke: { label: "Stroke play", hint: "lowest net total over the whole session wins" },
   stableford: { label: "Stableford", hint: "points vs par each hole — most points wins" },
+  // Fixed to Vegas sessions (never offered in the picker): the lower combined
+  // number takes the DIFFERENCE in points each hole — 45 vs 55 pays 10.
+  vegas: { label: "Vegas points", hint: "the lower combined number wins the difference each hole — 45 vs 55 pays 10" },
 };
 
 export type Tiebreaker = "record" | "diff" | "headToHead" | "pointsFor";

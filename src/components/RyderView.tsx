@@ -160,7 +160,7 @@ function RyderMatchCard({
                   : m.label === "Shamble"
                     ? " · best drive, own balls in — best net counts"
                     : m.label === "Vegas"
-                      ? " · scores combine low-first (4 & 5 → 45), lower number wins the hole — played gross"
+                      ? " · scores combine low-first (4 & 5 → 45); the lower number takes the difference in points — played gross"
                       : m.label === "Team Stableford"
                         ? " · team's combined Stableford points — most points wins the hole"
                         : ""}
@@ -189,11 +189,15 @@ function SessionMethodControl({ t, round }: { t: Tournament; round: number }) {
       title={RYDER_METHOD_LABELS[current].hint}
       className="max-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs outline-none focus:border-[var(--brand)]"
     >
-      {(Object.keys(RYDER_METHOD_LABELS) as RyderMethod[]).map((k) => (
-        <option key={k} value={k}>
-          🎯 {RYDER_METHOD_LABELS[k].label}
-        </option>
-      ))}
+      {(Object.keys(RYDER_METHOD_LABELS) as RyderMethod[])
+        // "vegas" is fixed to Vegas sessions (their picker is hidden anyway) —
+        // it needs the combined-number card, so it's never offered elsewhere.
+        .filter((k) => k !== "vegas")
+        .map((k) => (
+          <option key={k} value={k}>
+            🎯 {RYDER_METHOD_LABELS[k].label}
+          </option>
+        ))}
     </select>
   );
 }

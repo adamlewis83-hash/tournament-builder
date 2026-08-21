@@ -94,7 +94,7 @@ export const RYDER_SESSION_BLURBS: Record<RyderSessionType, string> = {
   Scramble:
     "2v2 — everyone hits, the pair plays its next shot from the best ball, and repeats. One team score per hole.",
   Vegas:
-    "2v2, played gross — each pair's two scores combine into one number, low ball first (4 & 5 → 45). Lower number wins the hole.",
+    "2v2, played gross — each pair's two scores combine into one number, low ball first (4 & 5 → 45). The lower number takes the DIFFERENCE in points each hole (45 vs 55 pays 10); most points wins the session.",
   Singles: "Head-to-head 1v1, net match play.",
   "Team Scramble":
     "The whole team as one unit — everyone hits, play the best ball, repeat. One team score, one match, one result.",

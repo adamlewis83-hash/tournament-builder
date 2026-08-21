@@ -91,6 +91,16 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   const sport =
     sportChoice === OTHER ? customSport.trim() || "Custom Tournament" : sportChoice;
   const available = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
+  // Golf leads with its real formats; Score Challenge and Custom are legitimate
+  // (long-drive contests, one-off games) but read as noise, so they fold away.
+  const isGolfSport = sportChoice !== OTHER && /golf/i.test(sport);
+  const [showMoreFormats, setShowMoreFormats] = useState(false);
+  const primaryFormats = isGolfSport
+    ? available.filter((f) => f === "golf" || f === "ryder")
+    : available;
+  const extraFormats = isGolfSport ? available.filter((f) => !primaryFormats.includes(f)) : [];
+  const shownFormats =
+    showMoreFormats || extraFormats.includes(format) ? [...primaryFormats, ...extraFormats] : primaryFormats;
   const styleOptions = playStylesForFormat(format);
 
   // Keep the play style valid for the chosen format (e.g. switching to King of
@@ -196,7 +206,7 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
       <section>
         <StepHeader n={2} title="Format" />
         <div className="grid grid-cols-2 gap-2">
-          {available.map((f) => {
+          {shownFormats.map((f) => {
             const Icon = FORMAT_ICON[f] ?? Trophy;
             const on = format === f;
             return (
@@ -217,6 +227,15 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
               </button>
             );
           })}
+          {extraFormats.length > 0 && !showMoreFormats && !extraFormats.includes(format) && (
+            <button
+              type="button"
+              onClick={() => setShowMoreFormats(true)}
+              className="flex items-center justify-center rounded-xl border border-dashed border-[var(--border)] p-3 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover)]"
+            >
+              More formats…
+            </button>
+          )}
         </div>
         <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--subtle)] px-3 py-2 text-xs text-[var(--muted)]">
           <FormatBlurb className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />

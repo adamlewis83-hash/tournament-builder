@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Format,
   FORMAT_LABELS,
+  formatsForSport,
   PLAYSTYLE_LABELS,
   playStylesForFormat,
   Tiebreaker,
@@ -287,6 +288,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
     return (
       <div className="space-y-5">
         <RegistrationPanel t={t} />
+        <FormatSwitcher t={t} onChange={(p) => patch(t.id, p)} />
         <RyderSetup t={t} />
       </div>
     );
@@ -294,6 +296,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
     return (
       <div className="space-y-5">
         <RegistrationPanel t={t} />
+        <FormatSwitcher t={t} onChange={(p) => patch(t.id, p)} />
         <GolfSetup t={t} />
       </div>
     );
@@ -774,9 +777,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
 // Pre-generation format/play-style switcher: picking the wrong tile on the
 // create form used to mean starting the whole tournament over. Golf and Ryder
 // have dedicated setup flows, so they're neither offered nor reachable here.
-const SWITCHABLE_FORMATS = (Object.keys(FORMAT_LABELS) as Format[]).filter(
-  (f) => f !== "golf" && f !== "ryder",
-);
+// Formats offered for a switch — the same sport-appropriate list the create
+// form uses, so a golf event offers golf formats, not pickleball ones.
 
 function FormatSwitcher({
   t,
@@ -786,11 +788,17 @@ function FormatSwitcher({
   onChange: (p: Partial<Tournament>) => void;
 }) {
   const styles = playStylesForFormat(t.format);
+  const options = formatsForSport(t.sport);
 
   function setFormat(f: Format) {
     if (f === t.format) return;
     const valid = playStylesForFormat(f);
-    onChange(valid.includes(t.playStyle) ? { format: f } : { format: f, playStyle: valid[0] });
+    // Formats with no play-style choice (golf, Ryder) keep the current one.
+    onChange(
+      valid.length === 0 || valid.includes(t.playStyle)
+        ? { format: f }
+        : { format: f, playStyle: valid[0] },
+    );
   }
 
   return (
@@ -802,7 +810,7 @@ function FormatSwitcher({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {SWITCHABLE_FORMATS.map((f) => (
+        {options.map((f) => (
           <button
             key={f}
             type="button"

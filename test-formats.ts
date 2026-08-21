@@ -948,7 +948,25 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     const t = build(3);
     t.ryderGolf!.sessionMethods = { 1: "stroke" }; // must be ignored for a fixed game
     t.matches[0].label = "Vegas";
-    assert(methodForMatch(t, t.matches[0]) === "match", "Vegas took the session method");
+    assert(methodForMatch(t, t.matches[0]) === "vegas", "Vegas took the session method");
+  });
+
+  check("ryder Vegas — the hole pays the difference, not one up", () => {
+    // Per-player balls, combined low-first: hole 1 is 4&5=45 vs 5&5=55 → A +10;
+    // hole 2 pushes 44–44; hole 3 is 5&5=55 vs 4&6=46 → B +9. A leads 10–9 and
+    // takes the session by 1 point — a match-play read would call it 1 hole each.
+    const t = build(3);
+    t.matches[0].label = "Vegas";
+    t.matches[0].sideA = ["a1", "a2"];
+    t.matches[0].sideB = ["b1", "b2"];
+    t.ryderGolf!.scores = {
+      s1: { a1: [4, 4, 5], a2: [5, 4, 5], b1: [5, 4, 4], b2: [5, 4, 6] },
+    };
+    const o = matchOutcome(t, t.matches[0]);
+    assert(o.method === "vegas", `method read as ${o.method}`);
+    assert(o.marginA === 10 && o.marginB === 9, `points ${o.marginA}–${o.marginB}, want 10–9`);
+    assert(o.decided && o.a === 1, `A should take the session (decided=${o.decided}, a=${o.a})`);
+    assert(/1 pt/.test(o.text), `status text should carry the point margin: "${o.text}"`);
   });
 }
 

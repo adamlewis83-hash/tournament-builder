@@ -162,6 +162,7 @@ export const methodIsChoosable = (label?: string) => !FIXED_METHOD.has(label ?? 
 
 /** The scoring method a match is decided by. */
 export function methodForMatch(t: Tournament, m: Match): RyderMethod {
+  if (m.label === "Vegas") return "vegas"; // points, not holes — 45 vs 55 pays 10
   if (!methodIsChoosable(m.label)) return "match";
   return t.ryderGolf?.sessionMethods?.[m.round] ?? "match";
 }
@@ -216,7 +217,11 @@ export function matchOutcome(t: Tournament, m: Match): MatchOutcome {
     const nets = holeNets(t, m, h);
     if (!nets) continue;
     thru++;
-    if (method === "stroke") {
+    if (method === "vegas") {
+      // The hole pays the DIFFERENCE to the lower combined number: 45 vs 55 → 10.
+      if (nets.netA < nets.netB) valA += nets.netB - nets.netA;
+      else if (nets.netB < nets.netA) valB += nets.netA - nets.netB;
+    } else if (method === "stroke") {
       valA += nets.netA;
       valB += nets.netB;
     } else {
