@@ -67,6 +67,7 @@ export interface CreateInput {
 }
 
 export interface Snapshot {
+  tournamentId: string;
   at: number;
   label: string;
   scores: number; // how much scoring the snapshot is holding
@@ -77,9 +78,15 @@ interface State {
   tournaments: Tournament[];
   courses: Course[];
   friends: Friend[];
-  /** One undo point per tournament, taken just before a setup save that would
-   *  otherwise destroy entered scores. Persisted, so it survives a reload. */
-  snapshots: Record<string, Snapshot>;
+  /** The single most recent undo point, taken just before a setup save that would
+   *  otherwise destroy entered scores. Persisted, so it survives a reload.
+   *
+   *  Deliberately one, not one per tournament: a clone is mostly participant photo
+   *  data (~90% of a tournament's bytes), and zustand persists the whole store in a
+   *  single localStorage write — so a per-tournament pile of clones could push a big
+   *  library past quota and make that write fail, taking live score-saving down with
+   *  it. Undo only ever offers the last setup change, so one is all it was using. */
+  snapshot: Snapshot | null;
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
@@ -455,12 +462,9 @@ export const useStore = create<State>()(
         if (!t || t.spectator) return;
         const scores = scoreCount(t);
         if (!scores) return;
-        set((s) => ({
-          snapshots: {
-            ...s.snapshots,
-            [id]: { at: Date.now(), label, scores, data: structuredClone(t) },
-          },
-        }));
+        set({
+          snapshot: { tournamentId: id, at: Date.now(), label, scores, data: structuredClone(t) },
+        });
       };
 
       const blocked = (id: string) => {
@@ -472,7 +476,7 @@ export const useStore = create<State>()(
       tournaments: [],
       courses: [],
       friends: [],
-      snapshots: {},
+      snapshot: null,
       hydrated: false,
 
       saveFriend: (input) => {
@@ -632,8 +636,8 @@ export const useStore = create<State>()(
       },
 
       restoreSnapshot: (id) => {
-        const snap = get().snapshots[id];
-        if (!snap) return;
+        const snap = get().snapshot;
+        if (!snap || snap.tournamentId !== id) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             // Keep the live link and viewing role from the current copy — those describe
@@ -648,15 +652,13 @@ export const useStore = create<State>()(
                 }
               : t,
           ),
-          snapshots: Object.fromEntries(Object.entries(s.snapshots).filter(([k]) => k !== id)),
+          snapshot: null,
         }));
         pushReplace(id);
       },
 
       dismissSnapshot: (id) =>
-        set((s) => ({
-          snapshots: Object.fromEntries(Object.entries(s.snapshots).filter(([k]) => k !== id)),
-        })),
+        set((s) => (s.snapshot?.tournamentId === id ? { snapshot: null } : {})),
 
       patchTournament: (id, patch) => {
         if (blocked(id)) return;
@@ -1590,7 +1592,7 @@ export const useStore = create<State>()(
         tournaments: s.tournaments,
         courses: s.courses,
         friends: s.friends,
-        snapshots: s.snapshots,
+        snapshot: s.snapshot,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;

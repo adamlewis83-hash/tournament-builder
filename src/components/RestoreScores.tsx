@@ -14,10 +14,10 @@ import { Button } from "./ui";
  * long as the tournament is holding less scoring than the snapshot was.
  */
 export function RestoreScores({ t }: { t: Tournament }) {
-  const snap = useStore((s) => s.snapshots[t.id]);
+  const snap = useStore((s) => s.snapshot);
   const restore = useStore((s) => s.restoreSnapshot);
   const dismiss = useStore((s) => s.dismissSnapshot);
-  if (!snap || t.spectator) return null;
+  if (!snap || snap.tournamentId !== t.id || t.spectator) return null;
 
   // Nothing was actually lost — the save carried everything through. Don't nag.
   const lost = snap.scores - scoreCount(t);
