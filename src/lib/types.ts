@@ -76,7 +76,7 @@ export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
   scramble: "Team game: everyone tees off, the team plays its next shot from the best ball, and repeats. One score per team per hole.",
   bestball: "Pairs: everyone plays their own ball, and the pair counts its better score each hole. Enter one score per pair — the better ball.",
   shamble: "Pairs take the best drive, then each plays their own ball in; the pair counts its better score. Enter one score per pair.",
-  vegas: "2v2: each hole the pair's scores combine into one number, low ball first (4 & 5 → 45). The lower team number wins the difference in points. Pairs are matched in entry order — pair 1 vs pair 2, pair 3 vs pair 4. Pick up at 9.",
+  vegas: "2v2: each hole both partners' scores combine into one number, low ball first (4 & 5 → 45), and the lower number wins the difference in points. Four players, teams are the first two vs the last two, and balls pick up at 9. House rules add the flip (your birdie turns the other team's number around), auto-presses, carries and the money.",
   nassau: "Three matches in one — front 9, back 9, and overall 18 — each scored as net match play.",
   bingo: "A point for first on the green (bingo), closest to the pin once all are on (bango), and first in the hole (bongo).",
   wolf: "Each hole one player is the 'Wolf' and picks a partner after the tee shots — or plays alone (Lone Wolf) for bigger points.",
@@ -93,6 +93,52 @@ export const GOLF_SCORING_LABELS: Record<GolfScoring, { label: string; hint: str
   stableford: { label: "Stableford", hint: "points vs par each hole — most points wins" },
   skins: { label: "Skins", hint: "low net takes the hole; a tie carries it over" },
   match: { label: "Match play", hint: "hole by hole — most holes won wins (two sides only)" },
+};
+
+/**
+ * Vegas à la carte. Every rule past the basic combined-number scoring is optional,
+ * so a group can play the plain game, the full money game, or anything between.
+ */
+export interface VegasRules {
+  /** Combine net scores rather than gross (handicap strokes come off per hole). */
+  net: boolean;
+  /** What in a team's own scores flips the OPPONENT's number (high ball first).
+   *  "birdie" means birdie-or-better, so an eagle flips too. */
+  flipOn: "off" | "birdie" | "eagle";
+  /** Teams for the round: fixed all 18, or partners rotating every 6 holes. */
+  teams: "fixed" | "rotate6";
+  /** Auto-press when the margin reaches this many points. 0 = no presses. */
+  pressAt: number;
+  /** Cap on presses running at once. 0 = uncapped. */
+  maxPresses: number;
+  /** A tied hole's stake carries into the next hole, on every live bet. */
+  carryTies: boolean;
+  /** Money per point on the original bet, and on each press. */
+  pointValue: number;
+  pressValue: number;
+}
+
+export const VEGAS_DEFAULTS: VegasRules = {
+  net: true,
+  flipOn: "birdie",
+  teams: "fixed",
+  pressAt: 5,
+  maxPresses: 3,
+  carryTies: true,
+  pointValue: 1,
+  pressValue: 5,
+};
+
+/** The plain game: combine, low ball first, lower number takes the difference. */
+export const VEGAS_BASIC: VegasRules = {
+  net: false,
+  flipOn: "off",
+  teams: "fixed",
+  pressAt: 0,
+  maxPresses: 0,
+  carryTies: false,
+  pointValue: 1,
+  pressValue: 0,
 };
 
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
@@ -311,6 +357,12 @@ export interface TournamentConfig {
   // settled on strokes, Stableford points, skins, or as a match — without re-entering
   // anything or changing how scores are typed in. Absent = the format's own default.
   golfScoring?: GolfScoring;
+  // Vegas house rules — which parts of the full game this round is playing.
+  vegasRules?: VegasRules;
+  // True when the Vegas card holds each player's own ball (four players) rather than
+  // one pre-combined number per pair. Only a per-player card can show a birdie, so
+  // only these rounds can run flips, presses and the settlement.
+  vegasPerPlayer?: boolean;
   scoreLowWins: boolean; // Score Challenge: lowest total wins (e.g. disc golf) vs highest
 }
 

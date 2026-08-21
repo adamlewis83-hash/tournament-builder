@@ -39,7 +39,10 @@ const MODES: GolfMode[] = [
 ];
 
 // Modes where each entered "player" is a team/pair with one score per hole.
-const TEAM_ROW_MODES: GolfMode[] = ["scramble", "bestball", "shamble", "vegas"];
+// One row per team: the card holds a single score for the side. Vegas is no longer
+// one of them — the full game needs each player's own ball to spot a birdie (and so
+// to flip), which a pre-combined pair number can never show.
+const TEAM_ROW_MODES: GolfMode[] = ["scramble", "bestball", "shamble"];
 
 function defaultSegments(holes: number, teams = false): GolfSegment[] {
   const chunk = Math.ceil(holes / 3);
@@ -336,7 +339,17 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const totalPar = activePars.reduce((a, b) => a + b, 0);
 
   function handleGenerate() {
-    patch(t.id, { config: { ...t.config, golfMode: mode } });
+    patch(t.id, {
+      config: {
+        ...t.config,
+        golfMode: mode,
+        // Marks a Vegas round built the new way: four players with their own balls,
+        // which is what the full game (flips, presses, money) needs to read. Rounds
+        // built before this — one pre-combined number per pair — have no flag and
+        // keep their original pair scoring untouched.
+        ...(mode === "vegas" ? { vegasPerPlayer: true } : {}),
+      },
+    });
     setGolfPlayers(t.id, {
       players: players
         .filter((p) => p.name.trim())
@@ -748,7 +761,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           {mode === "vegas"
-            ? "One pair per line — e.g. “Adam & Cory”. Pairs duel in this order: 1st vs 2nd, 3rd vs 4th…"
+            ? "Four players, one per line — teams are the 1st two vs the last two. Everyone keeps their own score; the pair's Vegas number is combined for you."
             : mode === "bestball" || mode === "shamble"
               ? "One pair per line — e.g. “Adam & Cory”; handicap optional (applies to the pair's ball)."
               : isScramble

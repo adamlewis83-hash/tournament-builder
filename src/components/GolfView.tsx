@@ -9,12 +9,15 @@ import {
   GolfMode,
   GolfScoring,
   Tournament,
+  VEGAS_DEFAULTS,
+  VegasRules,
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import {
   computeGolf,
   computeGolfMatch,
   computeVegas,
+  computeVegasLedger,
   effectiveHandicap,
   formatToPar,
   golfScoringOptions,
@@ -32,6 +35,252 @@ import { MixedGolfView } from "./MixedGolfView";
 const GolfGps = dynamic(() => import("./GolfGps").then((m) => m.GolfGps), { ssr: false });
 
 const SWITCHABLE: GolfMode[] = ["stroke", "stableford", "skins", "nassau"];
+
+
+// Rule-row furniture for the Vegas panel. Defined here rather than inside the panel:
+// a component created during render is a new type every pass, so React tears the old
+// one down and remounts it — the number inputs would lose focus as you typed.
+function RuleRow({
+  label, hint, children,
+}: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] py-2 first:border-0">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-[10px] text-[var(--muted)]">{hint}</div>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function RulePills<T extends string | number>({
+  value, options, onPick,
+}: { value: T; options: [T, string][]; onPick: (v: T) => void }) {
+  return (
+    <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+      {options.map(([v, label]) => (
+        <button
+          key={String(v)}
+          onClick={() => onPick(v)}
+          className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+            value === v
+              ? "bg-[var(--brand)] text-[var(--on-brand)]"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MoneyInput({ value, onSet }: { value: number; onSet: (n: number) => void }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-[var(--muted)] text-sm">$</span>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        value={value}
+        onChange={(e) => onSet(Math.max(0, Number(e.target.value) || 0))}
+        className="w-16 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+      />
+    </span>
+  );
+}
+
+/** Vegas house rules, à la carte — every switch past the plain combined-number
+ *  game is optional, and each one restates what it does in the group's words. */
+function VegasRulesPanel({ t, rules }: { t: Tournament; rules: VegasRules }) {
+  const patch = useStore((s) => s.patchTournament);
+  const [open, setOpen] = useState(false);
+  const set = (part: Partial<VegasRules>) =>
+    patch(t.id, { config: { ...t.config, vegasRules: { ...rules, ...part } } });
+
+  return (
+    <Card className="no-print p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+        <span className="text-sm font-semibold">🎰 House rules</span>
+        <span className="text-xs text-[var(--muted)]">
+          {open ? "▾ Hide" : `▸ ${rules.flipOn === "off" ? "Plain Vegas" : "Flips on"}${rules.pressAt ? " · presses" : ""}`}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2">
+          <RuleRow label="Handicaps" hint="take strokes off before the two balls are combined">
+            <RulePills<string>
+              value={rules.net ? "net" : "gross"}
+              options={[["gross", "Gross"], ["net", "Net"]]}
+              onPick={(v) => set({ net: v === "net" })}
+            />
+          </RuleRow>
+          <RuleRow label="Flip" hint="your birdie turns the OTHER team's number around — 46 becomes 64">
+            <RulePills<VegasRules["flipOn"]>
+              value={rules.flipOn}
+              options={[["off", "Off"], ["birdie", "Birdie+"], ["eagle", "Eagle only"]]}
+              onPick={(v) => set({ flipOn: v })}
+            />
+          </RuleRow>
+          <RuleRow label="Teams" hint="fixed for the round, or partners swapping every 6 holes">
+            <RulePills<VegasRules["teams"]>
+              value={rules.teams}
+              options={[["fixed", "Set teams"], ["rotate6", "Rotate /6"]]}
+              onPick={(v) => set({ teams: v })}
+            />
+          </RuleRow>
+          <RuleRow label="Auto press" hint="a fresh bet starts once the margin hits this many points">
+            <RulePills<number>
+              value={rules.pressAt}
+              options={[[0, "Off"], [5, "5 pts"], [10, "10 pts"]]}
+              onPick={(v) => set({ pressAt: v })}
+            />
+          </RuleRow>
+          {rules.pressAt > 0 && (
+            <RuleRow label="Presses at once" hint="a cap keeps the stack of overlapping bets readable">
+              <RulePills<number>
+                value={rules.maxPresses}
+                options={[[3, "Max 3"], [0, "No cap"]]}
+                onPick={(v) => set({ maxPresses: v })}
+              />
+            </RuleRow>
+          )}
+          <RuleRow label="Tied holes" hint="a halved hole rolls its stake into the next one">
+            <RulePills<string>
+              value={rules.carryTies ? "carry" : "wash"}
+              options={[["wash", "Wash"], ["carry", "Carry"]]}
+              onPick={(v) => set({ carryTies: v === "carry" })}
+            />
+          </RuleRow>
+          <RuleRow label="Per point" hint="the original bet">
+            <MoneyInput value={rules.pointValue} onSet={(n) => set({ pointValue: n })} />
+          </RuleRow>
+          {rules.pressAt > 0 && (
+            <RuleRow label="Per press point" hint="each press is its own bet at this rate">
+              <MoneyInput value={rules.pressValue} onSet={(n) => set({ pressValue: n })} />
+            </RuleRow>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** The running ledger: what each hole paid, why, and where the money stands. */
+function VegasLedgerView({
+  ledger, rules, startHole,
+}: {
+  ledger: NonNullable<ReturnType<typeof computeVegasLedger>>;
+  rules: VegasRules;
+  startHole: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const { pointsA, pointsB, presses, moneyA } = ledger;
+  const lead = pointsA > pointsB ? ledger.namesA : pointsB > pointsA ? ledger.namesB : null;
+  const money = Math.abs(moneyA);
+  const owes = moneyA > 0 ? ledger.namesB : ledger.namesA;
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 text-center min-w-0">
+          <div className="text-sm font-semibold text-[var(--brand)] truncate">
+            {ledger.namesA.join(" & ")}
+          </div>
+          <div className="text-3xl font-extrabold tabular-nums">{pointsA}</div>
+        </div>
+        <div className="text-center shrink-0">
+          <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">points</div>
+          <div className="text-xs text-[var(--muted)]">thru {ledger.thru}</div>
+        </div>
+        <div className="flex-1 text-center min-w-0">
+          <div className="text-sm font-semibold text-rose-300 truncate">
+            {ledger.namesB.join(" & ")}
+          </div>
+          <div className="text-3xl font-extrabold tabular-nums">{pointsB}</div>
+        </div>
+      </div>
+
+      {(rules.pointValue > 0 || presses.length > 0) && (
+        <p className="mt-2 text-center text-sm">
+          {money === 0 ? (
+            <span className="text-[var(--muted)]">All square on the money.</span>
+          ) : (
+            <>
+              <span className="font-bold tabular-nums">{owes.join(" & ")}</span>
+              <span className="text-[var(--muted)]"> owe </span>
+              <span className="font-bold tabular-nums">${money}</span>
+            </>
+          )}
+          {presses.length > 0 && (
+            <span className="block text-[10px] text-[var(--muted)] mt-0.5">
+              original ${Math.abs((pointsA - pointsB) * rules.pointValue)} ·{" "}
+              {presses.length} press{presses.length === 1 ? "" : "es"} at ${rules.pressValue}/pt
+            </span>
+          )}
+        </p>
+      )}
+      {lead && (
+        <p className="mt-1 text-center text-[10px] text-[var(--muted)]">
+          {lead.join(" & ")} up {Math.abs(pointsA - pointsB)} points
+        </p>
+      )}
+
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="mt-2 w-full text-center text-xs text-[var(--brand)] font-medium hover:underline"
+      >
+        {open ? "Hide the hole-by-hole ▴" : "Hole-by-hole ▾"}
+      </button>
+      {open && (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-xs border-separate border-spacing-0">
+            <thead>
+              <tr className="text-[var(--muted)]">
+                <th className="px-1.5 py-1 text-left">Hole</th>
+                <th className="px-1.5 py-1 text-center">{ledger.namesA.join(" & ")}</th>
+                <th className="px-1.5 py-1 text-center">{ledger.namesB.join(" & ")}</th>
+                <th className="px-1.5 py-1 text-right">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.rows.map((r) => (
+                <tr key={r.hole} className="border-t border-[var(--border)]">
+                  <td className="px-1.5 py-1 tabular-nums text-[var(--muted)]">
+                    {startHole + r.hole}
+                    {r.pressesOpen > 0 && (
+                      <span className="ml-1 text-[9px] text-amber-400" title={`${r.pressesOpen} press(es) live`}>
+                        ×{r.pressesOpen}
+                      </span>
+                    )}
+                  </td>
+                  <td className={`px-1.5 py-1 text-center tabular-nums ${r.winner === "A" ? "font-bold text-[var(--brand)]" : ""}`}>
+                    {r.numA}
+                    {r.birdieA && <span title="birdie — flips the other team">🐦</span>}
+                    {r.flippedA && <span className="text-amber-400" title="flipped">↔</span>}
+                  </td>
+                  <td className={`px-1.5 py-1 text-center tabular-nums ${r.winner === "B" ? "font-bold text-rose-300" : ""}`}>
+                    {r.numB}
+                    {r.birdieB && <span title="birdie — flips the other team">🐦</span>}
+                    {r.flippedB && <span className="text-amber-400" title="flipped">↔</span>}
+                  </td>
+                  <td className="px-1.5 py-1 text-right tabular-nums font-medium">
+                    {r.winner ? r.points : r.carriedIn ? "carry" : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-1.5 text-[10px] text-[var(--muted)]">
+            🐦 birdie · ↔ this number got flipped by the other team&apos;s birdie · ×N presses live
+          </p>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
@@ -54,8 +303,16 @@ export function GolfView({ t }: { t: Tournament }) {
     : SWITCHABLE.includes(t.config.golfMode)
       ? t.config.golfMode
       : "stroke";
-  const isVegas = mode === "vegas";
-  const strokeLike = mode === "stroke" || (isScramble && !isVegas);
+  // Vegas comes in two shapes. The full 4-man game needs each player's own ball —
+  // a flip can only be spotted from individual scores — so it takes four players and
+  // per-player entry. Rounds built the old way (one pre-combined number per pair)
+  // keep their pair card and their leaderboard.
+  const vegasRules: VegasRules = { ...VEGAS_DEFAULTS, ...(t.config.vegasRules ?? {}) };
+  const vegasLedger =
+    mode === "vegas" && t.config.vegasPerPlayer ? computeVegasLedger(t, vegasRules) : null;
+  const isVegasPairCard = mode === "vegas" && !vegasLedger;
+  const isVegas = isVegasPairCard;
+  const strokeLike = mode === "stroke" || (isScramble && !isVegasPairCard);
   const isNassau = mode === "nassau";
 
   // How this card is READ, independent of how it is played. Team games used to be
@@ -65,7 +322,7 @@ export function GolfView({ t }: { t: Tournament }) {
   const scoring: GolfScoring = scoringChoices.includes(t.config.golfScoring as GolfScoring)
     ? (t.config.golfScoring as GolfScoring)
     : "stroke";
-  const teamScoring = isScramble && !isVegas;
+  const teamScoring = isScramble && mode !== "vegas";
   const golfMatch = scoring === "match" ? computeGolfMatch(t) : null;
   // Disc golf is scored exactly like golf but has its own vocabulary — swap the
   // player-facing words (labels only; all scoring math is unchanged).
@@ -173,11 +430,18 @@ export function GolfView({ t }: { t: Tournament }) {
         </Card>
       )}
 
+      {vegasLedger && <VegasRulesPanel t={t} rules={vegasRules} />}
+      {vegasLedger && (
+        <VegasLedgerView ledger={vegasLedger} rules={vegasRules} startHole={g.startHole ?? 1} />
+      )}
+
       <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">
         <span className="font-semibold text-[var(--foreground)]">{GOLF_MODE_LABELS[mode]}</span> —{" "}
         {modeBlurb}{" "}
         <span className="opacity-80">
-          {isVegas
+          {vegasLedger
+            ? `Everyone enters their own ${shots} — the pair's number is combined for you.`
+            : isVegasPairCard
             ? "Type each pair's combined number per hole — low ball first (4 & 5 → 45)."
             : isScramble
               ? "One score per team per hole."

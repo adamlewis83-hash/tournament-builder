@@ -18,8 +18,12 @@ import {
   defaultGolf,
   computeGolf,
   computeGolfMatch,
+  computeVegas,
+  computeVegasLedger,
   golfMatchAvailable,
   golfScoringOptions,
+  vegasNumber,
+  vegasTeamsForHole,
   computeBbb,
   computeWolf,
   computeMixedOverall,
@@ -43,6 +47,8 @@ import {
   Format,
   ALL_FORMATS,
   playStylesForFormat,
+  VEGAS_BASIC,
+  VEGAS_DEFAULTS,
 } from "./src/lib/types";
 import { sportEmoji } from "./src/lib/sportEmoji";
 
@@ -1028,6 +1034,205 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(byStroke[0].name === "Blue", `stroke leader ${byStroke[0].name}, want Blue`);
     const m = computeGolfMatch(t)!;
     assert(m.upA === 2 && m.upB === 1, `match ${m.upA}–${m.upB}, want 2–1 to Red`);
+  });
+}
+
+// ---- Vegas, worked through the rules as written ----------------------------
+{
+  // Four players, no handicaps unless a case sets them. Teams A = p0/p1, B = p2/p3.
+  const vegasRound = (
+    pars: number[],
+    cards: [number[], number[], number[], number[]],
+    handicaps: [number, number, number, number] = [0, 0, 0, 0],
+  ): Tournament => {
+    const P: Participant[] = ["A1", "A2", "B1", "B2"].map((n, i) => ({
+      id: `v${i}`, name: n, handicap: handicaps[i],
+    }));
+    const t = tour({
+      format: "golf", participants: P, config: cfg({ golfMode: "vegas" }),
+    }) as Tournament;
+    t.golf = {
+      holes: pars.length, pars,
+      strokeIndex: pars.map((_, i) => i + 1),
+      scores: Object.fromEntries(P.map((p, i) => [p.id, cards[i]])),
+    };
+    return t;
+  };
+
+  check("vegas — the plain hole: 4+6 vs 5+5 is 46 to 55, nine points", () => {
+    const t = vegasRound([4], [[4], [6], [5], [5]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    const r = L.rows[0];
+    assert(r.numA === 46 && r.numB === 55, `numbers ${r.numA} v ${r.numB}, want 46 v 55`);
+    assert(r.winner === "A" && r.points === 9, `${r.winner} by ${r.points}, want A by 9`);
+    assert(L.pointsA === 9 && L.pointsB === 0, `ledger ${L.pointsA}–${L.pointsB}`);
+  });
+
+  check("vegas — low ball goes first regardless of entry order", () => {
+    assert(vegasNumber([6, 4], false) === 46, "high-first input not normalised");
+    assert(vegasNumber([4, 6], false) === 46, "low-first input changed");
+    assert(vegasNumber([4, 6], true) === 64, "flip did not put the high ball first");
+    assert(vegasNumber([4, 12], false) === 49, "ball over 9 not capped at 9");
+  });
+
+  check("vegas — a birdie flips the OPPONENT's number (3+5 vs 4+6 → 29)", () => {
+    // Par 4: A's 3 is a birdie, so B's 46 becomes 64. A wins 64 − 35 = 29.
+    const t = vegasRound([4], [[3], [5], [4], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.birdieA && !r.birdieB, `birdie read A=${r.birdieA} B=${r.birdieB}`);
+    assert(r.flippedB && !r.flippedA, "the birdie team flipped its own number");
+    assert(r.numA === 35 && r.numB === 64, `${r.numA} v ${r.numB}, want 35 v 64`);
+    assert(r.winner === "A" && r.points === 29, `${r.winner} by ${r.points}, want A by 29`);
+  });
+
+  check("vegas — the round's worked example: 45 vs 36 with B's birdie → B by 18", () => {
+    // Par 4. A: 4+5 = 45. B: 3+6 with a birdie, so A flips to 54. B wins 54 − 36 = 18.
+    const t = vegasRound([4], [[4], [5], [3], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.numA === 54 && r.numB === 36, `${r.numA} v ${r.numB}, want 54 v 36`);
+    assert(r.winner === "B" && r.points === 18, `${r.winner} by ${r.points}, want B by 18`);
+    assert(L.moneyA === -18, `money to A ${L.moneyA}, want -18 at $1/pt`);
+  });
+
+  check("vegas — flip off leaves the same hole at 45 v 36, nine points", () => {
+    const t = vegasRound([4], [[4], [5], [3], [6]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    assert(L.rows[0].numA === 45 && L.rows[0].points === 9, "flip applied while off");
+  });
+
+  check("vegas — eagle-only flipping ignores a mere birdie", () => {
+    const birdie = vegasRound([4], [[3], [5], [4], [6]]);
+    const onEagle = computeVegasLedger(birdie, { ...VEGAS_BASIC, flipOn: "eagle" })!;
+    assert(!onEagle.rows[0].flippedB, "a birdie flipped under an eagle-only rule");
+    const eagle = vegasRound([4], [[2], [5], [4], [6]]);
+    const flips = computeVegasLedger(eagle, { ...VEGAS_BASIC, flipOn: "eagle" })!;
+    assert(flips.rows[0].flippedB, "an eagle failed to flip");
+    // "Birdie or better" must include the eagle too.
+    const orBetter = computeVegasLedger(eagle, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    assert(orBetter.rows[0].flippedB, "birdie-or-better missed an eagle");
+  });
+
+  check("vegas — both teams birdie: each flips the other", () => {
+    const t = vegasRound([4], [[3], [5], [3], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.flippedA && r.flippedB, "a mutual birdie hole did not flip both");
+    assert(r.numA === 53 && r.numB === 63, `${r.numA} v ${r.numB}, want 53 v 63`);
+  });
+
+  check("vegas — net scoring takes handicap strokes off before combining", () => {
+    // One hole, stroke index 1. B1 gets a shot, turning a 5 into a net 4.
+    const t = vegasRound([4], [[4], [5], [5], [5]], [0, 0, 1, 0]);
+    const gross = computeVegasLedger(t, { ...VEGAS_BASIC, net: false })!;
+    assert(gross.rows[0].numB === 55, `gross B ${gross.rows[0].numB}, want 55`);
+    const net = computeVegasLedger(t, { ...VEGAS_BASIC, net: true })!;
+    assert(net.rows[0].numB === 45, `net B ${net.rows[0].numB}, want 45`);
+  });
+
+  check("vegas — tied holes carry the stake into the next one", () => {
+    // Hole 1 tied, hole 2 won by 9 → pays double with carry on, single with it off.
+    const t = vegasRound([4, 4], [[4, 4], [5, 6], [4, 5], [5, 5]]);
+    const off = computeVegasLedger(t, { ...VEGAS_BASIC, carryTies: false })!;
+    const on = computeVegasLedger(t, { ...VEGAS_BASIC, carryTies: true })!;
+    assert(off.rows[0].winner === null, "hole 1 was meant to tie");
+    assert(on.rows[1].carriedIn === 1, `carriedIn ${on.rows[1].carriedIn}, want 1`);
+    assert(on.rows[1].points === off.rows[1].points * 2, "carry did not double the hole");
+  });
+
+  check("vegas — auto-press opens at the margin and pays from the next hole", () => {
+    // Every hole won by A by 9 → the margin passes 5 after hole 1.
+    const cards: [number[], number[], number[], number[]] =
+      [[4, 4, 4], [4, 4, 4], [5, 5, 5], [5, 5, 5]];
+    const t = vegasRound([4, 4, 4], cards);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 5, maxPresses: 3, pressValue: 5 })!;
+    assert(L.presses.length > 0, "no press opened past the trigger");
+    assert(L.presses[0].from === 1, `first press starts on hole ${L.presses[0].from}, want 1`);
+    // The press only collects holes from its start, never the one that triggered it.
+    const fromStart = L.rows.slice(1).reduce((n, r) => n + (r.winner === "A" ? r.points : 0), 0);
+    assert(L.presses[0].pointsA === fromStart, `press has ${L.presses[0].pointsA}, want ${fromStart}`);
+    assert(L.pointsA === 33 && L.pointsB === 0, `original bet ${L.pointsA}–${L.pointsB}, want 33–0`);
+  });
+
+  check("vegas — presses respect the cap", () => {
+    const cards: [number[], number[], number[], number[]] = [
+      [4, 4, 4, 4, 4, 4], [4, 4, 4, 4, 4, 4], [5, 5, 5, 5, 5, 5], [5, 5, 5, 5, 5, 5],
+    ];
+    const t = vegasRound([4, 4, 4, 4, 4, 4], cards);
+    const capped = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 5, maxPresses: 2 })!;
+    assert(capped.presses.length <= 2, `${capped.presses.length} presses past a cap of 2`);
+    const none = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 0 })!;
+    assert(none.presses.length === 0, "presses opened while switched off");
+  });
+
+  check("vegas — money nets the original bet and every press", () => {
+    const cards: [number[], number[], number[], number[]] =
+      [[4, 4, 4], [4, 4, 4], [5, 5, 5], [5, 5, 5]];
+    const t = vegasRound([4, 4, 4], cards);
+    const L = computeVegasLedger(t, {
+      ...VEGAS_BASIC, pressAt: 5, maxPresses: 3, pointValue: 1, pressValue: 5,
+    })!;
+    const expected =
+      (L.pointsA - L.pointsB) * 1 + L.presses.reduce((n, p) => n + (p.pointsA - p.pointsB) * 5, 0);
+    assert(L.moneyA === expected, `money ${L.moneyA} ≠ ${expected}`);
+    assert(L.moneyA > L.pointsA, "presses added nothing to the settlement");
+  });
+
+  check("vegas — fixed teams hold; rotate6 runs all three pairings", () => {
+    const ids = ["p0", "p1", "p2", "p3"];
+    const fixed = [0, 5, 6, 11, 12, 17].map((h) => vegasTeamsForHole(ids, h, "fixed")![0].join("+"));
+    assert(new Set(fixed).size === 1, `fixed teams changed: ${fixed.join(" ")}`);
+    const rot = [0, 6, 12].map((h) => vegasTeamsForHole(ids, h, "rotate6")![0].join("+"));
+    assert(new Set(rot).size === 3, `rotate6 gave ${rot.join(" ")}`);
+    assert(rot[0] === "p0+p1" && rot[1] === "p0+p2" && rot[2] === "p0+p3", `rotation ${rot.join(" ")}`);
+    // Holes 1-6 share a pairing, then it changes.
+    assert(
+      vegasTeamsForHole(ids, 5, "rotate6")![0].join("+") === "p0+p1" &&
+        vegasTeamsForHole(ids, 6, "rotate6")![0].join("+") === "p0+p2",
+      "rotation did not switch at the six-hole boundary",
+    );
+  });
+
+  check("vegas — needs four players with their own scores", () => {
+    const three = tour({
+      format: "golf",
+      participants: [
+        { id: "a", name: "A", handicap: 0 },
+        { id: "b", name: "B", handicap: 0 },
+        { id: "c", name: "C", handicap: 0 },
+      ],
+      config: cfg({ golfMode: "vegas" }),
+    }) as Tournament;
+    three.golf = { holes: 1, pars: [4], strokeIndex: [1], scores: {} };
+    assert(computeVegasLedger(three, VEGAS_DEFAULTS) === null, "a three-player card produced a ledger");
+    assert(vegasTeamsForHole(["a", "b", "c"], 0, "fixed") === null, "three players formed teams");
+  });
+
+  check("vegas — a legacy pair card is never read as the full game", () => {
+    // Four PAIRS with pre-combined numbers. Without the per-player flag this must keep
+    // its old pair scoring, or two duels would be misread as one four-player game.
+    const pairs: Participant[] = ["A&B", "C&D", "E&F", "G&H"].map((n, i) => ({
+      id: `pair${i}`, name: n, handicap: 0,
+    }));
+    const t = tour({ format: "golf", participants: pairs, config: cfg({ golfMode: "vegas" }) }) as Tournament;
+    t.golf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { pair0: [45], pair1: [56], pair2: [44], pair3: [55] },
+    };
+    assert(!t.config.vegasPerPlayer, "fixture should have no per-player flag");
+    // The old duel scoring still reads it: pair0 beats pair1 by 11, pair2 beats pair3 by 11.
+    const legacy = computeVegas(t);
+    const byName = (n: string) => legacy.find((r) => r.name === n)!;
+    assert(byName("A&B").points === 11, `legacy pair scoring changed: ${byName("A&B").points}`);
+    assert(byName("E&F").points === 11, `second duel wrong: ${byName("E&F").points}`);
+  });
+
+  check("vegas — unplayed holes are skipped, not scored as zeros", () => {
+    const t = vegasRound([4, 4], [[4, null as unknown as number], [4, 4], [5, 5], [5, 5]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    assert(L.thru === 1, `thru ${L.thru}, want 1`);
+    assert(L.rows.length === 1, `${L.rows.length} rows for one played hole`);
   });
 }
 
