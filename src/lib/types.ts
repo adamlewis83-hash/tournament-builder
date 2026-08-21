@@ -388,6 +388,9 @@ export interface Tournament {
   liveCode?: string; // when set, this tournament is synced to a live session
   liveVersion?: number; // last server version this device has applied
   spectator?: boolean; // joined via live code as a viewer — read-only, can't edit scores
+  // Registration ids already imported into the roster once. A registrant the host
+  // then removes stays removed — the lobby poll must not resurrect them.
+  syncedRegs?: string[];
   scorers?: string[]; // participant names the host lets keep score from their own device
   // Per-match game clocks, synced so everyone watching sees the same countdown.
   // endAt = ms timestamp it hits zero (running); leftSec = frozen remaining (paused).

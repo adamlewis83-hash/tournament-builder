@@ -759,17 +759,24 @@ export const useStore = create<State>()(
               if (k && !manualByName.has(k)) manualByName.set(k, p);
             }
             const claimed = new Set<string>();
+            // Once a registration has been imported (or claimed a typed name), the
+            // host's later removal of that player is final — never re-import them.
+            const seen = new Set(t.syncedRegs ?? []);
             const regParts: Participant[] = [];
             for (const r of regs) {
+              const key = String(r.id);
               const hit = manualByName.get(r.name.trim().toLowerCase());
               if (hit && !claimed.has(hit.id)) {
                 // Merge onto the typed name rather than adding a second player.
                 claimed.add(hit.id);
+                seen.add(key);
                 if (r.handicap != null) hit.handicap = r.handicap;
                 if (r.photo) hit.photo = r.photo;
                 continue;
               }
               const old = prev.get(`reg-${r.id}`);
+              if (!old && seen.has(key)) continue; // host removed them — stay removed
+              seen.add(key);
               const p: Participant = { id: `reg-${r.id}`, name: r.name };
               if (r.handicap != null) p.handicap = r.handicap;
               if (r.photo) p.photo = r.photo;
@@ -779,8 +786,13 @@ export const useStore = create<State>()(
               regParts.push(p);
             }
             const participants = [...manual, ...regParts];
-            if (JSON.stringify(participants) === JSON.stringify(t.participants)) return t;
-            return { ...t, participants, updatedAt: Date.now() };
+            const syncedRegs = Array.from(seen);
+            if (
+              JSON.stringify([participants, syncedRegs]) ===
+              JSON.stringify([t.participants, t.syncedRegs ?? []])
+            )
+              return t;
+            return { ...t, participants, syncedRegs, updatedAt: Date.now() };
           }),
         })),
 
