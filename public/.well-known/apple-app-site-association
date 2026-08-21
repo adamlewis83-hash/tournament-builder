@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["6FD9JGT9T5.com.lewcrewlabs.sporos"],
+        "appID": "6FD9JGT9T5.com.lewcrewlabs.sporos",
+        "paths": ["/join/*", "/live/*"],
+        "components": [
+          { "/": "/join/*" },
+          { "/": "/live/*" }
+        ]
+      }
+    ]
+  }
+}

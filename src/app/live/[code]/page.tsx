@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
+import { fetchLive } from "@/lib/live";
+import { Tournament } from "@/lib/types";
 import { Card, Button } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 
@@ -24,10 +26,19 @@ function Joiner({ code }: { code: string }) {
   useEffect(() => {
     if (done.current) return;
     done.current = true;
-    joinLive(code).then((id) => {
+    (async () => {
+      // If the event is still in its lobby (registration) phase, someone
+      // arriving by code is a player, not a spectator — send them to the
+      // sign-up page. Spectator mode only makes sense once play has started.
+      const live = await fetchLive(code);
+      if (live && !(live.data as Tournament).generated) {
+        router.replace(`/join/${code}`);
+        return;
+      }
+      const id = await joinLive(code);
       if (id) router.replace(`/t/${id}`);
       else setError(true);
-    });
+    })();
   }, [code, joinLive, router]);
 
   return (
