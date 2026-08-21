@@ -4,7 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { GOLF_MODE_BLURBS, GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeGolf, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
+import { computeGolf, computeVegas, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -32,13 +32,15 @@ export function GolfView({ t }: { t: Tournament }) {
   if (t.config.golfMode === "wolf") return <WolfView t={t} />;
   if (t.config.golfMode === "mixed") return <MixedGolfView t={t} />;
 
-  const isScramble = t.config.golfMode === "scramble";
+  // Team-row games: each participant row is a team/pair, locked to their own view.
+  const isScramble = ["scramble", "bestball", "shamble", "vegas"].includes(t.config.golfMode);
   const mode: GolfMode = isScramble
-    ? "scramble"
+    ? t.config.golfMode
     : SWITCHABLE.includes(t.config.golfMode)
       ? t.config.golfMode
       : "stroke";
-  const strokeLike = mode === "stroke" || mode === "scramble";
+  const isVegas = mode === "vegas";
+  const strokeLike = mode === "stroke" || (isScramble && !isVegas);
   const isNassau = mode === "nassau";
   // Disc golf is scored exactly like golf but has its own vocabulary — swap the
   // player-facing words (labels only; all scoring math is unchanged).
@@ -65,7 +67,7 @@ export function GolfView({ t }: { t: Tournament }) {
     <div className="space-y-5">
       {isScramble ? (
         <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)]">
-          {GOLF_MODE_LABELS.scramble}
+          {GOLF_MODE_LABELS[mode]}
         </div>
       ) : (
         <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
@@ -85,23 +87,27 @@ export function GolfView({ t }: { t: Tournament }) {
         </div>
       )}
 
-      {!isScramble && (
-        <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">
-          <span className="font-semibold text-[var(--foreground)]">{GOLF_MODE_LABELS[mode]}</span> —{" "}
-          {modeBlurb}{" "}
-          <span className="opacity-80">
-            Enter each player&apos;s {shots} once; all four scoring views track live from the same
-            card — switch tabs anytime.
-          </span>
-        </p>
-      )}
+      <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">
+        <span className="font-semibold text-[var(--foreground)]">{GOLF_MODE_LABELS[mode]}</span> —{" "}
+        {modeBlurb}{" "}
+        <span className="opacity-80">
+          {isVegas
+            ? "Type each pair's combined number per hole — low ball first (4 & 5 → 45)."
+            : isScramble
+              ? "One score per team per hole."
+              : `Enter each player's ${shots} once; all four scoring views track live from the same card — switch tabs anytime.`}
+        </span>
+      </p>
 
       {/* Hole-by-hole entry */}
       {(() => {
         const h = Math.min(hole, g.holes - 1);
         const adj = (pid: string, delta: number) => {
           const cur = g.scores[pid]?.[h];
-          const next = cur === null || cur === undefined ? g.pars[h] : Math.max(1, cur + delta);
+          // Vegas cards hold the pair's combined number, so a fresh hole starts
+          // at par-par (par 4 → 44) instead of a single ball's par.
+          const start = isVegas ? g.pars[h] * 11 : g.pars[h];
+          const next = cur === null || cur === undefined ? start : Math.max(1, cur + delta);
           setGolfScore(t.id, pid, h, next);
         };
         return (
@@ -163,7 +169,7 @@ export function GolfView({ t }: { t: Tournament }) {
             <div className="mt-3 space-y-2">
               {t.participants.map((p) => {
                 const v = g.scores[p.id]?.[h];
-                const rel = v != null ? v - g.pars[h] : null;
+                const rel = v != null && !isVegas ? v - g.pars[h] : null;
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
                     <span className="flex items-center gap-2 min-w-0">
@@ -239,6 +245,45 @@ export function GolfView({ t }: { t: Tournament }) {
         <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">
           {GOLF_MODE_LABELS[mode]} · Leaderboard
         </div>
+        {isVegas ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
+                <th className="px-3 py-2 w-10">#</th>
+                <th className="px-3 py-2">Pair</th>
+                <th className="px-2 py-2 text-center w-14">Thru</th>
+                <th className="px-2 py-2 text-center w-16">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {computeVegas(t).map((r, i) => (
+                <tr
+                  key={r.participantId}
+                  className={`border-b border-[var(--border)] last:border-0 ${i === 0 && r.points > 0 ? "bg-[var(--win-bg)]" : ""}`}
+                >
+                  <td className="px-3 py-2 font-bold text-[var(--muted)]">{r.thru ? i + 1 : "–"}</td>
+                  <td className="px-3 py-2 font-medium">
+                    <span className="flex items-center gap-2.5">
+                      <Avatar
+                        name={r.name}
+                        color={colorFor(t.participants, r.participantId)}
+                        photo={photoFor(t.participants, r.participantId)}
+                      />
+                      <span>
+                        {r.name}
+                        {r.opponent && (
+                          <span className="block text-xs text-[var(--muted)]">vs {r.opponent}</span>
+                        )}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-center tabular-nums">{r.thru ? r.thru : "–"}</td>
+                  <td className="px-2 py-2 text-center tabular-nums font-bold">{r.points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--muted)] border-b border-[var(--border)] bg-[var(--subtle)]">
@@ -303,6 +348,7 @@ export function GolfView({ t }: { t: Tournament }) {
             ))}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* Full scorecard (toggle) */}

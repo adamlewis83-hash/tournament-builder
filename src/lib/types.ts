@@ -47,6 +47,9 @@ export type GolfMode =
   | "stableford"
   | "skins"
   | "scramble"
+  | "bestball"
+  | "shamble"
+  | "vegas"
   | "nassau"
   | "bingo"
   | "wolf"
@@ -57,6 +60,9 @@ export const GOLF_MODE_LABELS: Record<GolfMode, string> = {
   stableford: "Stableford",
   skins: "Skins",
   scramble: "Scramble (teams)",
+  bestball: "Best Ball (pairs)",
+  shamble: "Shamble (pairs)",
+  vegas: "Vegas (2v2)",
   nassau: "Nassau",
   bingo: "Bingo Bango Bongo",
   wolf: "Wolf",
@@ -68,6 +74,9 @@ export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
   stableford: "Earn points each hole by net score vs par (e.g. birdie 3, par 2, bogey 1). Most points wins.",
   skins: "Every hole is a 'skin' — the lowest net score takes it; a tie carries the skin to the next hole.",
   scramble: "Team game: everyone tees off, the team plays its next shot from the best ball, and repeats. One score per team per hole.",
+  bestball: "Pairs: everyone plays their own ball, and the pair counts its better score each hole. Enter one score per pair — the better ball.",
+  shamble: "Pairs take the best drive, then each plays their own ball in; the pair counts its better score. Enter one score per pair.",
+  vegas: "2v2: each hole the pair's scores combine into one number, low ball first (4 & 5 → 45). The lower team number wins the difference in points. Pairs are matched in entry order — pair 1 vs pair 2, pair 3 vs pair 4. Pick up at 9.",
   nassau: "Three matches in one — front 9, back 9, and overall 18 — each scored as net match play.",
   bingo: "A point for first on the green (bingo), closest to the pin once all are on (bango), and first in the hole (bongo).",
   wolf: "Each hole one player is the 'Wolf' and picks a partner after the tee shots — or plays alone (Lone Wolf) for bigger points.",
@@ -84,6 +93,7 @@ export type SegmentFormat =
   | "bingo"
   | "scramble"
   | "bestball"
+  | "shamble"
   | "altshot";
 export interface GolfSegment {
   from: number;
@@ -98,6 +108,7 @@ export const SEGMENT_LABELS: Record<SegmentFormat, string> = {
   bingo: "Bingo Bango Bongo",
   scramble: "Scramble",
   bestball: "Best Ball",
+  shamble: "Shamble",
   altshot: "Alternate Shot",
 };
 
@@ -108,11 +119,12 @@ export const SEGMENT_BLURBS: Record<SegmentFormat, string> = {
   bingo: "Bingo Bango Bongo points (first on, closest once all on, first in) over these holes.",
   scramble: "Team plays one ball from the best shot each time — lowest team score wins.",
   bestball: "Each teammate plays their own ball; the team takes the lower score each hole.",
+  shamble: "Take the best drive, then everyone plays their own ball in; the team takes the lower score.",
   altshot: "Alternate Shot: partners share one ball, taking turns hitting each shot.",
 };
 
 // Segment formats that are team games (one ball per team).
-export const TEAM_SEGMENT_FORMATS: SegmentFormat[] = ["scramble", "bestball", "altshot", "stableford", "skins"];
+export const TEAM_SEGMENT_FORMATS: SegmentFormat[] = ["scramble", "bestball", "shamble", "altshot", "stableford", "skins"];
 export const SOLO_SEGMENT_FORMATS: SegmentFormat[] = ["stroke", "stableford", "skins", "bingo"];
 
 // Per-hole award winners for Bingo Bango Bongo (participantId or null).

@@ -31,8 +31,14 @@ const MODES: GolfMode[] = [
   "bingo",
   "wolf",
   "scramble",
+  "bestball",
+  "shamble",
+  "vegas",
   "mixed",
 ];
+
+// Modes where each entered "player" is a team/pair with one score per hole.
+const TEAM_ROW_MODES: GolfMode[] = ["scramble", "bestball", "shamble", "vegas"];
 
 function defaultSegments(holes: number, teams = false): GolfSegment[] {
   const chunk = Math.ceil(holes / 3);
@@ -64,7 +70,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [mode, setMode] = useState<GolfMode>(
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
   );
-  const isScramble = mode === "scramble";
+  const isScramble = TEAM_ROW_MODES.includes(mode);
   const [holes, setHoles] = useState<number>(t.golf?.holes ?? 18);
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
@@ -737,9 +743,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </button>
         </div>
         <p className="text-sm text-[var(--muted)] mb-3">
-          {isScramble
-            ? "One team per line; handicap optional (one ball per team)."
-            : "Add each player and their handicap — net scores adjust automatically."}
+          {mode === "vegas"
+            ? "One pair per line — e.g. “Adam & Cory”. Pairs duel in this order: 1st vs 2nd, 3rd vs 4th…"
+            : mode === "bestball" || mode === "shamble"
+              ? "One pair per line — e.g. “Adam & Cory”; handicap optional (applies to the pair's ball)."
+              : isScramble
+                ? "One team per line; handicap optional (one ball per team)."
+                : "Add each player and their handicap — net scores adjust automatically."}
         </p>
         {!teamsMode && (
           <div className="mb-3">

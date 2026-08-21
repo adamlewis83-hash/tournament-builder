@@ -330,3 +330,52 @@ export function formatToPar(toPar: number): string {
   if (toPar === 0) return "E";
   return toPar > 0 ? `+${toPar}` : `${toPar}`;
 }
+
+export interface VegasRow {
+  participantId: string;
+  name: string;
+  points: number;
+  thru: number;
+  opponent: string | null; // duel partner's name (pairs matched in entry order)
+}
+
+/**
+ * Vegas (2v2): each participant row is a PAIR whose entered hole score is the
+ * combined team number — low ball first (4 & 5 → 45). Pairs duel in entry
+ * order (1st vs 2nd, 3rd vs 4th…); on each hole both pairs have scored, the
+ * lower number takes the difference in points. An unmatched trailing pair
+ * (odd count) just keeps a card.
+ */
+export function computeVegas(t: Tournament): VegasRow[] {
+  const g = t.golf;
+  const teams = t.participants;
+  const pts = new Map<string, number>();
+  teams.forEach((p) => pts.set(p.id, 0));
+
+  if (g) {
+    for (let d = 0; d + 1 < teams.length; d += 2) {
+      const A = teams[d];
+      const B = teams[d + 1];
+      for (let h = 0; h < g.holes; h++) {
+        const a = g.scores[A.id]?.[h];
+        const b = g.scores[B.id]?.[h];
+        if (a == null || b == null) continue;
+        if (a < b) pts.set(A.id, (pts.get(A.id) ?? 0) + (b - a));
+        else if (b < a) pts.set(B.id, (pts.get(B.id) ?? 0) + (a - b));
+      }
+    }
+  }
+
+  return teams
+    .map((p, i) => {
+      const mate = i % 2 === 0 ? teams[i + 1] : teams[i - 1];
+      return {
+        participantId: p.id,
+        name: p.name,
+        points: pts.get(p.id) ?? 0,
+        thru: g ? (g.scores[p.id] ?? []).filter((s) => s != null).length : 0,
+        opponent: mate?.name ?? null,
+      };
+    })
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}

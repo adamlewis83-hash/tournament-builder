@@ -3,7 +3,7 @@ import { isFinal } from "./score";
 import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { ryderScore } from "./ryder";
-import { computeBbb, computeGolf, computeMixedOverall, mixedComplete } from "./golf";
+import { computeBbb, computeGolf, computeMixedOverall, computeVegas, mixedComplete } from "./golf";
 
 export interface TournamentResult {
   complete: boolean;
@@ -106,6 +106,10 @@ export function getResult(t: Tournament): TournamentResult {
       if (t.config.golfMode === "bingo") {
         const r = computeBbb(t);
         return { complete: true, winner: r[0]?.name ?? null };
+      }
+      if (t.config.golfMode === "vegas") {
+        const r = computeVegas(t);
+        return { complete: true, winner: r[0]?.points ? r[0].name : null };
       }
       const rows = computeGolf(t, t.config.golfMode);
       return { complete: true, winner: rows[0]?.name ?? null };
