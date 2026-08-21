@@ -7,9 +7,14 @@ export interface MatchEntity {
   side: "A" | "B";
 }
 
-/** The score-entry columns for a match: one ball per team for Foursomes, else per player. */
+// One ball per side (alternate shot / scramble variants): score entry is a
+// single team column. Everything else is per-player balls.
+export const ONE_BALL_SESSIONS = ["Foursomes", "Scramble", "Team Scramble", "Team Alt Shot"];
+const oneBall = (label?: string) => ONE_BALL_SESSIONS.includes(label ?? "");
+
+/** The score-entry columns for a match: one ball per team, or per player. */
 export function entitiesForMatch(m: Match): MatchEntity[] {
-  if (m.label === "Foursomes") {
+  if (oneBall(m.label)) {
     return [
       { key: "A", ids: m.sideA, side: "A" },
       { key: "B", ids: m.sideB, side: "B" },
@@ -25,26 +30,34 @@ const hcpOf = (p: Participant[], id: string) => p.find((x) => x.id === id)?.hand
 const teamHcp = (p: Participant[], ids: string[]) =>
   ids.length ? Math.round(ids.reduce((s, id) => s + hcpOf(p, id), 0) / ids.length) : 0;
 
-/** How many handicap strokes an entity (player, or a Foursomes team ball) gets on a hole. */
+/** How many handicap strokes an entity (player, or a team ball) gets on a hole. */
 export function entityStrokes(t: Tournament, m: Match, key: string, h: number): number {
   const g = t.ryderGolf;
   if (!g) return 0;
   const si = g.strokeIndex[h];
-  if (m.label === "Foursomes") {
+  if (oneBall(m.label)) {
     const ids = key === "A" ? m.sideA : m.sideB;
     return holeStrokes(teamHcp(t.participants, ids), si, g.holes);
   }
+  // Vegas is played gross — the combined number is its own equalizer by custom.
+  if (m.label === "Vegas") return 0;
   return holeStrokes(hcpOf(t.participants, key), si, g.holes);
 }
 
-/** Net score for each side on a single hole, or null if not fully entered yet. */
+/**
+ * Per-hole result value for each side (lower wins the hole), or null until the
+ * hole is fully entered. One-ball sessions compare team-ball nets; Vegas
+ * compares the pair's combined gross number (low ball first, balls capped at 9);
+ * Team Stableford compares negated team points (so lower still wins); everything
+ * else is best net of the side's balls.
+ */
 export function holeNets(t: Tournament, m: Match, h: number): { netA: number; netB: number } | null {
   const g = t.ryderGolf;
   if (!g) return null;
   const P = t.participants;
   const si = g.strokeIndex[h];
   const sc = g.scores[m.id] ?? {};
-  if (m.label === "Foursomes") {
+  if (oneBall(m.label)) {
     const ga = sc["A"]?.[h];
     const gb = sc["B"]?.[h];
     if (ga == null || gb == null) return null;
@@ -55,6 +68,25 @@ export function holeNets(t: Tournament, m: Match, h: number): { netA: number; ne
   }
   if (!m.sideA.every((id) => sc[id]?.[h] != null)) return null;
   if (!m.sideB.every((id) => sc[id]?.[h] != null)) return null;
+
+  if (m.label === "Vegas") {
+    const combined = (ids: string[]) => {
+      const balls = ids.map((id) => Math.min(9, sc[id]![h] as number)).sort((a, b) => a - b);
+      return balls.reduce((n, b) => n * 10 + b, 0); // low ball first: 4 & 5 → 45
+    };
+    return { netA: combined(m.sideA), netB: combined(m.sideB) };
+  }
+
+  if (m.label === "Team Stableford") {
+    // Sum of each ball's net Stableford points; negated so "lower wins" holds.
+    const pts = (ids: string[]) =>
+      ids.reduce((sum, id) => {
+        const net = (sc[id]![h] as number) - holeStrokes(hcpOf(P, id), si, g.holes);
+        return sum + Math.max(0, g.pars[h] - net + 2);
+      }, 0);
+    return { netA: -pts(m.sideA), netB: -pts(m.sideB) };
+  }
+
   const best = (ids: string[]) =>
     Math.min(...ids.map((id) => (sc[id]![h] as number) - holeStrokes(hcpOf(P, id), si, g.holes)));
   return { netA: best(m.sideA), netB: best(m.sideB) };

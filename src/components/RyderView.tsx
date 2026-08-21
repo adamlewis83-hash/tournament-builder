@@ -135,11 +135,19 @@ function RyderMatchCard({
           <p className="text-[10px] text-[var(--muted)] mt-1.5">
             <span className="inline-block h-1 w-1 rounded-full bg-amber-400 align-middle" /> = a handicap
             stroke on that hole · net result per hole
-            {m.label === "Foursomes"
+            {m.label === "Foursomes" || m.label === "Team Alt Shot"
               ? " · one ball per team (alternate shot)"
-              : m.label === "Fourball"
-                ? " · best net of the pair"
-                : ""}
+              : m.label === "Scramble" || m.label === "Team Scramble"
+                ? " · one ball per team (scramble)"
+                : m.label === "Fourball" || m.label === "Best Ball"
+                  ? " · best net of the pair"
+                  : m.label === "Shamble"
+                    ? " · best drive, own balls in — best net counts"
+                    : m.label === "Vegas"
+                      ? " · scores combine low-first (4 & 5 → 45), lower number wins the hole — played gross"
+                      : m.label === "Team Stableford"
+                        ? " · team's combined Stableford points — most points wins the hole"
+                        : ""}
           </p>
         </div>
       )}
@@ -321,21 +329,46 @@ export function RyderView({ t }: { t: Tournament }) {
               🎲 Randomize pairings
             </label>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(["Foursomes", "Fourball", "Singles"] as RyderSessionType[]).map((ty) => (
-              <Button
-                key={ty}
-                variant="outline"
-                className="px-3 py-1.5"
-                onClick={() => addRyderSession(t.id, ty, shuffle)}
-              >
-                + {ty}
-              </Button>
-            ))}
+          <div className="mt-3 space-y-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Pairs (2v2)
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(
+                ["Fourball", "Foursomes", "Best Ball", "Shamble", "Scramble", "Vegas"] as RyderSessionType[]
+              ).map((ty) => (
+                <Button
+                  key={ty}
+                  variant="outline"
+                  className="px-3 py-1.5"
+                  onClick={() => addRyderSession(t.id, ty, shuffle)}
+                >
+                  + {ty}
+                </Button>
+              ))}
+            </div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Whole team &amp; singles
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(
+                ["Team Scramble", "Team Alt Shot", "Team Stableford", "Singles"] as RyderSessionType[]
+              ).map((ty) => (
+                <Button
+                  key={ty}
+                  variant="outline"
+                  className="px-3 py-1.5"
+                  onClick={() => addRyderSession(t.id, ty, shuffle)}
+                >
+                  + {ty}
+                </Button>
+              ))}
+            </div>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
             Pairings start in lineup order — tap <b>Set pairings</b> below to arrange them yourself,
-            or tick Randomize to auto-shuffle.
+            or tick Randomize to auto-shuffle. Change the game and the pairings every session — a
+            9-hole session per game works great for team days.
           </p>
         </Card>
       )}

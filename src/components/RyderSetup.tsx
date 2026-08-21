@@ -263,6 +263,29 @@ export function RyderSetup({ t }: { t: Tournament }) {
           </label>
         )}
 
+        {/* Session length: a cup of 9-hole sessions (change game & pairings each nine)
+            plays each match over the front nine of the loaded course. */}
+        <div className="mt-3 mb-2 flex items-center gap-2 text-sm">
+          <span className="text-[var(--muted)]">Each session is</span>
+          <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            {([18, 9] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setCourse({ ...course, holes: n })}
+                disabled={course.pars.length < n}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition disabled:opacity-40 ${
+                  course.holes === n
+                    ? "bg-[var(--brand)] text-[var(--on-brand)]"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {n} holes
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center justify-between rounded-lg bg-[var(--subtle)] px-3 py-2 text-sm">
           <span>
             <span className="font-semibold">{course.courseName ?? "Default course"}</span>{" "}

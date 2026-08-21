@@ -63,7 +63,24 @@ export function genRyder(participants: Participant[], sessions: RyderSessions): 
   return matches;
 }
 
-export type RyderSessionType = "Foursomes" | "Fourball" | "Singles";
+export type RyderSessionType =
+  | "Foursomes"
+  | "Fourball"
+  | "Best Ball"
+  | "Shamble"
+  | "Scramble"
+  | "Vegas"
+  | "Singles"
+  | "Team Scramble"
+  | "Team Alt Shot"
+  | "Team Stableford";
+
+// 4v4-style sessions: the whole team plays as one unit — a single match per session.
+export const TEAM_SESSION_TYPES: RyderSessionType[] = [
+  "Team Scramble",
+  "Team Alt Shot",
+  "Team Stableford",
+];
 
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -91,7 +108,10 @@ export function genRyderSession(
     B = shuffled(B);
   }
   const matches: Match[] = [];
-  if (type === "Singles") {
+  if (TEAM_SESSION_TYPES.includes(type)) {
+    // Whole-team session: everyone plays, one match, one cup point on the line.
+    matches.push(makeMatch({ round, order: 0, label: type, sideA: A, sideB: B }));
+  } else if (type === "Singles") {
     const n = Math.min(A.length, B.length);
     for (let i = 0; i < n; i++) {
       matches.push(makeMatch({ round, order: i, label: "Singles", sideA: [A[i]], sideB: [B[i]] }));
