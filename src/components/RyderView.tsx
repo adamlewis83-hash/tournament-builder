@@ -457,7 +457,8 @@ export function RyderView({ t }: { t: Tournament }) {
             ? `${fmt(score.clinch)} points wins the cup · ${fmt(score.a + score.b)}/${fmt(score.total)} points decided`
             : "Final result"}
         </p>
-        {!noEdit && <CupScoringControl t={t} />}
+        {/* How the cup counts is the host's call, not a granted scorekeeper's. */}
+        {!t.spectator && <CupScoringControl t={t} />}
       </Card>
 
       {!noEdit && (

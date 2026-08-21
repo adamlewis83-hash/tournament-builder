@@ -33,6 +33,7 @@ import { BracketView } from "@/components/BracketView";
 import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
 import { LivePanel } from "@/components/LivePanel";
+import { ScorerClaim } from "@/components/ScorerClaim";
 import { PlayerPhotos } from "@/components/PlayerPhotos";
 import { useLiveSync } from "@/hooks/useLiveSync";
 
@@ -130,6 +131,8 @@ function TournamentDetail({ id }: { id: string }) {
           )}
         </div>
       )}
+
+      {t.spectator && <ScorerClaim t={t} />}
 
       {t.generated && !t.spectator && <LivePanel t={t} />}
 

@@ -915,10 +915,13 @@ export const useStore = create<State>()(
       // matches, pairings and every hole on the card are untouched — so a host can
       // switch mid-cup. Pushed live so spectators re-weigh with the same rule.
       setRyderScoring: (id, scoring) => {
-        if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
-            t.id === id ? { ...t, config: { ...t.config, ryderScoring: scoring }, updatedAt: Date.now() } : t,
+            // Host-only, like setScorers: a granted scorekeeper enters scores, but
+            // how the cup counts them is the host's rule to set.
+            t.id === id && !t.spectator
+              ? { ...t, config: { ...t.config, ryderScoring: scoring }, updatedAt: Date.now() }
+              : t,
           ),
         }));
         pushReplace(id);

@@ -118,8 +118,14 @@ export function LivePanel({ t }: { t: Tournament }) {
             <p className="text-xs text-[var(--muted)] mb-2">
               By default only you enter scores. Tap a player below — or add someone who isn&apos;t in
               the tournament (a spouse, a friend) — to let them keep score from their own phone once
-              they join the link. They&apos;re recognized by their profile name, so it must match.
-              Entries sync to everyone.
+              they join the link. Entries sync to everyone.
+            </p>
+            <p className="text-xs text-[var(--muted)] mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2">
+              <span className="font-semibold text-[var(--foreground)]">How they&apos;re recognized:</span>{" "}
+              by the profile name set on <em>their</em> phone — not by the name on the matchup. If it
+              doesn&apos;t match what you type here, their screen shows a{" "}
+              <span className="font-medium text-[var(--foreground)]">&ldquo;That&apos;s me&rdquo;</span>{" "}
+              prompt listing these names, and one tap claims it. Tell them to look for it.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {t.participants.map((p) => {
