@@ -897,8 +897,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 }}
                 className="h-4 w-4 accent-[var(--brand)]"
               />
-              Play as teams — one <b>score</b> per team each hole. Scramble &amp; alternate shot play
-              one ball; in best ball / shamble everyone plays and the team&apos;s best score counts.
+              Play as teams — one <b>score</b> per team each hole. Scramble: everyone hits, play the
+              best shot. Alternate shot: one shared ball. Best ball / shamble: own balls, best score
+              counts.
             </label>
             <h3 className="font-medium text-sm mb-1">Segments</h3>
             <p className="text-xs text-[var(--muted)] mb-3">
