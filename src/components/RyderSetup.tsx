@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
-import { RYDER_SESSION_BLURBS, RyderSessionType, TEAM_SESSION_TYPES } from "@/lib/ryder";
+import {
+  CUP_SCORING_LABELS,
+  RYDER_SESSION_BLURBS,
+  RyderScoring,
+  RyderSessionType,
+  TEAM_SESSION_TYPES,
+} from "@/lib/ryder";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { defaultCourse } from "@/lib/golf";
@@ -20,7 +26,7 @@ interface CourseState {
 
 export function RyderSetup({ t }: { t: Tournament }) {
   const setRyderTeams = useStore((s) => s.setRyderTeams);
-  const generate = useStore((s) => s.generate);
+  const keepRyderRounds = useStore((s) => s.keepRyderRounds);
   const addRyderSession = useStore((s) => s.addRyderSession);
   const patch = useStore((s) => s.patchTournament);
   const savedCourses = useStore((s) => s.courses);
@@ -38,8 +44,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
     (t.config.ryderProgram as RyderSessionType[] | undefined) ?? [],
   );
   const [info, setInfo] = useState<RyderSessionType | null>(null);
-  const [scoring, setScoring] = useState<"match" | "session" | "round18">(
-    t.config.ryderScoring ?? "match",
+  const [scoring, setScoring] = useState<RyderScoring>(t.config.ryderScoring ?? "match");
+  const [pointsPer, setPointsPer] = useState(
+    t.config.ryderPointsPerSession != null ? String(t.config.ryderPointsPerSession) : "",
   );
   const [courseSaved, setCourseSaved] = useState(false);
 
@@ -160,6 +167,26 @@ export function RyderSetup({ t }: { t: Tournament }) {
   }
 
   function handleGenerate() {
+    // Sessions already built keep their matches — and so their scorecards, which are
+    // keyed by match id. Only the part of the program that actually changed is rebuilt,
+    // so coming in here to fix a name, a handicap or the course costs nothing. Rounds
+    // are compared in order: everything up to the first difference is left alone.
+    const current = (t.config.ryderProgram as RyderSessionType[] | undefined) ?? [];
+    let keep = 0;
+    while (keep < current.length && keep < program.length && current[keep] === program[keep]) keep++;
+    const dropped = current.length - keep;
+    const droppedScores = t.matches.filter(
+      (m) => m.phase === "ryder" && m.round > keep && (t.ryderGolf?.scores?.[m.id] ?? null),
+    ).length;
+    if (
+      droppedScores > 0 &&
+      !confirm(
+        `Changing the program here rebuilds ${dropped} session${dropped === 1 ? "" : "s"}, ` +
+          `clearing the scores on ${droppedScores} match${droppedScores === 1 ? "" : "es"}. ` +
+          `The first ${keep} session${keep === 1 ? "" : "s"} and their scores are kept. Continue?`,
+      )
+    )
+      return;
     patch(t.id, {
       config: {
         ...t.config,
@@ -167,6 +194,10 @@ export function RyderSetup({ t }: { t: Tournament }) {
         ryderFourball: 0,
         ryderSingles: 0,
         ryderScoring: scoring,
+        ryderPointsPerSession: (() => {
+          const v = parseFloat(pointsPer);
+          return Number.isFinite(v) && v > 0 ? v : undefined;
+        })(),
         ryderProgram: program,
       },
     });
@@ -182,10 +213,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
         courseName: course.courseName,
       },
     );
-    generate(t.id);
-    // Pre-planned program: create each session now, in order. Pairings default
-    // to lineup order and stay editable per session in the match view.
-    for (const ty of program) addRyderSession(t.id, ty, false);
+    // Keep the matching prefix of sessions intact; rebuild only from the first change.
+    keepRyderRounds(t.id, keep);
+    for (const ty of program.slice(keep)) addRyderSession(t.id, ty, false);
   }
 
   return (
@@ -601,13 +631,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
           Cup scoring
         </div>
         <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["match", "1 point per match", "classic Ryder Cup"],
-              ["session", "1 point per session", "matches split the session's point"],
-              ["round18", "1 point per 18 holes", "sessions share the point across each 18"],
-            ] as const
-          ).map(([val, label, hint]) => (
+          {(Object.keys(CUP_SCORING_LABELS) as RyderScoring[]).map((val) => (
             <button
               key={val}
               type="button"
@@ -618,11 +642,35 @@ export function RyderSetup({ t }: { t: Tournament }) {
                   : "border-[var(--border)] hover:bg-[var(--hover)]"
               }`}
             >
-              <span className="block font-medium">{label}</span>
-              <span className="block text-[10px] text-[var(--muted)]">{hint}</span>
+              <span className="block font-medium">{CUP_SCORING_LABELS[val].label}</span>
+              <span className="block text-[10px] text-[var(--muted)]">
+                {CUP_SCORING_LABELS[val].hint}
+              </span>
             </button>
           ))}
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <label htmlFor="pps-setup" className="text-[var(--muted)]">
+            Or type the points per session:
+          </label>
+          <input
+            id="pps-setup"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.5"
+            value={pointsPer}
+            placeholder="auto"
+            onChange={(e) => setPointsPer(e.target.value)}
+            className="w-24 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+          />
+          <span className="text-[10px] text-[var(--muted)]">
+            split evenly across that session&apos;s matches — overrides the choice above
+          </span>
+        </div>
+        <p className="mt-2 text-[10px] text-[var(--muted)]">
+          All of this is changeable mid-cup from the scoreboard — no need to come back here.
+        </p>
       </Card>
 
       <div className="flex justify-end">

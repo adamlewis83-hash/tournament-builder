@@ -1,4 +1,14 @@
-import { GolfData, GolfMode, GolfSegment, Participant, SegmentFormat, TeeSet, Tournament } from "./types";
+import {
+  GolfData,
+  GolfMode,
+  GolfScoring,
+  VegasRules,
+  GolfSegment,
+  Participant,
+  SegmentFormat,
+  TeeSet,
+  Tournament,
+} from "./types";
 
 /** USGA course handicap for a tee set: index × slope/113 + (rating − par), rounded. */
 export function courseHandicap(index: number, tee: TeeSet): number {
@@ -378,4 +388,268 @@ export function computeVegas(t: Tournament): VegasRow[] {
       };
     })
     .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}
+
+
+// ---- Reading a golf card as a match ------------------------------------------
+
+export interface GolfMatchStatus {
+  a: GolfRow;
+  b: GolfRow;
+  upA: number;
+  upB: number;
+  halved: number;
+  thru: number;
+  holes: number;
+  decided: boolean;
+  /** Per-hole winner over the scored range: "A", "B", or null for a halve/unplayed. */
+  holeWinners: ("A" | "B" | null)[];
+  text: string;
+}
+
+/**
+ * Net match play off an ordinary golf card. Only defined when exactly two sides are
+ * on it — two players, or two pairs in a team game, where each participant row is
+ * already the side. With three or more there is no single match to report.
+ */
+export function computeGolfMatch(t: Tournament, range?: HoleRange): GolfMatchStatus | null {
+  const g = t.golf;
+  if (!g || t.participants.length !== 2) return null;
+  const rows = computeGolf(t, "stroke", range);
+  const [pa, pb] = t.participants;
+  const rowOf = (id: string) => rows.find((r) => r.participantId === id);
+  const a = rowOf(pa.id);
+  const b = rowOf(pb.id);
+  if (!a || !b) return null;
+
+  const lo = range ? range.from - 1 : 0;
+  const hi = range ? range.to - 1 : g.holes - 1;
+  const net = (p: Participant, h: number) => {
+    const sc = g.scores[p.id]?.[h];
+    if (sc == null) return null;
+    return sc - holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes);
+  };
+
+  let upA = 0;
+  let upB = 0;
+  let halved = 0;
+  let thru = 0;
+  const holeWinners: ("A" | "B" | null)[] = [];
+  for (let h = lo; h <= hi; h++) {
+    const na = net(pa, h);
+    const nb = net(pb, h);
+    if (na == null || nb == null) {
+      holeWinners.push(null);
+      continue;
+    }
+    thru++;
+    if (na < nb) {
+      upA++;
+      holeWinners.push("A");
+    } else if (nb < na) {
+      upB++;
+      holeWinners.push("B");
+    } else {
+      halved++;
+      holeWinners.push(null);
+    }
+  }
+
+  const holes = hi - lo + 1;
+  const remaining = holes - thru;
+  const diff = Math.abs(upA - upB);
+  const decided = thru === holes || diff > remaining;
+  const leader = upA > upB ? a : b;
+  const text = !thru
+    ? "—"
+    : diff === 0
+      ? thru === holes
+        ? "Halved"
+        : `All Square · thru ${thru}`
+      : decided && remaining > 0
+        ? `${leader.name} wins ${diff} & ${remaining}`
+        : thru === holes
+          ? `${leader.name} wins ${diff} up`
+          : `${leader.name} ${diff} up · thru ${thru}`;
+
+  return { a, b, upA, upB, halved, thru, holes, decided, holeWinners, text };
+}
+
+/** Can this card be read as a match? Two sides, and a game whose per-hole entry is a
+ *  real stroke count (Vegas types a combined number, so it has no net to compare). */
+export function golfMatchAvailable(t: Tournament): boolean {
+  return t.participants.length === 2 && t.config.golfMode !== "vegas";
+}
+
+/** The scoring views this golf round can be read through, given how it is played. */
+export function golfScoringOptions(t: Tournament): GolfScoring[] {
+  if (t.config.golfMode === "vegas") return [];
+  const base: GolfScoring[] = ["stroke", "stableford", "skins"];
+  return golfMatchAvailable(t) ? [...base, "match"] : base;
+}
+
+// ---- Vegas: the full 4-man game ----------------------------------------------
+
+/** Partners for a hole. Fixed keeps the entry order; rotate6 runs the three
+ *  pairings six holes each, the way a 4-man game usually shares partners. */
+export function vegasTeamsForHole(
+  ids: string[],
+  hole: number,
+  mode: VegasRules["teams"],
+): [string[], string[]] | null {
+  if (ids.length !== 4) return null;
+  const [p0, p1, p2, p3] = ids;
+  if (mode === "fixed") return [[p0, p1], [p2, p3]];
+  const block = Math.floor(hole / 6) % 3;
+  if (block === 0) return [[p0, p1], [p2, p3]];
+  if (block === 1) return [[p0, p2], [p1, p3]];
+  return [[p0, p3], [p1, p2]];
+}
+
+/** A pair's Vegas number. Low ball first normally; flipped puts the high ball first.
+ *  Balls cap at 9 so the number stays two digits — the usual "pick up at 9" rule. */
+export function vegasNumber(balls: number[], flipped: boolean): number {
+  const [lo, hi] = balls.map((b) => Math.min(9, b)).sort((x, y) => x - y);
+  return flipped ? hi * 10 + lo : lo * 10 + hi;
+}
+
+export interface VegasHoleRow {
+  hole: number; // 0-based index into the card
+  par: number;
+  ballsA: number[];
+  ballsB: number[];
+  rawA: number; // before any flip
+  rawB: number;
+  numA: number; // as played, flip included
+  numB: number;
+  birdieA: boolean; // A made birdie-or-better (per the flip setting)
+  birdieB: boolean;
+  flippedA: boolean; // A's number got flipped (because B made one)
+  flippedB: boolean;
+  winner: "A" | "B" | null;
+  margin: number; // the raw difference between the two numbers
+  carriedIn: number; // tied holes rolled into this one
+  points: number; // margin × (1 + carriedIn) — what the hole actually paid
+  pressesOpen: number; // presses live on this hole
+}
+
+export interface VegasPress {
+  from: number; // 0-based hole the press starts on
+  pointsA: number;
+  pointsB: number;
+}
+
+export interface VegasLedger {
+  rows: VegasHoleRow[];
+  thru: number;
+  /** Original-bet points. */
+  pointsA: number;
+  pointsB: number;
+  presses: VegasPress[];
+  /** Net money to team A across every bet — negative means A owes. */
+  moneyA: number;
+  namesA: string[];
+  namesB: string[];
+}
+
+/**
+ * Play the card out hole by hole under the chosen rules, keeping the running
+ * ledger: numbers, flips, carries, presses and the money they add up to.
+ *
+ * Needs four players with their own scores — the flip can only be spotted from
+ * individual balls, never from a pre-combined team number.
+ */
+export function computeVegasLedger(t: Tournament, rules: VegasRules): VegasLedger | null {
+  const g = t.golf;
+  const ids = t.participants.map((p) => p.id);
+  if (!g || ids.length !== 4) return null;
+  const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "?";
+
+  const ballFor = (id: string, h: number): number | null => {
+    const raw = g.scores[id]?.[h];
+    if (raw == null) return null;
+    if (!rules.net) return raw;
+    const p = t.participants.find((x) => x.id === id)!;
+    return raw - holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes);
+  };
+
+  const rows: VegasHoleRow[] = [];
+  const presses: VegasPress[] = [];
+  let pointsA = 0;
+  let pointsB = 0;
+  let carry = 0;
+  let thru = 0;
+  // Presses opened on a hole start paying from the NEXT one.
+  let pendingPress: number | null = null;
+
+  for (let h = 0; h < g.holes; h++) {
+    if (pendingPress !== null) {
+      presses.push({ from: pendingPress, pointsA: 0, pointsB: 0 });
+      pendingPress = null;
+    }
+    const sides = vegasTeamsForHole(ids, h, rules.teams);
+    if (!sides) break;
+    const [teamA, teamB] = sides;
+    const ballsA = teamA.map((id) => ballFor(id, h));
+    const ballsB = teamB.map((id) => ballFor(id, h));
+    if (ballsA.some((b) => b == null) || ballsB.some((b) => b == null)) continue;
+
+    const par = g.pars[h];
+    const threshold = rules.flipOn === "eagle" ? par - 2 : par - 1;
+    const made = (balls: number[]) => rules.flipOn !== "off" && balls.some((b) => b <= threshold);
+    const birdieA = made(ballsA as number[]);
+    const birdieB = made(ballsB as number[]);
+    // You flip the opponent's number, never your own.
+    const flippedA = birdieB;
+    const flippedB = birdieA;
+
+    const rawA = vegasNumber(ballsA as number[], false);
+    const rawB = vegasNumber(ballsB as number[], false);
+    const numA = vegasNumber(ballsA as number[], flippedA);
+    const numB = vegasNumber(ballsB as number[], flippedB);
+
+    thru++;
+    const margin = Math.abs(numA - numB);
+    const winner: "A" | "B" | null = numA < numB ? "A" : numB < numA ? "B" : null;
+    const carriedIn = carry;
+    const points = margin * (1 + carriedIn);
+
+    if (winner === "A") pointsA += points;
+    else if (winner === "B") pointsB += points;
+    for (const pr of presses) {
+      if (h < pr.from) continue;
+      if (winner === "A") pr.pointsA += points;
+      else if (winner === "B") pr.pointsB += points;
+    }
+    carry = rules.carryTies && winner === null ? carriedIn + 1 : 0;
+
+    rows.push({
+      hole: h, par,
+      ballsA: ballsA as number[], ballsB: ballsB as number[],
+      rawA, rawB, numA, numB,
+      birdieA, birdieB, flippedA, flippedB,
+      winner, margin, carriedIn, points,
+      pressesOpen: presses.filter((pr) => h >= pr.from).length,
+    });
+
+    // Auto-press once the original bet's margin reaches the trigger.
+    const capped = rules.maxPresses > 0 && presses.length >= rules.maxPresses;
+    if (rules.pressAt > 0 && !capped && Math.abs(pointsA - pointsB) >= rules.pressAt) {
+      const last = presses[presses.length - 1];
+      // One press per margin milestone: don't reopen while the newest is still fresh.
+      const already = last && Math.abs(last.pointsA - last.pointsB) < rules.pressAt && h >= last.from;
+      if (!already && h + 1 < g.holes) pendingPress = h + 1;
+    }
+  }
+
+  const moneyA =
+    (pointsA - pointsB) * rules.pointValue +
+    presses.reduce((sum, pr) => sum + (pr.pointsA - pr.pointsB) * rules.pressValue, 0);
+
+  const sides0 = vegasTeamsForHole(ids, 0, rules.teams)!;
+  return {
+    rows, thru, pointsA, pointsB, presses, moneyA,
+    namesA: sides0[0].map(nameOf),
+    namesB: sides0[1].map(nameOf),
+  };
 }

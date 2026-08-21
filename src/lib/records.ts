@@ -1,7 +1,7 @@
 import { Match, Tournament } from "./types";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { computeBbb, computeGolf, computeMixedOverall, formatToPar } from "./golf";
-import { ryderScore } from "./ryder";
+import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
 import { isFinal } from "./score";
@@ -41,7 +41,7 @@ export function getFinalRows(t: Tournament): FinalRow[] {
   }
 
   if (t.format === "ryder") {
-    const sc = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
+    const sc = cupScore(t);
     const [a, b] = t.config.teamNames ?? ["Team A", "Team B"];
     return [
       { name: a, stat: fmtNum(sc.a) },
@@ -89,7 +89,7 @@ function golfNames(t: Tournament): string[] {
 }
 
 function ryderTeams(t: Tournament): { winners: string[]; losers: string[] } {
-  const sc = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
+  const sc = cupScore(t);
   const members = (team: 0 | 1) => t.participants.filter((p) => p.team === team).map((p) => p.name);
   if (sc.status === "a-wins") return { winners: members(0), losers: members(1) };
   if (sc.status === "b-wins") return { winners: members(1), losers: members(0) };

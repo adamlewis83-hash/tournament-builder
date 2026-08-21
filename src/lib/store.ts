@@ -9,14 +9,15 @@ import {
   Match,
   Participant,
   PlayStyle,
+  RyderMethod,
   Tournament,
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
-import { genRyder, genRyderSession, RyderSessionType } from "./ryder";
-import { matchStatus } from "./ryderGolf";
+import { genRyder, genRyderSession, RyderScoring, RyderSessionType } from "./ryder";
+import { matchOutcome } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
   genDoubleElim,
@@ -27,6 +28,7 @@ import {
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { applyProfilePhoto } from "./profile";
 import { canEditScores } from "./perms";
+import { scoreCount } from "./snapshot";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 // The cup's session list (labels in playing order), derived from the matches —
@@ -64,10 +66,27 @@ export interface CreateInput {
   config?: Partial<TournamentConfig>;
 }
 
+export interface Snapshot {
+  tournamentId: string;
+  at: number;
+  label: string;
+  scores: number; // how much scoring the snapshot is holding
+  data: Tournament;
+}
+
 interface State {
   tournaments: Tournament[];
   courses: Course[];
   friends: Friend[];
+  /** The single most recent undo point, taken just before a setup save that would
+   *  otherwise destroy entered scores. Persisted, so it survives a reload.
+   *
+   *  Deliberately one, not one per tournament: a clone is mostly participant photo
+   *  data (~90% of a tournament's bytes), and zustand persists the whole store in a
+   *  single localStorage write — so a per-tournament pile of clones could push a big
+   *  library past quota and make that write fail, taking live score-saving down with
+   *  it. Undo only ever offers the last setup change, so one is all it was using. */
+  snapshot: Snapshot | null;
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
@@ -83,6 +102,10 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   pruneDeleted: (ids: string[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
+  /** Put the tournament back to its last undo point (and clear it). */
+  restoreSnapshot: (id: string) => void;
+  /** Drop the undo point without using it. */
+  dismissSnapshot: (id: string) => void;
   setScorers: (id: string, names: string[]) => void;
   setMatchClock: (id: string, matchId: string, action: "start" | "pause" | "reset") => void;
   setRoundClock: (id: string, round: number, action: "start" | "pause" | "reset") => void;
@@ -125,7 +148,11 @@ interface State {
     value: number | null,
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
+  keepRyderRounds: (id: string, keep: number) => void;
   removeRyderRound: (id: string, round: number) => void;
+  setRyderScoring: (id: string, scoring: RyderScoring) => void;
+  setRyderPointsPerSession: (id: string, points: number | undefined) => void;
+  setRyderSessionMethod: (id: string, round: number, method: RyderMethod) => void;
   setRyderSessionCourse: (
     id: string,
     round: number,
@@ -427,6 +454,19 @@ export const useStore = create<State>()(
       };
       // Spectators (joined via live code) are read-only unless the host granted them as a
       // scorekeeper (matched by profile name). The host is never blocked.
+      // Take an undo point before a save that is about to clear entered scores.
+      // Only worth keeping when there is something to lose, so an untouched setup
+      // never leaves a stale "restore" sitting on the page.
+      const snapshot = (id: string, label: string) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        if (!t || t.spectator) return;
+        const scores = scoreCount(t);
+        if (!scores) return;
+        set({
+          snapshot: { tournamentId: id, at: Date.now(), label, scores, data: structuredClone(t) },
+        });
+      };
+
       const blocked = (id: string) => {
         const t = get().tournaments.find((x) => x.id === id);
         return t ? !canEditScores(t) : false;
@@ -436,6 +476,7 @@ export const useStore = create<State>()(
       tournaments: [],
       courses: [],
       friends: [],
+      snapshot: null,
       hydrated: false,
 
       saveFriend: (input) => {
@@ -593,6 +634,31 @@ export const useStore = create<State>()(
         set((s) => ({ tournaments: [copy, ...s.tournaments] }));
         return newId;
       },
+
+      restoreSnapshot: (id) => {
+        const snap = get().snapshot;
+        if (!snap || snap.tournamentId !== id) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            // Keep the live link and viewing role from the current copy — those describe
+            // this device's session, not the scoring state being put back.
+            t.id === id
+              ? {
+                  ...snap.data,
+                  liveCode: t.liveCode,
+                  liveVersion: t.liveVersion,
+                  spectator: t.spectator,
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+          snapshot: null,
+        }));
+        pushReplace(id);
+      },
+
+      dismissSnapshot: (id) =>
+        set((s) => (s.snapshot?.tournamentId === id ? { snapshot: null } : {})),
 
       patchTournament: (id, patch) => {
         if (blocked(id)) return;
@@ -825,6 +891,7 @@ export const useStore = create<State>()(
         })),
 
       setRyderTeams: (id, teamA, teamB, teamNames, course) => {
+        snapshot(id, "Cup setup re-saved");
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -844,12 +911,18 @@ export const useStore = create<State>()(
             const participants = applyProfilePhoto([...build(teamA, 0), ...build(teamB, 1)], {
               golfHandicap: true,
             });
+            // Same rule for a cup: scores are keyed by match id and the matches are not
+            // being rebuilt here, so re-saving setup must not throw the card away. The
+            // per-session course cards and scoring methods are keyed by round and survive
+            // for the same reason.
             const ryderGolf = {
               holes: course.holes,
               pars: course.pars,
               strokeIndex: course.strokeIndex,
               courseName: course.courseName,
-              scores: {},
+              scores: t.ryderGolf?.scores ?? {},
+              ...(t.ryderGolf?.sessionCourses ? { sessionCourses: t.ryderGolf.sessionCourses } : {}),
+              ...(t.ryderGolf?.sessionMethods ? { sessionMethods: t.ryderGolf.sessionMethods } : {}),
             };
             return {
               ...t,
@@ -877,14 +950,45 @@ export const useStore = create<State>()(
             const m = tWith.matches.find((x) => x.id === matchId);
             let matches = tWith.matches;
             if (m) {
-              const st = matchStatus(tWith, m);
-              const scoreA = st.decided ? st.upA : null;
-              const scoreB = st.decided ? st.upB : null;
+              // Store the match's outcome as points (1 / 0, or ½ each when tied)
+              // rather than the method's own units, so a session read as stroke play
+              // or Stableford settles the same way match play always has. Only the
+              // comparison is ever read back, and older cups' stored holes-up numbers
+              // still compare correctly.
+              const o = matchOutcome(tWith, m);
+              const scoreA = o.decided ? o.a : null;
+              const scoreB = o.decided ? o.b : null;
               matches = tWith.matches.map((x) =>
                 x.id === matchId ? { ...x, scoreA, scoreB } : x,
               );
             }
             return { ...tWith, matches, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      // Trim the cup back to its first `keep` sessions, leaving those matches — and the
+      // scorecards keyed to their ids — exactly as they are. Used when Edit setup changes
+      // the program: rather than rebuilding the whole cup, only the changed tail is redone.
+      keepRyderRounds: (id, keep) => {
+        snapshot(id, "Cup program changed");
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.spectator) return t;
+            const matches = t.matches.filter((m) => m.phase !== "ryder" || m.round <= keep);
+            const kept = new Set(matches.map((m) => m.id));
+            const scores = Object.fromEntries(
+              Object.entries(t.ryderGolf?.scores ?? {}).filter(([mid]) => kept.has(mid)),
+            );
+            return {
+              ...t,
+              matches,
+              generated: true,
+              ...(t.ryderGolf ? { ryderGolf: { ...t.ryderGolf, scores } } : {}),
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
           }),
         }));
         pushReplace(id);
@@ -905,6 +1009,57 @@ export const useStore = create<State>()(
               config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
               updatedAt: Date.now(),
             };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      // How the cup counts its points. Only the scoreboard's arithmetic changes —
+      // matches, pairings and every hole on the card are untouched — so a host can
+      // switch mid-cup. Pushed live so spectators re-weigh with the same rule.
+      setRyderPointsPerSession: (id, points) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id && !t.spectator
+              ? {
+                  ...t,
+                  config: { ...t.config, ryderPointsPerSession: points },
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
+      setRyderScoring: (id, scoring) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            // Host-only, like setScorers: a granted scorekeeper enters scores, but
+            // how the cup counts them is the host's rule to set.
+            t.id === id && !t.spectator
+              ? { ...t, config: { ...t.config, ryderScoring: scoring }, updatedAt: Date.now() }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
+      // Which way a session is read off the scorecard. Purely interpretive — no hole
+      // score is touched, so a session can be re-read mid-round without losing anything.
+      setRyderSessionMethod: (id, round, method) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.spectator || !t.ryderGolf) return t;
+            const methods = { ...(t.ryderGolf.sessionMethods ?? {}), [round]: method };
+            const tWith = { ...t, ryderGolf: { ...t.ryderGolf, sessionMethods: methods } };
+            // Re-settle that session's matches under the new reading.
+            const matches = tWith.matches.map((m) => {
+              if (m.phase !== "ryder" || m.round !== round) return m;
+              const o = matchOutcome(tWith, m);
+              return { ...m, scoreA: o.decided ? o.a : null, scoreB: o.decided ? o.b : null };
+            });
+            return { ...tWith, matches, updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);
@@ -943,6 +1098,7 @@ export const useStore = create<State>()(
       },
 
       setGolfPlayers: (id, input) => {
+        snapshot(id, "Course & players re-saved");
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -962,6 +1118,29 @@ export const useStore = create<State>()(
               input.holes,
               participants.map((p) => p.id),
             );
+            // Carry the round forward. Participants keep their id when their name is
+            // unchanged, so an existing card still belongs to them — re-saving setup to
+            // fix a handicap, a tee or a course name has no business clearing it. Cards
+            // are re-fitted to the hole count: a shortened round drops the holes that no
+            // longer exist, a lengthened one gains empty ones.
+            const prev = t.golf;
+            if (prev) {
+              const fit = (card: (number | null)[]) =>
+                Array.from({ length: golf.holes }, (_, i) => card[i] ?? null);
+              for (const p of participants)
+                if (prev.scores[p.id]) golf.scores[p.id] = fit(prev.scores[p.id]);
+              if (prev.pins) golf.pins = Array.from({ length: golf.holes }, (_, i) => prev.pins![i] ?? null);
+              if (prev.bbb)
+                golf.bbb = {
+                  bingo: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bingo[i] ?? null),
+                  bango: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bango[i] ?? null),
+                  bongo: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bongo[i] ?? null),
+                };
+              if (prev.wolf)
+                golf.wolf = {
+                  partner: Array.from({ length: golf.holes }, (_, i) => prev.wolf!.partner[i] ?? null),
+                };
+            }
             if (input.pars && input.pars.length === golf.holes) golf.pars = input.pars;
             if (input.strokeIndex && input.strokeIndex.length === golf.holes)
               golf.strokeIndex = input.strokeIndex;
@@ -1118,6 +1297,7 @@ export const useStore = create<State>()(
       },
 
       generate: (id) => {
+        snapshot(id, "Schedule regenerated");
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
@@ -1408,7 +1588,12 @@ export const useStore = create<State>()(
       storage: createJSONStorage(() =>
         typeof localStorage !== "undefined" ? localStorage : (undefined as unknown as Storage),
       ),
-      partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses, friends: s.friends }),
+      partialize: (s) => ({
+        tournaments: s.tournaments,
+        courses: s.courses,
+        friends: s.friends,
+        snapshot: s.snapshot,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },

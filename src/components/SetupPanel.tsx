@@ -16,6 +16,7 @@ import { useStore } from "@/lib/store";
 import { winMargin } from "@/lib/score";
 import { colorForIndex } from "@/lib/colors";
 import { getProfile } from "@/lib/profile";
+import { scoreSummary } from "@/lib/snapshot";
 import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
 import { GolfSetup } from "./GolfSetup";
@@ -262,6 +263,15 @@ export function SetupPanel({ t }: { t: Tournament }) {
   }
 
   function handleGenerate() {
+    // A fresh draw is a fresh set of matches, so any result already entered goes with
+    // it — unavoidable when the schedule itself is being rebuilt, but never a surprise
+    // any more. (An undo point is taken either way; see RestoreScores.)
+    const summary = scoreSummary(t);
+    if (
+      summary &&
+      !confirm(`Rebuilding the schedule clears ${summary}. You can undo this afterwards. Continue?`)
+    )
+      return;
     if (teamMode) setTeamsStore(t.id, build(teams));
     else setParticipants(t.id, names);
     generate(t.id);

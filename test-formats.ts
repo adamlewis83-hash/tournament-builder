@@ -3,11 +3,27 @@
 import { genSinglesRR, genDoublesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./src/lib/schedule";
 import { genSingleElim, genSingleElimSides, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
 import { buildMatches, buildFinals, resyncFinals, shuffled } from "./src/lib/store";
-import { genRyder, genRyderSession, ryderScore, RyderSessionType } from "./src/lib/ryder";
+import {
+  genRyder,
+  genRyderSession,
+  matchWeights,
+  pointsOnTheLine,
+  ryderScore,
+  RyderScoring,
+  RyderSessionType,
+} from "./src/lib/ryder";
+import { matchOutcome, methodForMatch, methodIsChoosable } from "./src/lib/ryderGolf";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
   computeGolf,
+  computeGolfMatch,
+  computeVegas,
+  computeVegasLedger,
+  golfMatchAvailable,
+  golfScoringOptions,
+  vegasNumber,
+  vegasTeamsForHole,
   computeBbb,
   computeWolf,
   computeMixedOverall,
@@ -18,6 +34,7 @@ import {
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
 import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
+import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import {
   formatsForSport,
   SPORTS,
@@ -31,6 +48,8 @@ import {
   Format,
   ALL_FORMATS,
   playStylesForFormat,
+  VEGAS_BASIC,
+  VEGAS_DEFAULTS,
 } from "./src/lib/types";
 import { sportEmoji } from "./src/lib/sportEmoji";
 
@@ -722,6 +741,548 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     ms[0].final = true; // host posts the result
     assert(getResult(t).complete, "cup should be decided once the last match is final");
   });
+
+// ---- Cup scoring: a session's point splits across its matches -------------
+// A 2-match session where each team wins one is 1–1 the classic way, and ½–½ when
+// the session itself is the point. What must never happen is a cup calling itself
+// over, or a point changing value, because of how the modes were counted.
+{
+  const ryderMatch = (round: number, order: number, a: number | null, b: number | null): Match => ({
+    id: `r${round}m${order}`,
+    phase: "ryder",
+    round,
+    order,
+    label: "Fourball",
+    sideA: ["a1", "a2"],
+    sideB: ["b1", "b2"],
+    scoreA: a,
+    scoreB: b,
+  });
+  // One 9-hole session of 2 matches, split one apiece.
+  const front = [ryderMatch(1, 0, 3, 1), ryderMatch(1, 1, 1, 3)];
+  const expect: Record<RyderScoring, [number, number]> = {
+    match: [1, 1],
+    session: [0.5, 0.5],
+    round18: [0.25, 0.25], // half a session of an 18 — the back nine is still to come
+  };
+  for (const mode of Object.keys(expect) as RyderScoring[])
+    check(`ryder scoring ${mode} — split session`, () => {
+      const sc = ryderScore(front, mode, 9);
+      const [a, b] = expect[mode];
+      assert(sc.a === a && sc.b === b, `${mode}: got ${sc.a}–${sc.b}, want ${a}–${b}`);
+      // This session is the whole cup so far, and it came out even.
+      assert(sc.status === "tie", `${mode}: even split read as ${sc.status}`);
+    });
+
+  // A planned 2-session cup is not over when session one is: `played` used to count
+  // matches while `total` counted session points, which crowned a tie at halfway.
+  check("ryder scoring — first session done is not the whole cup", () => {
+    const both = [...front, ryderMatch(2, 0, null, null), ryderMatch(2, 1, null, null)];
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const sc = ryderScore(both, mode, 9);
+      assert(sc.status === "in-progress", `${mode}: cup called ${sc.status} with a session unplayed`);
+      assert(sc.played < sc.total, `${mode}: played ${sc.played} of ${sc.total} reads as complete`);
+    }
+  });
+
+  // Captain-style cups add sessions as the day goes. A point already earned must
+  // not be re-priced when the next session appears.
+  check("ryder scoring — adding a session keeps earned points at their value", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const before = ryderScore(front, mode, 9);
+      const after = ryderScore([...front, ryderMatch(2, 0, null, null), ryderMatch(2, 1, null, null)], mode, 9);
+      assert(
+        before.a === after.a && before.b === after.b,
+        `${mode}: ${before.a}–${before.b} became ${after.a}–${after.b} when the next session was added`,
+      );
+    }
+  });
+
+  // Sweeping a session clinches it outright in every mode.
+  check("ryder scoring — a sweep wins the cup in every mode", () => {
+    const swept = [ryderMatch(1, 0, 3, 1), ryderMatch(1, 1, 2, 0)];
+    for (const mode of ["match", "session"] as RyderScoring[]) {
+      const sc = ryderScore(swept, mode, 18);
+      assert(sc.status === "a-wins", `${mode}: sweep read as ${sc.status}`);
+      assert(sc.a === sc.total, `${mode}: sweep scored ${sc.a} of ${sc.total}`);
+    }
+  });
+
+  // Weights are what the live projection adds per in-progress match, so they have
+  // to sum to the cup total rather than to one point apiece.
+  check("ryder scoring — weights sum to the cup total", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const w = matchWeights(front, mode, 9);
+      const sum = [...w.values()].reduce((x, y) => x + y, 0);
+      assert(Math.abs(sum - ryderScore(front, mode, 9).total) < 1e-9, `${mode}: weights ${sum} ≠ total`);
+      assert(w.size === front.length, `${mode}: ${w.size} weights for ${front.length} matches`);
+    }
+  });
+
+  // Sessions on different cards: an 18-hole session is a full point, a nine is half.
+  check("ryder scoring — round18 weighs each session on its own card", () => {
+    const mixed = [ryderMatch(1, 0, 3, 1), ryderMatch(2, 0, 3, 1)];
+    const holesOf = (r: number) => (r === 1 ? 9 : 18);
+    const w = matchWeights(mixed, "round18", 18, holesOf);
+    assert(w.get("r1m0") === 0.5, `nine-hole session worth ${w.get("r1m0")}, want 0.5`);
+    assert(w.get("r2m0") === 1, `18-hole session worth ${w.get("r2m0")}, want 1`);
+  });
+}
+
+// ---- Points per session, typed as a number ---------------------------------
+// The three presets are one idea with the number derived; typing it should behave
+// the same way and cover the values the presets can't express.
+{
+  const pair = (round: number, order: number, a: number | null, b: number | null): Match => ({
+    id: `p${round}-${order}`, phase: "ryder", round, order, label: "Fourball",
+    sideA: ["a1", "a2"], sideB: ["b1", "b2"], scoreA: a, scoreB: b,
+  });
+  const split = [pair(1, 0, 1, 0), pair(1, 1, 0, 1)]; // 2 matches, one apiece
+
+  check("ryder points-per-session — a typed number splits across the session", () => {
+    for (const [pts, want] of [[2, 1], [1, 0.5], [0.5, 0.25], [4, 2]] as const) {
+      const sc = ryderScore(split, "session", 9, undefined, pts);
+      assert(sc.a === want && sc.b === want, `${pts} pts → ${sc.a}–${sc.b}, want ${want} each`);
+      assert(sc.total === pts, `${pts} pts → total ${sc.total}`);
+    }
+  });
+
+  check("ryder points-per-session — reproduces each preset", () => {
+    // "1 point per match" with 2 matches is 2 points on the line; "1 per session" is 1.
+    const asMatch = ryderScore(split, "match", 9);
+    const typed2 = ryderScore(split, "session", 9, undefined, 2);
+    assert(asMatch.a === typed2.a && asMatch.total === typed2.total, "2 pts ≠ 1-per-match");
+    const asSession = ryderScore(split, "session", 9);
+    const typed1 = ryderScore(split, "session", 9, undefined, 1);
+    assert(asSession.a === typed1.a && asSession.total === typed1.total, "1 pt ≠ 1-per-session");
+  });
+
+  check("ryder points-per-session — a typed number overrides the preset", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const sc = ryderScore(split, mode, 9, undefined, 3);
+      assert(sc.total === 3, `${mode} with 3 typed → total ${sc.total}`);
+    }
+  });
+
+  check("ryder points-per-session — junk and zero fall back to the preset", () => {
+    for (const bad of [0, -2, NaN, undefined]) {
+      const sc = ryderScore(split, "match", 9, undefined, bad as number | undefined);
+      assert(sc.total === 2, `${bad} should fall back to 1-per-match (got ${sc.total})`);
+    }
+  });
+
+  check("ryder pointsOnTheLine — reports the session's stake", () => {
+    assert(pointsOnTheLine(split, 1, "session", 9, undefined, 2) === 2, "typed stake wrong");
+    assert(pointsOnTheLine(split, 1, "match", 9) === 2, "1-per-match stake wrong");
+    assert(pointsOnTheLine(split, 1, "session", 9) === 1, "1-per-session stake wrong");
+  });
+}
+
+// ---- Reading one scorecard three ways --------------------------------------
+// Same holes, same handicaps — match play, stroke play and Stableford should each
+// pick their own winner, and only match play may settle before the last hole.
+{
+  const P: Participant[] = [
+    { id: "a1", name: "A1", team: 0, handicap: 0 },
+    { id: "b1", name: "B1", team: 1, handicap: 0 },
+  ];
+  const single = (): Match => ({
+    id: "s1", phase: "ryder", round: 1, order: 0, label: "Singles",
+    sideA: ["a1"], sideB: ["b1"], scoreA: null, scoreB: null,
+  });
+  // 3 holes, all par 4. A wins two holes by a shot; B wins one hole by five.
+  //   A: 3, 3, 9   (15)   B: 4, 4, 4   (12)
+  // Match play → A wins 2 holes to 1. Stroke play → B by 3. Stableford: A 3+3+0=6,
+  // B 2+2+2=6 → tied.
+  const build = (holes: number) => {
+    const t = tour({
+      format: "ryder", participants: P, matches: [single()],
+      config: cfg({ teamNames: ["A", "B"] }),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes, pars: [4, 4, 4], strokeIndex: [1, 2, 3],
+      scores: { s1: { a1: [3, 3, 9], b1: [4, 4, 4] } },
+    };
+    return t;
+  };
+
+  const expect: Record<string, { a: number; decided: boolean }> = {
+    match: { a: 1, decided: true },
+    stroke: { a: 0, decided: true },
+    stableford: { a: 0.5, decided: true },
+  };
+  for (const method of ["match", "stroke", "stableford"] as const)
+    check(`ryder method ${method} — same card, its own winner`, () => {
+      const t = build(3);
+      t.ryderGolf!.sessionMethods = { 1: method };
+      const o = matchOutcome(t, t.matches[0]);
+      assert(o.method === method, `method read as ${o.method}`);
+      assert(o.decided === expect[method].decided, `${method} decided=${o.decided}`);
+      assert(o.a === expect[method].a, `${method}: A got ${o.a}, want ${expect[method].a}`);
+      assert(o.a + o.b === 1, `${method}: points ${o.a}+${o.b} ≠ 1`);
+    });
+
+  check("ryder method — stroke and Stableford wait for the last hole", () => {
+    for (const method of ["stroke", "stableford"] as const) {
+      const t = build(4); // a 4th hole nobody has played
+      t.ryderGolf!.pars = [4, 4, 4, 4];
+      t.ryderGolf!.strokeIndex = [1, 2, 3, 4];
+      t.ryderGolf!.sessionMethods = { 1: method };
+      const o = matchOutcome(t, t.matches[0]);
+      assert(!o.decided, `${method} settled with a hole outstanding`);
+      assert(o.thru === 3, `${method} thru ${o.thru}, want 3`);
+    }
+  });
+
+  check("ryder method — match play can still close out early", () => {
+    const t = build(3);
+    t.ryderGolf!.scores = { s1: { a1: [3, 3, null], b1: [5, 5, null] } }; // 2 up with 1 to play
+    const o = matchOutcome(t, t.matches[0]);
+    assert(o.decided && o.a === 1, `dormie-2 not closed out (decided=${o.decided}, a=${o.a})`);
+  });
+
+  check("ryder method — Vegas and Team Stableford keep their own scoring", () => {
+    assert(!methodIsChoosable("Vegas"), "Vegas offered a scoring method");
+    assert(!methodIsChoosable("Team Stableford"), "Team Stableford offered a scoring method");
+    assert(methodIsChoosable("Best Ball"), "Best Ball should be re-scorable");
+    const t = build(3);
+    t.ryderGolf!.sessionMethods = { 1: "stroke" }; // must be ignored for a fixed game
+    t.matches[0].label = "Vegas";
+    assert(methodForMatch(t, t.matches[0]) === "match", "Vegas took the session method");
+  });
+}
+
+// ---- Reading a golf card as a match ----------------------------------------
+// Team games (Best Ball & co.) used to be locked to stroke play. They can now be read
+// as Stableford, skins, or — with two sides on the card — as a match.
+{
+  const twoSided = (mode: GolfMode, scores: Record<string, (number | null)[]>) => {
+    const P: Participant[] = [
+      { id: "t1", name: "Red", handicap: 0 },
+      { id: "t2", name: "Blue", handicap: 0 },
+    ];
+    const t = tour({ format: "golf", participants: P, config: cfg({ golfMode: mode }) }) as Tournament;
+    t.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores };
+    return t;
+  };
+
+  check("golf match — holes won, halves, and the closeout line", () => {
+    // Red takes 1 and 2, hole 3 is halved → Red 2 up with none to play.
+    const t = twoSided("bestball", { t1: [3, 3, 4], t2: [4, 4, 4] });
+    const m = computeGolfMatch(t)!;
+    assert(m !== null, "no match computed for a two-sided card");
+    assert(m.upA === 2 && m.upB === 0, `holes ${m.upA}–${m.upB}, want 2–0`);
+    assert(m.halved === 1, `halved ${m.halved}, want 1`);
+    assert(m.decided && m.thru === 3, `decided=${m.decided} thru=${m.thru}`);
+    assert(m.text.startsWith("Red wins"), `text "${m.text}"`);
+    assert(m.holeWinners.join(",") === "A,A,", `ribbon ${m.holeWinners.join(",")}`);
+  });
+
+  check("golf match — closes out early when the lead outruns the holes left", () => {
+    const t = twoSided("bestball", { t1: [3, 3, null], t2: [5, 5, null] });
+    const m = computeGolfMatch(t)!;
+    assert(m.decided, "2 up with 1 to play should be closed out");
+    assert(m.text.includes("2 & 1"), `text "${m.text}"`);
+  });
+
+  check("golf match — all square reads as square, then halved", () => {
+    const live = computeGolfMatch(twoSided("bestball", { t1: [4, 4, null], t2: [4, 4, null] }))!;
+    assert(!live.decided && live.text.includes("All Square"), `live "${live.text}"`);
+    const done = computeGolfMatch(twoSided("bestball", { t1: [4, 4, 4], t2: [4, 4, 4] }))!;
+    assert(done.decided && done.text === "Halved", `done "${done.text}"`);
+  });
+
+  check("golf match — net strokes decide the hole, not gross", () => {
+    const P: Participant[] = [
+      { id: "t1", name: "Red", handicap: 0 },
+      { id: "t2", name: "Blue", handicap: 3 }, // one stroke on each of the three holes
+    ];
+    const t = tour({ format: "golf", participants: P, config: cfg({ golfMode: "bestball" }) }) as Tournament;
+    t.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores: { t1: [4, 4, 4], t2: [5, 5, 5] } };
+    const m = computeGolfMatch(t)!;
+    assert(m.upA === 0 && m.upB === 0 && m.halved === 3, `net strokes ignored: ${m.upA}–${m.upB}`);
+  });
+
+  check("golf match — only offered with exactly two sides", () => {
+    const three = tour({
+      format: "golf",
+      participants: [
+        { id: "p1", name: "A", handicap: 0 },
+        { id: "p2", name: "B", handicap: 0 },
+        { id: "p3", name: "C", handicap: 0 },
+      ],
+      config: cfg({ golfMode: "bestball" }),
+    }) as Tournament;
+    three.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores: {} };
+    assert(computeGolfMatch(three) === null, "a three-way card produced a match");
+    assert(!golfMatchAvailable(three), "match offered to a three-way field");
+    assert(!golfScoringOptions(three).includes("match"), "match listed for three sides");
+  });
+
+  check("golf scoring options — Vegas has no re-reading, team games have three or four", () => {
+    const vegas = twoSided("vegas", { t1: [45, 45, 45], t2: [44, 44, 44] });
+    assert(golfScoringOptions(vegas).length === 0, "Vegas offered scoring views");
+    assert(!golfMatchAvailable(vegas), "Vegas offered match play");
+    const bb = twoSided("bestball", { t1: [4, 4, 4], t2: [4, 4, 4] });
+    const opts = golfScoringOptions(bb);
+    assert(opts.length === 4 && opts.includes("match"), `best ball options ${opts.join(",")}`);
+  });
+
+  check("golf scoring — the same card ranks by the chosen reading", () => {
+    // Red blows up one hole: better on holes won, worse on total strokes.
+    const t = twoSided("bestball", { t1: [3, 3, 9], t2: [4, 4, 4] });
+    const byStroke = computeGolf(t, "stroke");
+    assert(byStroke[0].name === "Blue", `stroke leader ${byStroke[0].name}, want Blue`);
+    const m = computeGolfMatch(t)!;
+    assert(m.upA === 2 && m.upB === 1, `match ${m.upA}–${m.upB}, want 2–1 to Red`);
+  });
+}
+
+// ---- Vegas, worked through the rules as written ----------------------------
+{
+  // Four players, no handicaps unless a case sets them. Teams A = p0/p1, B = p2/p3.
+  const vegasRound = (
+    pars: number[],
+    cards: [number[], number[], number[], number[]],
+    handicaps: [number, number, number, number] = [0, 0, 0, 0],
+  ): Tournament => {
+    const P: Participant[] = ["A1", "A2", "B1", "B2"].map((n, i) => ({
+      id: `v${i}`, name: n, handicap: handicaps[i],
+    }));
+    const t = tour({
+      format: "golf", participants: P, config: cfg({ golfMode: "vegas" }),
+    }) as Tournament;
+    t.golf = {
+      holes: pars.length, pars,
+      strokeIndex: pars.map((_, i) => i + 1),
+      scores: Object.fromEntries(P.map((p, i) => [p.id, cards[i]])),
+    };
+    return t;
+  };
+
+  check("vegas — the plain hole: 4+6 vs 5+5 is 46 to 55, nine points", () => {
+    const t = vegasRound([4], [[4], [6], [5], [5]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    const r = L.rows[0];
+    assert(r.numA === 46 && r.numB === 55, `numbers ${r.numA} v ${r.numB}, want 46 v 55`);
+    assert(r.winner === "A" && r.points === 9, `${r.winner} by ${r.points}, want A by 9`);
+    assert(L.pointsA === 9 && L.pointsB === 0, `ledger ${L.pointsA}–${L.pointsB}`);
+  });
+
+  check("vegas — low ball goes first regardless of entry order", () => {
+    assert(vegasNumber([6, 4], false) === 46, "high-first input not normalised");
+    assert(vegasNumber([4, 6], false) === 46, "low-first input changed");
+    assert(vegasNumber([4, 6], true) === 64, "flip did not put the high ball first");
+    assert(vegasNumber([4, 12], false) === 49, "ball over 9 not capped at 9");
+  });
+
+  check("vegas — a birdie flips the OPPONENT's number (3+5 vs 4+6 → 29)", () => {
+    // Par 4: A's 3 is a birdie, so B's 46 becomes 64. A wins 64 − 35 = 29.
+    const t = vegasRound([4], [[3], [5], [4], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.birdieA && !r.birdieB, `birdie read A=${r.birdieA} B=${r.birdieB}`);
+    assert(r.flippedB && !r.flippedA, "the birdie team flipped its own number");
+    assert(r.numA === 35 && r.numB === 64, `${r.numA} v ${r.numB}, want 35 v 64`);
+    assert(r.winner === "A" && r.points === 29, `${r.winner} by ${r.points}, want A by 29`);
+  });
+
+  check("vegas — the round's worked example: 45 vs 36 with B's birdie → B by 18", () => {
+    // Par 4. A: 4+5 = 45. B: 3+6 with a birdie, so A flips to 54. B wins 54 − 36 = 18.
+    const t = vegasRound([4], [[4], [5], [3], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.numA === 54 && r.numB === 36, `${r.numA} v ${r.numB}, want 54 v 36`);
+    assert(r.winner === "B" && r.points === 18, `${r.winner} by ${r.points}, want B by 18`);
+    assert(L.moneyA === -18, `money to A ${L.moneyA}, want -18 at $1/pt`);
+  });
+
+  check("vegas — flip off leaves the same hole at 45 v 36, nine points", () => {
+    const t = vegasRound([4], [[4], [5], [3], [6]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    assert(L.rows[0].numA === 45 && L.rows[0].points === 9, "flip applied while off");
+  });
+
+  check("vegas — eagle-only flipping ignores a mere birdie", () => {
+    const birdie = vegasRound([4], [[3], [5], [4], [6]]);
+    const onEagle = computeVegasLedger(birdie, { ...VEGAS_BASIC, flipOn: "eagle" })!;
+    assert(!onEagle.rows[0].flippedB, "a birdie flipped under an eagle-only rule");
+    const eagle = vegasRound([4], [[2], [5], [4], [6]]);
+    const flips = computeVegasLedger(eagle, { ...VEGAS_BASIC, flipOn: "eagle" })!;
+    assert(flips.rows[0].flippedB, "an eagle failed to flip");
+    // "Birdie or better" must include the eagle too.
+    const orBetter = computeVegasLedger(eagle, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    assert(orBetter.rows[0].flippedB, "birdie-or-better missed an eagle");
+  });
+
+  check("vegas — both teams birdie: each flips the other", () => {
+    const t = vegasRound([4], [[3], [5], [3], [6]]);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    const r = L.rows[0];
+    assert(r.flippedA && r.flippedB, "a mutual birdie hole did not flip both");
+    assert(r.numA === 53 && r.numB === 63, `${r.numA} v ${r.numB}, want 53 v 63`);
+  });
+
+  check("vegas — net scoring takes handicap strokes off before combining", () => {
+    // One hole, stroke index 1. B1 gets a shot, turning a 5 into a net 4.
+    const t = vegasRound([4], [[4], [5], [5], [5]], [0, 0, 1, 0]);
+    const gross = computeVegasLedger(t, { ...VEGAS_BASIC, net: false })!;
+    assert(gross.rows[0].numB === 55, `gross B ${gross.rows[0].numB}, want 55`);
+    const net = computeVegasLedger(t, { ...VEGAS_BASIC, net: true })!;
+    assert(net.rows[0].numB === 45, `net B ${net.rows[0].numB}, want 45`);
+  });
+
+  check("vegas — tied holes carry the stake into the next one", () => {
+    // Hole 1 tied, hole 2 won by 9 → pays double with carry on, single with it off.
+    const t = vegasRound([4, 4], [[4, 4], [5, 6], [4, 5], [5, 5]]);
+    const off = computeVegasLedger(t, { ...VEGAS_BASIC, carryTies: false })!;
+    const on = computeVegasLedger(t, { ...VEGAS_BASIC, carryTies: true })!;
+    assert(off.rows[0].winner === null, "hole 1 was meant to tie");
+    assert(on.rows[1].carriedIn === 1, `carriedIn ${on.rows[1].carriedIn}, want 1`);
+    assert(on.rows[1].points === off.rows[1].points * 2, "carry did not double the hole");
+  });
+
+  check("vegas — auto-press opens at the margin and pays from the next hole", () => {
+    // Every hole won by A by 9 → the margin passes 5 after hole 1.
+    const cards: [number[], number[], number[], number[]] =
+      [[4, 4, 4], [4, 4, 4], [5, 5, 5], [5, 5, 5]];
+    const t = vegasRound([4, 4, 4], cards);
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 5, maxPresses: 3, pressValue: 5 })!;
+    assert(L.presses.length > 0, "no press opened past the trigger");
+    assert(L.presses[0].from === 1, `first press starts on hole ${L.presses[0].from}, want 1`);
+    // The press only collects holes from its start, never the one that triggered it.
+    const fromStart = L.rows.slice(1).reduce((n, r) => n + (r.winner === "A" ? r.points : 0), 0);
+    assert(L.presses[0].pointsA === fromStart, `press has ${L.presses[0].pointsA}, want ${fromStart}`);
+    assert(L.pointsA === 33 && L.pointsB === 0, `original bet ${L.pointsA}–${L.pointsB}, want 33–0`);
+  });
+
+  check("vegas — presses respect the cap", () => {
+    const cards: [number[], number[], number[], number[]] = [
+      [4, 4, 4, 4, 4, 4], [4, 4, 4, 4, 4, 4], [5, 5, 5, 5, 5, 5], [5, 5, 5, 5, 5, 5],
+    ];
+    const t = vegasRound([4, 4, 4, 4, 4, 4], cards);
+    const capped = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 5, maxPresses: 2 })!;
+    assert(capped.presses.length <= 2, `${capped.presses.length} presses past a cap of 2`);
+    const none = computeVegasLedger(t, { ...VEGAS_BASIC, pressAt: 0 })!;
+    assert(none.presses.length === 0, "presses opened while switched off");
+  });
+
+  check("vegas — money nets the original bet and every press", () => {
+    const cards: [number[], number[], number[], number[]] =
+      [[4, 4, 4], [4, 4, 4], [5, 5, 5], [5, 5, 5]];
+    const t = vegasRound([4, 4, 4], cards);
+    const L = computeVegasLedger(t, {
+      ...VEGAS_BASIC, pressAt: 5, maxPresses: 3, pointValue: 1, pressValue: 5,
+    })!;
+    const expected =
+      (L.pointsA - L.pointsB) * 1 + L.presses.reduce((n, p) => n + (p.pointsA - p.pointsB) * 5, 0);
+    assert(L.moneyA === expected, `money ${L.moneyA} ≠ ${expected}`);
+    assert(L.moneyA > L.pointsA, "presses added nothing to the settlement");
+  });
+
+  check("vegas — fixed teams hold; rotate6 runs all three pairings", () => {
+    const ids = ["p0", "p1", "p2", "p3"];
+    const fixed = [0, 5, 6, 11, 12, 17].map((h) => vegasTeamsForHole(ids, h, "fixed")![0].join("+"));
+    assert(new Set(fixed).size === 1, `fixed teams changed: ${fixed.join(" ")}`);
+    const rot = [0, 6, 12].map((h) => vegasTeamsForHole(ids, h, "rotate6")![0].join("+"));
+    assert(new Set(rot).size === 3, `rotate6 gave ${rot.join(" ")}`);
+    assert(rot[0] === "p0+p1" && rot[1] === "p0+p2" && rot[2] === "p0+p3", `rotation ${rot.join(" ")}`);
+    // Holes 1-6 share a pairing, then it changes.
+    assert(
+      vegasTeamsForHole(ids, 5, "rotate6")![0].join("+") === "p0+p1" &&
+        vegasTeamsForHole(ids, 6, "rotate6")![0].join("+") === "p0+p2",
+      "rotation did not switch at the six-hole boundary",
+    );
+  });
+
+  check("vegas — needs four players with their own scores", () => {
+    const three = tour({
+      format: "golf",
+      participants: [
+        { id: "a", name: "A", handicap: 0 },
+        { id: "b", name: "B", handicap: 0 },
+        { id: "c", name: "C", handicap: 0 },
+      ],
+      config: cfg({ golfMode: "vegas" }),
+    }) as Tournament;
+    three.golf = { holes: 1, pars: [4], strokeIndex: [1], scores: {} };
+    assert(computeVegasLedger(three, VEGAS_DEFAULTS) === null, "a three-player card produced a ledger");
+    assert(vegasTeamsForHole(["a", "b", "c"], 0, "fixed") === null, "three players formed teams");
+  });
+
+  check("vegas — a legacy pair card is never read as the full game", () => {
+    // Four PAIRS with pre-combined numbers. Without the per-player flag this must keep
+    // its old pair scoring, or two duels would be misread as one four-player game.
+    const pairs: Participant[] = ["A&B", "C&D", "E&F", "G&H"].map((n, i) => ({
+      id: `pair${i}`, name: n, handicap: 0,
+    }));
+    const t = tour({ format: "golf", participants: pairs, config: cfg({ golfMode: "vegas" }) }) as Tournament;
+    t.golf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { pair0: [45], pair1: [56], pair2: [44], pair3: [55] },
+    };
+    assert(!t.config.vegasPerPlayer, "fixture should have no per-player flag");
+    // The old duel scoring still reads it: pair0 beats pair1 by 11, pair2 beats pair3 by 11.
+    const legacy = computeVegas(t);
+    const byName = (n: string) => legacy.find((r) => r.name === n)!;
+    assert(byName("A&B").points === 11, `legacy pair scoring changed: ${byName("A&B").points}`);
+    assert(byName("E&F").points === 11, `second duel wrong: ${byName("E&F").points}`);
+  });
+
+  check("vegas — unplayed holes are skipped, not scored as zeros", () => {
+    const t = vegasRound([4, 4], [[4, null as unknown as number], [4, 4], [5, 5], [5, 5]]);
+    const L = computeVegasLedger(t, VEGAS_BASIC)!;
+    assert(L.thru === 1, `thru ${L.thru}, want 1`);
+    assert(L.rows.length === 1, `${L.rows.length} rows for one played hole`);
+  });
+}
+
+// ---- Edit setup must not cost you the round --------------------------------
+// Re-saving setup used to rebuild the card from scratch, which threw away every score
+// already entered. scoreCount is what both the warning and the undo banner read.
+{
+  check("scoreCount — counts entered scoring in every format that holds it", () => {
+    const empty = tour({ format: "golf", participants: players(2) }) as Tournament;
+    assert(scoreCount(empty) === 0, "empty tournament counted scores");
+    assert(scoreSummary(empty) === "", "empty tournament produced a warning");
+
+    const golf = tour({ format: "golf", participants: players(2) }) as Tournament;
+    golf.golf = {
+      holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3],
+      scores: { p0: [4, 5, null], p1: [4, null, null] },
+    };
+    assert(scoreCount(golf) === 3, `golf holes counted ${scoreCount(golf)}, want 3`);
+
+    const cup = tour({ format: "ryder", participants: players(4, true) }) as Tournament;
+    cup.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      scores: { m1: { p0: [4, 4], p1: [5, null] } },
+    };
+    assert(scoreCount(cup) === 3, `cup holes counted ${scoreCount(cup)}, want 3`);
+
+    const rr = tour({
+      format: "round-robin",
+      participants: players(4),
+      matches: [
+        { id: "a", phase: "rr", round: 1, order: 0, sideA: ["p0"], sideB: ["p1"], scoreA: 11, scoreB: 5 },
+        { id: "b", phase: "rr", round: 1, order: 1, sideA: ["p2"], sideB: ["p3"], scoreA: null, scoreB: null },
+      ],
+    }) as Tournament;
+    assert(scoreCount(rr) === 1, `finished matches counted ${scoreCount(rr)}, want 1`);
+    assert(scoreSummary(rr).includes("1 result"), `summary read "${scoreSummary(rr)}"`);
+  });
+
+  check("scoreCount — a live, unfinished game is not a result to protect", () => {
+    const live = tour({
+      format: "round-robin",
+      participants: players(2),
+      matches: [
+        { id: "a", phase: "rr", round: 1, order: 0, sideA: ["p0"], sideB: ["p1"], scoreA: 3, scoreB: 2, final: false },
+      ],
+    }) as Tournament;
+    assert(scoreCount(live) === 0, "a game still being scored counted as a saved result");
+  });
+}
 
 // Live scoring drives the round-robin hero card, so walk a real game point by
 // point for every sport that offers it — 1–1 stays on, the winning point ends it.
