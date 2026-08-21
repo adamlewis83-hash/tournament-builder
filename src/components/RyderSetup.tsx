@@ -26,7 +26,7 @@ interface CourseState {
 
 export function RyderSetup({ t }: { t: Tournament }) {
   const setRyderTeams = useStore((s) => s.setRyderTeams);
-  const generate = useStore((s) => s.generate);
+  const keepRyderRounds = useStore((s) => s.keepRyderRounds);
   const addRyderSession = useStore((s) => s.addRyderSession);
   const patch = useStore((s) => s.patchTournament);
   const savedCourses = useStore((s) => s.courses);
@@ -167,12 +167,23 @@ export function RyderSetup({ t }: { t: Tournament }) {
   }
 
   function handleGenerate() {
-    // Regenerating rebuilds every match with a fresh id, and the scorecard is keyed
-    // by match id — so a cup already underway would lose the holes played so far.
+    // Sessions already built keep their matches — and so their scorecards, which are
+    // keyed by match id. Only the part of the program that actually changed is rebuilt,
+    // so coming in here to fix a name, a handicap or the course costs nothing. Rounds
+    // are compared in order: everything up to the first difference is left alone.
+    const current = (t.config.ryderProgram as RyderSessionType[] | undefined) ?? [];
+    let keep = 0;
+    while (keep < current.length && keep < program.length && current[keep] === program[keep]) keep++;
+    const dropped = current.length - keep;
+    const droppedScores = t.matches.filter(
+      (m) => m.phase === "ryder" && m.round > keep && (t.ryderGolf?.scores?.[m.id] ?? null),
+    ).length;
     if (
-      Object.keys(t.ryderGolf?.scores ?? {}).length > 0 &&
+      droppedScores > 0 &&
       !confirm(
-        "This cup already has scores on the card. Regenerating rebuilds the sessions and clears every hole entered so far. Continue?",
+        `Changing the program here rebuilds ${dropped} session${dropped === 1 ? "" : "s"}, ` +
+          `clearing the scores on ${droppedScores} match${droppedScores === 1 ? "" : "es"}. ` +
+          `The first ${keep} session${keep === 1 ? "" : "s"} and their scores are kept. Continue?`,
       )
     )
       return;
@@ -202,10 +213,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
         courseName: course.courseName,
       },
     );
-    generate(t.id);
-    // Pre-planned program: create each session now, in order. Pairings default
-    // to lineup order and stay editable per session in the match view.
-    for (const ty of program) addRyderSession(t.id, ty, false);
+    // Keep the matching prefix of sessions intact; rebuild only from the first change.
+    keepRyderRounds(t.id, keep);
+    for (const ty of program.slice(keep)) addRyderSession(t.id, ty, false);
   }
 
   return (

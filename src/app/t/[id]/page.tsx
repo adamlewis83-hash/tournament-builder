@@ -34,6 +34,7 @@ import { Champion } from "@/components/Champion";
 import { ShareBar } from "@/components/ShareBar";
 import { LivePanel } from "@/components/LivePanel";
 import { ScorerClaim } from "@/components/ScorerClaim";
+import { RestoreScores } from "@/components/RestoreScores";
 import { PlayerPhotos } from "@/components/PlayerPhotos";
 import { useLiveSync } from "@/hooks/useLiveSync";
 
@@ -52,6 +53,7 @@ function TournamentDetail({ id }: { id: string }) {
   const reset = useStore((s) => s.resetToSetup);
   const generateFinals = useStore((s) => s.generateFinals);
   const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
+  const [editingSetup, setEditingSetup] = useState(false);
   useLiveSync(id, t?.liveCode, t?.liveVersion);
 
   if (!t) {
@@ -66,6 +68,10 @@ function TournamentDetail({ id }: { id: string }) {
   }
 
   const isElim = t.format === "single-elim" || t.format === "double-elim";
+
+  // Setup opens as a view over the tournament — it no longer tears the schedule down
+  // to get here. The play views hide while it is open so the page has one job at a time.
+  const shown = t.generated && !editingSetup;
 
   return (
     <div className="space-y-5">
@@ -89,22 +95,16 @@ function TournamentDetail({ id }: { id: string }) {
               <Badge color="slate">{PLAYSTYLE_LABELS[t.playStyle]}</Badge>
             )}
             <FormatInfo t={t} />
-            {t.generated && <ShareBar t={t} />}
+            {shown && <ShareBar t={t} />}
+            {/* Stays put while setup is open — it is the way back out. */}
             {t.generated && !t.spectator && (
               <Button
-                variant="outline"
-                className="px-3 py-1.5 border-[var(--brand)]/50 text-[var(--brand)] font-semibold"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Reset to setup? This clears the schedule/bracket and all scores for this tournament.",
-                    )
-                  )
-                    reset(t.id);
-                }}
+                variant={editingSetup ? "primary" : "outline"}
+                className="px-3 py-1.5 border-[var(--brand)]/50 font-semibold"
+                onClick={() => setEditingSetup((v) => !v)}
               >
                 <Settings className="h-4 w-4" />
-                Edit setup
+                {editingSetup ? "Close setup" : "Edit setup"}
               </Button>
             )}
           </div>
@@ -134,13 +134,50 @@ function TournamentDetail({ id }: { id: string }) {
 
       {t.spectator && <ScorerClaim t={t} />}
 
-      {t.generated && !t.spectator && <LivePanel t={t} />}
+      <RestoreScores t={t} />
 
-      {t.liveCode && t.generated && <CommentsPanel t={t} />}
+      {shown && !t.spectator && <LivePanel t={t} />}
 
-      {!t.generated && <SetupPanel t={t} />}
+      {t.liveCode && shown && <CommentsPanel t={t} />}
 
-      {t.generated && t.format === "round-robin" && (
+      {editingSetup && t.generated && (
+        <div className="no-print rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              <span className="font-semibold">Editing setup</span>
+              <span className="text-[var(--muted)]">
+                {" "}
+                — nothing changes until you save, and saving keeps every score it still
+                applies to.
+              </span>
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button variant="outline" className="px-3 py-1.5" onClick={() => setEditingSetup(false)}>
+                Close without saving
+              </Button>
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Start over? This clears the schedule/bracket and every score for this tournament.",
+                    )
+                  ) {
+                    reset(t.id);
+                    setEditingSetup(false);
+                  }
+                }}
+                className="text-xs text-[var(--muted)] hover:text-rose-400"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(!t.generated || editingSetup) && <SetupPanel t={t} />}
+
+      {shown && t.format === "round-robin" && (
         <div className="space-y-4">
           <Champion matches={t.matches} participants={t.participants} />
           <FinalsNudge
@@ -185,34 +222,34 @@ function TournamentDetail({ id }: { id: string }) {
         </div>
       )}
 
-      {t.generated && isElim && (
+      {shown && isElim && (
         <div className="space-y-4">
           <Champion matches={t.matches} participants={t.participants} />
           <BracketView matches={t.matches} participants={t.participants} tournamentId={t.id} />
         </div>
       )}
 
-      {t.generated && t.format === "swiss" && <SwissView t={t} />}
+      {shown && t.format === "swiss" && <SwissView t={t} />}
 
-      {t.generated && t.format === "kotc" && <KotcView t={t} />}
+      {shown && t.format === "kotc" && <KotcView t={t} />}
 
-      {t.generated && (t.format === "americano" || t.format === "mexicano") && (
+      {shown && (t.format === "americano" || t.format === "mexicano") && (
         <AmericanoView t={t} />
       )}
 
-      {t.generated && t.format === "ryder" && <RyderView t={t} />}
+      {shown && t.format === "ryder" && <RyderView t={t} />}
 
-      {t.generated && t.format === "golf" && <GolfView t={t} />}
+      {shown && t.format === "golf" && <GolfView t={t} />}
 
-      {t.generated && t.format === "custom" && <CustomView t={t} />}
+      {shown && t.format === "custom" && <CustomView t={t} />}
 
-      {t.generated && t.format === "score-challenge" && <ScoreChallengeView t={t} />}
+      {shown && t.format === "score-challenge" && <ScoreChallengeView t={t} />}
 
-      {t.generated && t.format === "ladder" && <LadderView t={t} />}
+      {shown && t.format === "ladder" && <LadderView t={t} />}
 
-      {t.generated && t.format === "pool-bracket" && <PoolView t={t} />}
+      {shown && t.format === "pool-bracket" && <PoolView t={t} />}
 
-      {t.generated && !t.spectator && <PlayerPhotos t={t} />}
+      {shown && !t.spectator && <PlayerPhotos t={t} />}
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { applyProfilePhoto } from "./profile";
 import { canEditScores } from "./perms";
+import { scoreCount } from "./snapshot";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
 // The cup's session list (labels in playing order), derived from the matches —
@@ -65,10 +66,20 @@ export interface CreateInput {
   config?: Partial<TournamentConfig>;
 }
 
+export interface Snapshot {
+  at: number;
+  label: string;
+  scores: number; // how much scoring the snapshot is holding
+  data: Tournament;
+}
+
 interface State {
   tournaments: Tournament[];
   courses: Course[];
   friends: Friend[];
+  /** One undo point per tournament, taken just before a setup save that would
+   *  otherwise destroy entered scores. Persisted, so it survives a reload. */
+  snapshots: Record<string, Snapshot>;
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
@@ -84,6 +95,10 @@ interface State {
   mergeCloud: (list: Tournament[]) => void;
   pruneDeleted: (ids: string[]) => void;
   patchTournament: (id: string, patch: Partial<Tournament>) => void;
+  /** Put the tournament back to its last undo point (and clear it). */
+  restoreSnapshot: (id: string) => void;
+  /** Drop the undo point without using it. */
+  dismissSnapshot: (id: string) => void;
   setScorers: (id: string, names: string[]) => void;
   setMatchClock: (id: string, matchId: string, action: "start" | "pause" | "reset") => void;
   setRoundClock: (id: string, round: number, action: "start" | "pause" | "reset") => void;
@@ -126,6 +141,7 @@ interface State {
     value: number | null,
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
+  keepRyderRounds: (id: string, keep: number) => void;
   removeRyderRound: (id: string, round: number) => void;
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderPointsPerSession: (id: string, points: number | undefined) => void;
@@ -431,6 +447,22 @@ export const useStore = create<State>()(
       };
       // Spectators (joined via live code) are read-only unless the host granted them as a
       // scorekeeper (matched by profile name). The host is never blocked.
+      // Take an undo point before a save that is about to clear entered scores.
+      // Only worth keeping when there is something to lose, so an untouched setup
+      // never leaves a stale "restore" sitting on the page.
+      const snapshot = (id: string, label: string) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        if (!t || t.spectator) return;
+        const scores = scoreCount(t);
+        if (!scores) return;
+        set((s) => ({
+          snapshots: {
+            ...s.snapshots,
+            [id]: { at: Date.now(), label, scores, data: structuredClone(t) },
+          },
+        }));
+      };
+
       const blocked = (id: string) => {
         const t = get().tournaments.find((x) => x.id === id);
         return t ? !canEditScores(t) : false;
@@ -440,6 +472,7 @@ export const useStore = create<State>()(
       tournaments: [],
       courses: [],
       friends: [],
+      snapshots: {},
       hydrated: false,
 
       saveFriend: (input) => {
@@ -597,6 +630,33 @@ export const useStore = create<State>()(
         set((s) => ({ tournaments: [copy, ...s.tournaments] }));
         return newId;
       },
+
+      restoreSnapshot: (id) => {
+        const snap = get().snapshots[id];
+        if (!snap) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            // Keep the live link and viewing role from the current copy — those describe
+            // this device's session, not the scoring state being put back.
+            t.id === id
+              ? {
+                  ...snap.data,
+                  liveCode: t.liveCode,
+                  liveVersion: t.liveVersion,
+                  spectator: t.spectator,
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+          snapshots: Object.fromEntries(Object.entries(s.snapshots).filter(([k]) => k !== id)),
+        }));
+        pushReplace(id);
+      },
+
+      dismissSnapshot: (id) =>
+        set((s) => ({
+          snapshots: Object.fromEntries(Object.entries(s.snapshots).filter(([k]) => k !== id)),
+        })),
 
       patchTournament: (id, patch) => {
         if (blocked(id)) return;
@@ -829,6 +889,7 @@ export const useStore = create<State>()(
         })),
 
       setRyderTeams: (id, teamA, teamB, teamNames, course) => {
+        snapshot(id, "Cup setup re-saved");
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -848,12 +909,18 @@ export const useStore = create<State>()(
             const participants = applyProfilePhoto([...build(teamA, 0), ...build(teamB, 1)], {
               golfHandicap: true,
             });
+            // Same rule for a cup: scores are keyed by match id and the matches are not
+            // being rebuilt here, so re-saving setup must not throw the card away. The
+            // per-session course cards and scoring methods are keyed by round and survive
+            // for the same reason.
             const ryderGolf = {
               holes: course.holes,
               pars: course.pars,
               strokeIndex: course.strokeIndex,
               courseName: course.courseName,
-              scores: {},
+              scores: t.ryderGolf?.scores ?? {},
+              ...(t.ryderGolf?.sessionCourses ? { sessionCourses: t.ryderGolf.sessionCourses } : {}),
+              ...(t.ryderGolf?.sessionMethods ? { sessionMethods: t.ryderGolf.sessionMethods } : {}),
             };
             return {
               ...t,
@@ -894,6 +961,32 @@ export const useStore = create<State>()(
               );
             }
             return { ...tWith, matches, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      // Trim the cup back to its first `keep` sessions, leaving those matches — and the
+      // scorecards keyed to their ids — exactly as they are. Used when Edit setup changes
+      // the program: rather than rebuilding the whole cup, only the changed tail is redone.
+      keepRyderRounds: (id, keep) => {
+        snapshot(id, "Cup program changed");
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.spectator) return t;
+            const matches = t.matches.filter((m) => m.phase !== "ryder" || m.round <= keep);
+            const kept = new Set(matches.map((m) => m.id));
+            const scores = Object.fromEntries(
+              Object.entries(t.ryderGolf?.scores ?? {}).filter(([mid]) => kept.has(mid)),
+            );
+            return {
+              ...t,
+              matches,
+              generated: true,
+              ...(t.ryderGolf ? { ryderGolf: { ...t.ryderGolf, scores } } : {}),
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
           }),
         }));
         pushReplace(id);
@@ -1003,6 +1096,7 @@ export const useStore = create<State>()(
       },
 
       setGolfPlayers: (id, input) => {
+        snapshot(id, "Course & players re-saved");
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
             if (t.id !== id) return t;
@@ -1022,6 +1116,29 @@ export const useStore = create<State>()(
               input.holes,
               participants.map((p) => p.id),
             );
+            // Carry the round forward. Participants keep their id when their name is
+            // unchanged, so an existing card still belongs to them — re-saving setup to
+            // fix a handicap, a tee or a course name has no business clearing it. Cards
+            // are re-fitted to the hole count: a shortened round drops the holes that no
+            // longer exist, a lengthened one gains empty ones.
+            const prev = t.golf;
+            if (prev) {
+              const fit = (card: (number | null)[]) =>
+                Array.from({ length: golf.holes }, (_, i) => card[i] ?? null);
+              for (const p of participants)
+                if (prev.scores[p.id]) golf.scores[p.id] = fit(prev.scores[p.id]);
+              if (prev.pins) golf.pins = Array.from({ length: golf.holes }, (_, i) => prev.pins![i] ?? null);
+              if (prev.bbb)
+                golf.bbb = {
+                  bingo: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bingo[i] ?? null),
+                  bango: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bango[i] ?? null),
+                  bongo: Array.from({ length: golf.holes }, (_, i) => prev.bbb!.bongo[i] ?? null),
+                };
+              if (prev.wolf)
+                golf.wolf = {
+                  partner: Array.from({ length: golf.holes }, (_, i) => prev.wolf!.partner[i] ?? null),
+                };
+            }
             if (input.pars && input.pars.length === golf.holes) golf.pars = input.pars;
             if (input.strokeIndex && input.strokeIndex.length === golf.holes)
               golf.strokeIndex = input.strokeIndex;
@@ -1178,6 +1295,7 @@ export const useStore = create<State>()(
       },
 
       generate: (id) => {
+        snapshot(id, "Schedule regenerated");
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
             t.id === id
@@ -1468,7 +1586,12 @@ export const useStore = create<State>()(
       storage: createJSONStorage(() =>
         typeof localStorage !== "undefined" ? localStorage : (undefined as unknown as Storage),
       ),
-      partialize: (s) => ({ tournaments: s.tournaments, courses: s.courses, friends: s.friends }),
+      partialize: (s) => ({
+        tournaments: s.tournaments,
+        courses: s.courses,
+        friends: s.friends,
+        snapshots: s.snapshots,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },

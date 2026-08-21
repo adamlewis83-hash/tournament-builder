@@ -34,6 +34,7 @@ import {
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
 import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
+import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import {
   formatsForSport,
   SPORTS,
@@ -1233,6 +1234,53 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     const L = computeVegasLedger(t, VEGAS_BASIC)!;
     assert(L.thru === 1, `thru ${L.thru}, want 1`);
     assert(L.rows.length === 1, `${L.rows.length} rows for one played hole`);
+  });
+}
+
+// ---- Edit setup must not cost you the round --------------------------------
+// Re-saving setup used to rebuild the card from scratch, which threw away every score
+// already entered. scoreCount is what both the warning and the undo banner read.
+{
+  check("scoreCount — counts entered scoring in every format that holds it", () => {
+    const empty = tour({ format: "golf", participants: players(2) }) as Tournament;
+    assert(scoreCount(empty) === 0, "empty tournament counted scores");
+    assert(scoreSummary(empty) === "", "empty tournament produced a warning");
+
+    const golf = tour({ format: "golf", participants: players(2) }) as Tournament;
+    golf.golf = {
+      holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3],
+      scores: { p0: [4, 5, null], p1: [4, null, null] },
+    };
+    assert(scoreCount(golf) === 3, `golf holes counted ${scoreCount(golf)}, want 3`);
+
+    const cup = tour({ format: "ryder", participants: players(4, true) }) as Tournament;
+    cup.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      scores: { m1: { p0: [4, 4], p1: [5, null] } },
+    };
+    assert(scoreCount(cup) === 3, `cup holes counted ${scoreCount(cup)}, want 3`);
+
+    const rr = tour({
+      format: "round-robin",
+      participants: players(4),
+      matches: [
+        { id: "a", phase: "rr", round: 1, order: 0, sideA: ["p0"], sideB: ["p1"], scoreA: 11, scoreB: 5 },
+        { id: "b", phase: "rr", round: 1, order: 1, sideA: ["p2"], sideB: ["p3"], scoreA: null, scoreB: null },
+      ],
+    }) as Tournament;
+    assert(scoreCount(rr) === 1, `finished matches counted ${scoreCount(rr)}, want 1`);
+    assert(scoreSummary(rr).includes("1 result"), `summary read "${scoreSummary(rr)}"`);
+  });
+
+  check("scoreCount — a live, unfinished game is not a result to protect", () => {
+    const live = tour({
+      format: "round-robin",
+      participants: players(2),
+      matches: [
+        { id: "a", phase: "rr", round: 1, order: 0, sideA: ["p0"], sideB: ["p1"], scoreA: 3, scoreB: 2, final: false },
+      ],
+    }) as Tournament;
+    assert(scoreCount(live) === 0, "a game still being scored counted as a saved result");
   });
 }
 
