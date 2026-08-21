@@ -200,14 +200,27 @@ export function matchWeights(
   scoring: RyderScoring = "match",
   sessionHoles = 18,
   holesOfRound?: (round: number) => number,
+  pointsPerSession?: number,
 ): Map<string, number> {
   const ryder = matches.filter((m) => m.phase === "ryder");
   const perRound = new Map<number, number>();
   for (const m of ryder) perRound.set(m.round, (perRound.get(m.round) ?? 0) + 1);
 
+  // An explicit points-per-session number is the whole rule: that many points are on
+  // the line each session, split evenly across its matches. The three presets are the
+  // same idea with the number derived instead of typed.
+  const typed =
+    pointsPerSession != null && Number.isFinite(pointsPerSession) && pointsPerSession > 0
+      ? pointsPerSession
+      : null;
+
   const out = new Map<string, number>();
   for (const m of ryder) {
     const n = perRound.get(m.round) ?? 1;
+    if (typed != null) {
+      out.set(m.id, typed / n);
+      continue;
+    }
     if (scoring === "match") {
       out.set(m.id, 1);
       continue;
@@ -224,14 +237,30 @@ export function matchWeights(
   return out;
 }
 
+/** Points on the line in one session, however the cup expresses it. */
+export function pointsOnTheLine(
+  matches: Match[],
+  round: number,
+  scoring: RyderScoring = "match",
+  sessionHoles = 18,
+  holesOfRound?: (round: number) => number,
+  pointsPerSession?: number,
+): number {
+  const w = matchWeights(matches, scoring, sessionHoles, holesOfRound, pointsPerSession);
+  return matches
+    .filter((m) => m.phase === "ryder" && m.round === round)
+    .reduce((sum, m) => sum + (w.get(m.id) ?? 0), 0);
+}
+
 export function ryderScore(
   matches: Match[],
   scoring: RyderScoring = "match",
   sessionHoles = 18,
   holesOfRound?: (round: number) => number,
+  pointsPerSession?: number,
 ): RyderScore {
   const ryder = matches.filter((m) => m.phase === "ryder");
-  const weights = matchWeights(matches, scoring, sessionHoles, holesOfRound);
+  const weights = matchWeights(matches, scoring, sessionHoles, holesOfRound, pointsPerSession);
   const weightOf = (m: Match) => weights.get(m.id) ?? 0;
 
   let a = 0;

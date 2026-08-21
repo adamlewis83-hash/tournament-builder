@@ -9,6 +9,7 @@ import {
   Match,
   Participant,
   PlayStyle,
+  RyderMethod,
   Tournament,
   TournamentConfig,
 } from "./types";
@@ -16,7 +17,7 @@ import { uid } from "./id";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
 import { genRyder, genRyderSession, RyderScoring, RyderSessionType } from "./ryder";
-import { matchStatus } from "./ryderGolf";
+import { matchOutcome } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
   genDoubleElim,
@@ -127,6 +128,8 @@ interface State {
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   removeRyderRound: (id: string, round: number) => void;
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
+  setRyderPointsPerSession: (id: string, points: number | undefined) => void;
+  setRyderSessionMethod: (id: string, round: number, method: RyderMethod) => void;
   setRyderSessionCourse: (
     id: string,
     round: number,
@@ -878,9 +881,14 @@ export const useStore = create<State>()(
             const m = tWith.matches.find((x) => x.id === matchId);
             let matches = tWith.matches;
             if (m) {
-              const st = matchStatus(tWith, m);
-              const scoreA = st.decided ? st.upA : null;
-              const scoreB = st.decided ? st.upB : null;
+              // Store the match's outcome as points (1 / 0, or ½ each when tied)
+              // rather than the method's own units, so a session read as stroke play
+              // or Stableford settles the same way match play always has. Only the
+              // comparison is ever read back, and older cups' stored holes-up numbers
+              // still compare correctly.
+              const o = matchOutcome(tWith, m);
+              const scoreA = o.decided ? o.a : null;
+              const scoreB = o.decided ? o.b : null;
               matches = tWith.matches.map((x) =>
                 x.id === matchId ? { ...x, scoreA, scoreB } : x,
               );
@@ -914,6 +922,21 @@ export const useStore = create<State>()(
       // How the cup counts its points. Only the scoreboard's arithmetic changes —
       // matches, pairings and every hole on the card are untouched — so a host can
       // switch mid-cup. Pushed live so spectators re-weigh with the same rule.
+      setRyderPointsPerSession: (id, points) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id && !t.spectator
+              ? {
+                  ...t,
+                  config: { ...t.config, ryderPointsPerSession: points },
+                  updatedAt: Date.now(),
+                }
+              : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
       setRyderScoring: (id, scoring) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) =>
@@ -923,6 +946,26 @@ export const useStore = create<State>()(
               ? { ...t, config: { ...t.config, ryderScoring: scoring }, updatedAt: Date.now() }
               : t,
           ),
+        }));
+        pushReplace(id);
+      },
+
+      // Which way a session is read off the scorecard. Purely interpretive — no hole
+      // score is touched, so a session can be re-read mid-round without losing anything.
+      setRyderSessionMethod: (id, round, method) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.spectator || !t.ryderGolf) return t;
+            const methods = { ...(t.ryderGolf.sessionMethods ?? {}), [round]: method };
+            const tWith = { ...t, ryderGolf: { ...t.ryderGolf, sessionMethods: methods } };
+            // Re-settle that session's matches under the new reading.
+            const matches = tWith.matches.map((m) => {
+              if (m.phase !== "ryder" || m.round !== round) return m;
+              const o = matchOutcome(tWith, m);
+              return { ...m, scoreA: o.decided ? o.a : null, scoreB: o.decided ? o.b : null };
+            });
+            return { ...tWith, matches, updatedAt: Date.now() };
+          }),
         }));
         pushReplace(id);
       },

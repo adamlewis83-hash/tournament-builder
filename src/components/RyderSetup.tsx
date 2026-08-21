@@ -45,6 +45,9 @@ export function RyderSetup({ t }: { t: Tournament }) {
   );
   const [info, setInfo] = useState<RyderSessionType | null>(null);
   const [scoring, setScoring] = useState<RyderScoring>(t.config.ryderScoring ?? "match");
+  const [pointsPer, setPointsPer] = useState(
+    t.config.ryderPointsPerSession != null ? String(t.config.ryderPointsPerSession) : "",
+  );
   const [courseSaved, setCourseSaved] = useState(false);
 
   const toText = (team: 0 | 1) =>
@@ -180,6 +183,10 @@ export function RyderSetup({ t }: { t: Tournament }) {
         ryderFourball: 0,
         ryderSingles: 0,
         ryderScoring: scoring,
+        ryderPointsPerSession: (() => {
+          const v = parseFloat(pointsPer);
+          return Number.isFinite(v) && v > 0 ? v : undefined;
+        })(),
         ryderProgram: program,
       },
     });
@@ -632,8 +639,27 @@ export function RyderSetup({ t }: { t: Tournament }) {
             </button>
           ))}
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <label htmlFor="pps-setup" className="text-[var(--muted)]">
+            Or type the points per session:
+          </label>
+          <input
+            id="pps-setup"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.5"
+            value={pointsPer}
+            placeholder="auto"
+            onChange={(e) => setPointsPer(e.target.value)}
+            className="w-24 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+          />
+          <span className="text-[10px] text-[var(--muted)]">
+            split evenly across that session&apos;s matches — overrides the choice above
+          </span>
+        </div>
         <p className="mt-2 text-[10px] text-[var(--muted)]">
-          Changeable mid-cup from the scoreboard — no need to come back here.
+          All of this is changeable mid-cup from the scoreboard — no need to come back here.
         </p>
       </Card>
 

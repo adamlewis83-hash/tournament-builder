@@ -7,10 +7,12 @@ import {
   genRyder,
   genRyderSession,
   matchWeights,
+  pointsOnTheLine,
   ryderScore,
   RyderScoring,
   RyderSessionType,
 } from "./src/lib/ryder";
+import { matchOutcome, methodForMatch, methodIsChoosable } from "./src/lib/ryderGolf";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
@@ -814,6 +816,129 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     const w = matchWeights(mixed, "round18", 18, holesOf);
     assert(w.get("r1m0") === 0.5, `nine-hole session worth ${w.get("r1m0")}, want 0.5`);
     assert(w.get("r2m0") === 1, `18-hole session worth ${w.get("r2m0")}, want 1`);
+  });
+}
+
+// ---- Points per session, typed as a number ---------------------------------
+// The three presets are one idea with the number derived; typing it should behave
+// the same way and cover the values the presets can't express.
+{
+  const pair = (round: number, order: number, a: number | null, b: number | null): Match => ({
+    id: `p${round}-${order}`, phase: "ryder", round, order, label: "Fourball",
+    sideA: ["a1", "a2"], sideB: ["b1", "b2"], scoreA: a, scoreB: b,
+  });
+  const split = [pair(1, 0, 1, 0), pair(1, 1, 0, 1)]; // 2 matches, one apiece
+
+  check("ryder points-per-session — a typed number splits across the session", () => {
+    for (const [pts, want] of [[2, 1], [1, 0.5], [0.5, 0.25], [4, 2]] as const) {
+      const sc = ryderScore(split, "session", 9, undefined, pts);
+      assert(sc.a === want && sc.b === want, `${pts} pts → ${sc.a}–${sc.b}, want ${want} each`);
+      assert(sc.total === pts, `${pts} pts → total ${sc.total}`);
+    }
+  });
+
+  check("ryder points-per-session — reproduces each preset", () => {
+    // "1 point per match" with 2 matches is 2 points on the line; "1 per session" is 1.
+    const asMatch = ryderScore(split, "match", 9);
+    const typed2 = ryderScore(split, "session", 9, undefined, 2);
+    assert(asMatch.a === typed2.a && asMatch.total === typed2.total, "2 pts ≠ 1-per-match");
+    const asSession = ryderScore(split, "session", 9);
+    const typed1 = ryderScore(split, "session", 9, undefined, 1);
+    assert(asSession.a === typed1.a && asSession.total === typed1.total, "1 pt ≠ 1-per-session");
+  });
+
+  check("ryder points-per-session — a typed number overrides the preset", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const sc = ryderScore(split, mode, 9, undefined, 3);
+      assert(sc.total === 3, `${mode} with 3 typed → total ${sc.total}`);
+    }
+  });
+
+  check("ryder points-per-session — junk and zero fall back to the preset", () => {
+    for (const bad of [0, -2, NaN, undefined]) {
+      const sc = ryderScore(split, "match", 9, undefined, bad as number | undefined);
+      assert(sc.total === 2, `${bad} should fall back to 1-per-match (got ${sc.total})`);
+    }
+  });
+
+  check("ryder pointsOnTheLine — reports the session's stake", () => {
+    assert(pointsOnTheLine(split, 1, "session", 9, undefined, 2) === 2, "typed stake wrong");
+    assert(pointsOnTheLine(split, 1, "match", 9) === 2, "1-per-match stake wrong");
+    assert(pointsOnTheLine(split, 1, "session", 9) === 1, "1-per-session stake wrong");
+  });
+}
+
+// ---- Reading one scorecard three ways --------------------------------------
+// Same holes, same handicaps — match play, stroke play and Stableford should each
+// pick their own winner, and only match play may settle before the last hole.
+{
+  const P: Participant[] = [
+    { id: "a1", name: "A1", team: 0, handicap: 0 },
+    { id: "b1", name: "B1", team: 1, handicap: 0 },
+  ];
+  const single = (): Match => ({
+    id: "s1", phase: "ryder", round: 1, order: 0, label: "Singles",
+    sideA: ["a1"], sideB: ["b1"], scoreA: null, scoreB: null,
+  });
+  // 3 holes, all par 4. A wins two holes by a shot; B wins one hole by five.
+  //   A: 3, 3, 9   (15)   B: 4, 4, 4   (12)
+  // Match play → A wins 2 holes to 1. Stroke play → B by 3. Stableford: A 3+3+0=6,
+  // B 2+2+2=6 → tied.
+  const build = (holes: number) => {
+    const t = tour({
+      format: "ryder", participants: P, matches: [single()],
+      config: cfg({ teamNames: ["A", "B"] }),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes, pars: [4, 4, 4], strokeIndex: [1, 2, 3],
+      scores: { s1: { a1: [3, 3, 9], b1: [4, 4, 4] } },
+    };
+    return t;
+  };
+
+  const expect: Record<string, { a: number; decided: boolean }> = {
+    match: { a: 1, decided: true },
+    stroke: { a: 0, decided: true },
+    stableford: { a: 0.5, decided: true },
+  };
+  for (const method of ["match", "stroke", "stableford"] as const)
+    check(`ryder method ${method} — same card, its own winner`, () => {
+      const t = build(3);
+      t.ryderGolf!.sessionMethods = { 1: method };
+      const o = matchOutcome(t, t.matches[0]);
+      assert(o.method === method, `method read as ${o.method}`);
+      assert(o.decided === expect[method].decided, `${method} decided=${o.decided}`);
+      assert(o.a === expect[method].a, `${method}: A got ${o.a}, want ${expect[method].a}`);
+      assert(o.a + o.b === 1, `${method}: points ${o.a}+${o.b} ≠ 1`);
+    });
+
+  check("ryder method — stroke and Stableford wait for the last hole", () => {
+    for (const method of ["stroke", "stableford"] as const) {
+      const t = build(4); // a 4th hole nobody has played
+      t.ryderGolf!.pars = [4, 4, 4, 4];
+      t.ryderGolf!.strokeIndex = [1, 2, 3, 4];
+      t.ryderGolf!.sessionMethods = { 1: method };
+      const o = matchOutcome(t, t.matches[0]);
+      assert(!o.decided, `${method} settled with a hole outstanding`);
+      assert(o.thru === 3, `${method} thru ${o.thru}, want 3`);
+    }
+  });
+
+  check("ryder method — match play can still close out early", () => {
+    const t = build(3);
+    t.ryderGolf!.scores = { s1: { a1: [3, 3, null], b1: [5, 5, null] } }; // 2 up with 1 to play
+    const o = matchOutcome(t, t.matches[0]);
+    assert(o.decided && o.a === 1, `dormie-2 not closed out (decided=${o.decided}, a=${o.a})`);
+  });
+
+  check("ryder method — Vegas and Team Stableford keep their own scoring", () => {
+    assert(!methodIsChoosable("Vegas"), "Vegas offered a scoring method");
+    assert(!methodIsChoosable("Team Stableford"), "Team Stableford offered a scoring method");
+    assert(methodIsChoosable("Best Ball"), "Best Ball should be re-scorable");
+    const t = build(3);
+    t.ryderGolf!.sessionMethods = { 1: "stroke" }; // must be ignored for a fixed game
+    t.matches[0].label = "Vegas";
+    assert(methodForMatch(t, t.matches[0]) === "match", "Vegas took the session method");
   });
 }
 

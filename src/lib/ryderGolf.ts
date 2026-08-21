@@ -1,4 +1,4 @@
-import { Match, Participant, Tournament } from "./types";
+import { Match, Participant, RyderMethod, Tournament } from "./types";
 import { holeStrokes } from "./golf";
 import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
@@ -152,16 +152,125 @@ export function matchText(s: MatchStatus): string {
   return `${leader === "A" ? "▲" : "▼"} ${diff} up · thru ${s.thru}`;
 }
 
+// ---- How a session is decided -------------------------------------------------
+
+// Two games carry their own comparison, so there is nothing to re-score: Vegas is
+// the combined-number duel, and Team Stableford already counts points. Everything
+// else works off a real net stroke per hole and can be read three ways.
+const FIXED_METHOD = new Set(["Vegas", "Team Stableford"]);
+export const methodIsChoosable = (label?: string) => !FIXED_METHOD.has(label ?? "");
+
+/** The scoring method a match is decided by. */
+export function methodForMatch(t: Tournament, m: Match): RyderMethod {
+  if (!methodIsChoosable(m.label)) return "match";
+  return t.ryderGolf?.sessionMethods?.[m.round] ?? "match";
+}
+
+/** Net Stableford points for a hole: 2 for a net par, +1 per stroke better, 0 floor. */
+const stablefordPoints = (par: number, net: number) => Math.max(0, par - net + 2);
+
+export interface MatchOutcome {
+  method: RyderMethod;
+  thru: number;
+  holes: number;
+  decided: boolean;
+  /** Points this match awards each side — 1 / 0 for a win, ½ each when tied. The cup's
+   *  per-session weighting is applied on top of this, never inside it. */
+  a: number;
+  b: number;
+  /** Running margin in the method's own units (holes up, strokes, or points). */
+  marginA: number;
+  marginB: number;
+  text: string;
+}
+
+/**
+ * Decide a match from the same scorecard, the way its session is set to be read.
+ * Match play can close out early; stroke and Stableford need every hole in.
+ */
+export function matchOutcome(t: Tournament, m: Match): MatchOutcome {
+  const method = methodForMatch(t, m);
+  const card = sessionCard(t, m.round);
+  const holes = card?.holes ?? 0;
+
+  if (method === "match") {
+    const st = matchStatus(t, m);
+    const a = st.upA > st.upB ? 1 : st.upB > st.upA ? 0 : 0.5;
+    return {
+      method,
+      thru: st.thru,
+      holes: st.holes,
+      decided: st.decided,
+      a,
+      b: 1 - a,
+      marginA: st.upA,
+      marginB: st.upB,
+      text: matchText(st),
+    };
+  }
+
+  let thru = 0;
+  let valA = 0;
+  let valB = 0;
+  for (let h = 0; h < holes; h++) {
+    const nets = holeNets(t, m, h);
+    if (!nets) continue;
+    thru++;
+    if (method === "stroke") {
+      valA += nets.netA;
+      valB += nets.netB;
+    } else {
+      const par = card!.pars[h];
+      valA += stablefordPoints(par, nets.netA);
+      valB += stablefordPoints(par, nets.netB);
+    }
+  }
+
+  // Stroke play is won low, Stableford high. Neither can be clinched early — a
+  // stroke deficit is recoverable to the last hole — so the result lands only
+  // once the session is complete.
+  const aAhead = method === "stroke" ? valA < valB : valA > valB;
+  const bAhead = method === "stroke" ? valB < valA : valB > valA;
+  const decided = holes > 0 && thru === holes;
+  const a = aAhead ? 1 : bAhead ? 0 : 0.5;
+  const diff = Math.abs(valA - valB);
+  const unit = method === "stroke" ? (diff === 1 ? "stroke" : "strokes") : diff === 1 ? "pt" : "pts";
+  const arrow = aAhead ? "▲" : "▼";
+  const text = !thru
+    ? "—"
+    : diff === 0
+      ? decided
+        ? "Tied"
+        : `All Square · thru ${thru}`
+      : decided
+        ? `${arrow} by ${diff} ${unit}`
+        : `${arrow} ${diff} ${unit} · thru ${thru}`;
+
+  return { method, thru, holes, decided, a, b: 1 - a, marginA: valA, marginB: valB, text };
+}
+
 /** Holes a given session plays — its own card if it has one, else the cup's. */
 export const roundHoles = (t: Tournament) => (round: number) =>
   sessionCard(t, round)?.holes ?? t.ryderGolf?.holes ?? 18;
 
 /** The cup scoreboard, with each session weighed on the card it is played on. */
 export function cupScore(t: Tournament): RyderScore {
-  return ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes, roundHoles(t));
+  return ryderScore(
+    t.matches,
+    t.config.ryderScoring,
+    t.ryderGolf?.holes,
+    roundHoles(t),
+    t.config.ryderPointsPerSession,
+  );
 }
 
 /** What each match is worth on this cup's scoreboard, by match id. */
 export function cupWeights(t: Tournament): Map<string, number> {
-  return matchWeights(t.matches, t.config.ryderScoring, t.ryderGolf?.holes, roundHoles(t));
+  return matchWeights(
+    t.matches,
+    t.config.ryderScoring,
+    t.ryderGolf?.holes,
+    roundHoles(t),
+    t.config.ryderPointsPerSession,
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Match, Participant, Tournament } from "@/lib/types";
+import { Match, Participant, RYDER_METHOD_LABELS, RyderMethod, Tournament } from "@/lib/types";
 import {
   CUP_SCORING_LABELS,
   RYDER_SESSION_BLURBS,
@@ -15,8 +15,9 @@ import {
   entitiesForMatch,
   entityStrokes,
   holeNets,
-  matchStatus,
-  matchText,
+  matchOutcome,
+  methodForMatch,
+  methodIsChoosable,
   sessionCard,
 } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
@@ -39,7 +40,7 @@ function RyderMatchCard({
   if (!g) return null;
 
   const ents = entitiesForMatch(m);
-  const st = matchStatus(t, m);
+  const st = matchOutcome(t, m);
   const card = sessionCard(t, m.round) ?? g;
   const sc = g.scores[m.id] ?? {};
   const nameOf = (id: string) => t.participants.find((p) => p.id === id)?.name ?? "?";
@@ -48,7 +49,7 @@ function RyderMatchCard({
     key === "A" ? teamNames[0] : key === "B" ? teamNames[1] : nameOf(key).split(" ")[0];
   const holes = Array.from({ length: card.holes }, (_, i) => i);
   const statusColor =
-    st.upA > st.upB ? "text-[var(--brand)]" : st.upB > st.upA ? "text-rose-300" : "text-[var(--muted)]";
+    st.a > st.b ? "text-[var(--brand)]" : st.b > st.a ? "text-rose-300" : "text-[var(--muted)]";
 
   return (
     <Card className="p-0 overflow-hidden">
@@ -67,7 +68,7 @@ function RyderMatchCard({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className={`text-sm font-bold ${statusColor}`}>{matchText(st)}</div>
+          <div className={`text-sm font-bold ${statusColor}`}>{st.text}</div>
           <div className="text-[10px] text-[var(--muted)]">{open ? "Hide ▴" : "Score ▾"}</div>
         </div>
       </button>
@@ -173,6 +174,30 @@ function RyderMatchCard({
 // Multi-course cups: pick which course (and which nine) one session plays on.
 // Options come from the cup's default course plus the host's saved courses;
 // save the day's courses in /courses (or via Course search in Edit setup) first.
+/** How this session is read off the scorecard. Interpretive only — switching it
+ *  re-settles the session's matches without touching a single hole. */
+function SessionMethodControl({ t, round }: { t: Tournament; round: number }) {
+  const setMethod = useStore((s) => s.setRyderSessionMethod);
+  const ms = t.matches.filter((m) => m.phase === "ryder" && m.round === round);
+  // Vegas and Team Stableford carry their own comparison — nothing to choose.
+  if (!ms.length || !methodIsChoosable(ms[0].label)) return null;
+  const current = methodForMatch(t, ms[0]);
+  return (
+    <select
+      value={current}
+      onChange={(e) => setMethod(t.id, round, e.target.value as RyderMethod)}
+      title={RYDER_METHOD_LABELS[current].hint}
+      className="max-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs outline-none focus:border-[var(--brand)]"
+    >
+      {(Object.keys(RYDER_METHOD_LABELS) as RyderMethod[]).map((k) => (
+        <option key={k} value={k}>
+          🎯 {RYDER_METHOD_LABELS[k].label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function SessionCourseControl({ t, round }: { t: Tournament; round: number }) {
   const savedCourses = useStore((s) => s.courses);
   const setSessionCourse = useStore((s) => s.setRyderSessionCourse);
@@ -312,8 +337,29 @@ function PairingEditor({
  *  does — hole scores and results stay exactly where they are. */
 function CupScoringControl({ t }: { t: Tournament }) {
   const setRyderScoring = useStore((s) => s.setRyderScoring);
+  const setPoints = useStore((s) => s.setRyderPointsPerSession);
   const [open, setOpen] = useState(false);
   const current: RyderScoring = t.config.ryderScoring ?? "match";
+  const typed = t.config.ryderPointsPerSession;
+  const [draft, setDraft] = useState(typed != null ? String(typed) : "");
+
+  // Matches in the session that is running (or the last one built) — what the points
+  // typed here actually get divided by, spelled out so the split is never a surprise.
+  const rounds = Array.from(
+    new Set(t.matches.filter((m) => m.phase === "ryder").map((m) => m.round)),
+  ).sort((a, b) => a - b);
+  const lastRound = rounds[rounds.length - 1];
+  const perSessionMatches = t.matches.filter(
+    (m) => m.phase === "ryder" && m.round === lastRound,
+  ).length;
+  const onTheLine = typed ?? (current === "match" ? perSessionMatches : null);
+  const each = onTheLine != null && perSessionMatches > 0 ? onTheLine / perSessionMatches : null;
+  const num = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(3).replace(/\.?0+$/, ""));
+
+  const commit = (raw: string) => {
+    const v = parseFloat(raw);
+    setPoints(t.id, Number.isFinite(v) && v > 0 ? v : undefined);
+  };
 
   return (
     <div className="no-print mt-3 border-t border-[var(--border)] pt-2.5">
@@ -351,10 +397,48 @@ function CupScoringControl({ t }: { t: Tournament }) {
         </div>
       )}
       {open && (
-        <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
-          Switching only re-weighs the scoreboard — every hole and result you have
-          entered stays put.
-        </p>
+        <div className="mt-3 border-t border-[var(--border)] pt-2.5">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+            <label htmlFor="pps" className="text-[var(--muted)]">
+              Or set points per session:
+            </label>
+            <input
+              id="pps"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.5"
+              value={draft}
+              placeholder="auto"
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={(e) => commit(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && commit((e.target as HTMLInputElement).value)}
+              className="w-20 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+            />
+            {typed != null && (
+              <button
+                onClick={() => {
+                  setDraft("");
+                  setPoints(t.id, undefined);
+                }}
+                className="text-[var(--muted)] hover:text-rose-400"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          {each != null && perSessionMatches > 0 && (
+            <p className="mt-1.5 text-center text-[10px] text-[var(--muted)]">
+              {num(onTheLine!)} point{onTheLine === 1 ? "" : "s"} on the line ·{" "}
+              {perSessionMatches} match{perSessionMatches === 1 ? "" : "es"} this session →{" "}
+              <span className="font-semibold text-[var(--foreground)]">{num(each)} each</span>
+            </p>
+          )}
+          <p className="mt-1.5 text-center text-[10px] text-[var(--muted)]">
+            Changing any of this only re-weighs the scoreboard — every hole and result
+            you have entered stays put.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -396,16 +480,12 @@ export function RyderView({ t }: { t: Tournament }) {
   let inPlay = 0;
   for (const m of ryder) {
     if (m.scoreA !== null || m.scoreB !== null) continue; // decided → already counted
-    const st = matchStatus(t, m);
-    if (st.thru === 0) continue; // not started
+    const o = matchOutcome(t, m);
+    if (o.thru === 0) continue; // not started
     inPlay++;
     const w = weights.get(m.id) ?? 1;
-    if (st.upA > st.upB) liveA += w;
-    else if (st.upB > st.upA) liveB += w;
-    else {
-      liveA += w / 2;
-      liveB += w / 2;
-    }
+    liveA += w * o.a;
+    liveB += w * o.b;
   }
 
   return (
@@ -573,7 +653,10 @@ export function RyderView({ t }: { t: Tournament }) {
                   </button>
                 )}
               </div>
-              {!noEdit && <SessionCourseControl t={t} round={round} />}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {!noEdit && <SessionMethodControl t={t} round={round} />}
+                {!noEdit && <SessionCourseControl t={t} round={round} />}
+              </div>
               {editing && !noEdit && (
                 <button
                   onClick={() => {
@@ -589,6 +672,16 @@ export function RyderView({ t }: { t: Tournament }) {
               <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
                 <span className="font-semibold">{label}:</span>{" "}
                 <span className="text-[var(--muted)]">{rules}</span>
+                {ms[0] && (
+                  <div className="mt-1.5 border-t border-[var(--border)] pt-1.5">
+                    <span className="font-semibold">
+                      {RYDER_METHOD_LABELS[methodForMatch(t, ms[0])].label}:
+                    </span>{" "}
+                    <span className="text-[var(--muted)]">
+                      {RYDER_METHOD_LABELS[methodForMatch(t, ms[0])].hint}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {editing ? (

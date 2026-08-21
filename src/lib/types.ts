@@ -233,7 +233,23 @@ export interface RyderGolf {
     number,
     { courseName?: string; nine?: "front" | "back"; pars: number[]; strokeIndex: number[] }
   >;
+  // How each session (round number) decides its matches. Absent = match play, the
+  // classic cup default. Vegas and Team Stableford ignore this: their comparison is
+  // the game itself, so there is nothing to re-score.
+  sessionMethods?: Record<number, RyderMethod>;
 }
+
+// How a session's winner is worked out from the same scorecard:
+//   "match"      — hole by hole; most holes won takes it (can close out early).
+//   "stroke"     — lowest net total over the session takes it.
+//   "stableford" — points vs par each hole; most points takes it.
+export type RyderMethod = "match" | "stroke" | "stableford";
+
+export const RYDER_METHOD_LABELS: Record<RyderMethod, { label: string; hint: string }> = {
+  match: { label: "Match play", hint: "hole by hole — most holes won wins, and it can close out early" },
+  stroke: { label: "Stroke play", hint: "lowest net total over the whole session wins" },
+  stableford: { label: "Stableford", hint: "points vs par each hole — most points wins" },
+};
 
 export type Tiebreaker = "record" | "diff" | "headToHead" | "pointsFor";
 
@@ -271,6 +287,10 @@ export interface TournamentConfig {
   //                       consecutive sessions pair up (front+back nine) and
   //                       split the point across all their matches.
   ryderScoring?: "match" | "session" | "round18";
+  // Points on the line in each session, set as a plain number (2, 1, 0.5…) and split
+  // evenly across the session's matches. Takes precedence over `ryderScoring`, which
+  // stays as the preset form of the same idea for cups that never set a number.
+  ryderPointsPerSession?: number;
   // The cup's session program (labels in playing order), mirrored from the
   // generated sessions so Edit setup can restore the list instead of wiping it.
   ryderProgram?: string[];
