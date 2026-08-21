@@ -968,6 +968,27 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(o.decided && o.a === 1, `A should take the session (decided=${o.decided}, a=${o.a})`);
     assert(/1 pt/.test(o.text), `status text should carry the point margin: "${o.text}"`);
   });
+
+  check("ryder Vegas house rules — the flip swings the cup point", () => {
+    // One hole, par 4. A pair cards 3 & 5 (birdie), B pair 4 & 4.
+    // Plain game: 35 vs 44 → A +9. With flips on birdie+, A's birdie turns B's
+    // number around: 44 stays 44 — so use 4 & 6: raw 46, flipped 64 → A +29.
+    const t = build(1);
+    t.ryderGolf!.pars = [4];
+    t.matches[0].label = "Vegas";
+    t.matches[0].sideA = ["a1", "a2"];
+    t.matches[0].sideB = ["b1", "b2"];
+    t.ryderGolf!.scores = { s1: { a1: [3], a2: [5], b1: [4], b2: [6] } };
+    const plain = matchOutcome(t, t.matches[0]);
+    assert(plain.marginA === 11 && plain.marginB === 0, `plain ${plain.marginA}–${plain.marginB}, want 11–0`);
+    t.config.vegasRules = { ...VEGAS_BASIC, flipOn: "birdie" };
+    const flipped = matchOutcome(t, t.matches[0]);
+    assert(
+      flipped.marginA === 29 && flipped.marginB === 0,
+      `flipped ${flipped.marginA}–${flipped.marginB}, want 29–0 (46 → 64)`,
+    );
+    assert(flipped.a === 1, "A should hold the cup point either way");
+  });
 }
 
 // ---- Reading a golf card as a match ----------------------------------------

@@ -1,5 +1,5 @@
-import { Match, Participant, RyderMethod, Tournament } from "./types";
-import { holeStrokes } from "./golf";
+import { Match, Participant, RyderMethod, Tournament, VEGAS_BASIC, VegasRules } from "./types";
+import { holeStrokes, vegasNumber } from "./golf";
 import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
 export interface MatchEntity {
@@ -54,9 +54,17 @@ export function entityStrokes(t: Tournament, m: Match, key: string, h: number): 
     const ids = key === "A" ? m.sideA : m.sideB;
     return holeStrokes(teamHcp(t.participants, ids), si, card.holes);
   }
-  // Vegas is played gross — the combined number is its own equalizer by custom.
-  if (m.label === "Vegas") return 0;
+  // Vegas is gross by default — the combined number is its own equalizer — but
+  // house rules can switch it to net, and then strokes show like anywhere else.
+  if (m.label === "Vegas" && !cupVegasRules(t).net) return 0;
   return holeStrokes(hcpOf(t.participants, key), si, card.holes);
+}
+
+/** The cup's Vegas house rules: plain game unless the host changed them.
+ *  Only `net` and `flipOn` apply here — presses and money are side bets that
+ *  belong to the standalone Vegas game, never to cup points. */
+export function cupVegasRules(t: Tournament): VegasRules {
+  return { ...VEGAS_BASIC, ...(t.config.vegasRules ?? {}) };
 }
 
 /**
@@ -86,11 +94,24 @@ export function holeNets(t: Tournament, m: Match, h: number): { netA: number; ne
   if (!m.sideB.every((id) => sc[id]?.[h] != null)) return null;
 
   if (m.label === "Vegas") {
-    const combined = (ids: string[]) => {
-      const balls = ids.map((id) => Math.min(9, sc[id]![h] as number)).sort((a, b) => a - b);
-      return balls.reduce((n, b) => n * 10 + b, 0); // low ball first: 4 & 5 → 45
+    // House rules (net balls, the flip) change the numbers — and therefore the
+    // points and the cup point. Same semantics as the standalone Vegas ledger.
+    const rules = cupVegasRules(t);
+    const balls = (ids: string[]) =>
+      ids.map((id) => {
+        const raw = sc[id]![h] as number;
+        return rules.net ? raw - holeStrokes(hcpOf(P, id), si, card.holes) : raw;
+      });
+    const ballsA = balls(m.sideA);
+    const ballsB = balls(m.sideB);
+    const par = card.pars[h];
+    const threshold = rules.flipOn === "eagle" ? par - 2 : par - 1;
+    const made = (bs: number[]) => rules.flipOn !== "off" && bs.some((b) => b <= threshold);
+    // A birdie flips the OPPONENT's number (high ball first), never your own.
+    return {
+      netA: vegasNumber(ballsA, made(ballsB)),
+      netB: vegasNumber(ballsB, made(ballsA)),
     };
-    return { netA: combined(m.sideA), netB: combined(m.sideB) };
   }
 
   if (m.label === "Team Stableford") {

@@ -11,6 +11,7 @@ import {
 import { Trophy } from "@/components/icons";
 import {
   cupScore,
+  cupVegasRules,
   cupWeights,
   entitiesForMatch,
   entityStrokes,
@@ -160,7 +161,7 @@ function RyderMatchCard({
                   : m.label === "Shamble"
                     ? " · best drive, own balls in — best net counts"
                     : m.label === "Vegas"
-                      ? " · scores combine low-first (4 & 5 → 45); the lower number takes the difference in points — played gross"
+                      ? ` · scores combine low-first (4 & 5 → 45); the lower number takes the difference in points — ${cupVegasRules(t).net ? "net balls" : "played gross"}${cupVegasRules(t).flipOn === "off" ? "" : cupVegasRules(t).flipOn === "eagle" ? ", flips on eagle" : ", flips on birdie"}`
                       : m.label === "Team Stableford"
                         ? " · team's combined Stableford points — most points wins the hole"
                         : ""}
@@ -635,6 +636,8 @@ export function RyderView({ t }: { t: Tournament }) {
         </div>
       )}
 
+      {!t.spectator && ryder.some((m) => m.label === "Vegas") && <CupVegasRules t={t} />}
+
       {rounds.map((round) => {
         const ms = ryder.filter((m) => m.round === round).sort((a, b) => a.order - b.order);
         if (!ms.length) return null;
@@ -705,5 +708,86 @@ export function RyderView({ t }: { t: Tournament }) {
         );
       })}
     </div>
+  );
+}
+
+// House rules for the cup's Vegas sessions — only the rules that change the
+// NUMBERS (net balls, the flip), because those decide the points and so the cup
+// point. Presses and money are side bets: they live in the standalone Vegas
+// game, never on the cup scoreboard. Applies to every Vegas session in the cup.
+function CupVegasRules({ t }: { t: Tournament }) {
+  const patch = useStore((s) => s.patchTournament);
+  const [open, setOpen] = useState(false);
+  const rules = cupVegasRules(t);
+  const set = (part: Partial<typeof rules>) =>
+    patch(t.id, { config: { ...t.config, vegasRules: { ...rules, ...part } } });
+
+  const summary =
+    (rules.net ? "Net" : "Gross") +
+    (rules.flipOn === "off" ? " · no flips" : rules.flipOn === "eagle" ? " · flips on eagle" : " · flips on birdie");
+
+  const Pill = <T extends string>({
+    value,
+    options,
+    onPick,
+  }: {
+    value: T;
+    options: [T, string][];
+    onPick: (v: T) => void;
+  }) => (
+    <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onPick(v)}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+            value === v
+              ? "bg-[var(--brand)] text-[var(--on-brand)]"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <Card className="no-print p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+        <span className="text-sm font-semibold">🎰 Vegas house rules</span>
+        <span className="text-xs text-[var(--muted)]">{open ? "▾ Hide" : `▸ ${summary}`}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="w-24 text-sm font-medium">Handicaps</span>
+            <Pill
+              value={rules.net ? "net" : "gross"}
+              options={[["gross", "Gross"], ["net", "Net"]]}
+              onPick={(v) => set({ net: v === "net" })}
+            />
+            <span className="text-xs text-[var(--muted)]">strokes come off before the balls combine</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="w-24 text-sm font-medium">Flip</span>
+            <Pill
+              value={rules.flipOn}
+              options={[["off", "Off"], ["birdie", "Birdie+"], ["eagle", "Eagle only"]]}
+              onPick={(v) => set({ flipOn: v })}
+            />
+            <span className="text-xs text-[var(--muted)]">
+              your birdie turns the other pair&apos;s number around — 46 becomes 64
+            </span>
+          </div>
+          <p className="text-xs text-[var(--muted)]">
+            These change the numbers — and so the points and the cup point — for every Vegas
+            session, re-scoring live from the entered holes. Presses &amp; money stay in the
+            standalone Vegas game.
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }
