@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
-import { ryderScore, RyderSessionType } from "@/lib/ryder";
+import { RYDER_SESSION_BLURBS, ryderScore, RyderSessionType } from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
 import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText, sessionCard } from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
@@ -300,6 +300,7 @@ export function RyderView({ t }: { t: Tournament }) {
     () => !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
   );
   const [shuffle, setShuffle] = useState(false);
+  const [info, setInfo] = useState<RyderSessionType | null>(null);
   const addRyderSession = useStore((s) => s.addRyderSession);
   const removeRyderRound = useStore((s) => s.removeRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
@@ -416,7 +417,7 @@ export function RyderView({ t }: { t: Tournament }) {
                   key={ty}
                   variant="outline"
                   className="px-3 py-1.5"
-                  onClick={() => addRyderSession(t.id, ty, shuffle)}
+                  onClick={() => { addRyderSession(t.id, ty, shuffle); setInfo(ty); }}
                 >
                   + {ty}
                 </Button>
@@ -433,13 +434,19 @@ export function RyderView({ t }: { t: Tournament }) {
                   key={ty}
                   variant="outline"
                   className="px-3 py-1.5"
-                  onClick={() => addRyderSession(t.id, ty, shuffle)}
+                  onClick={() => { addRyderSession(t.id, ty, shuffle); setInfo(ty); }}
                 >
                   + {ty}
                 </Button>
               ))}
             </div>
           </div>
+          {info && (
+            <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
+              <span className="font-semibold">{info}:</span>{" "}
+              <span className="text-[var(--muted)]">{RYDER_SESSION_BLURBS[info]}</span>
+            </div>
+          )}
           <p className="mt-2 text-xs text-[var(--muted)]">
             Pairings start in lineup order — tap <b>Set pairings</b> below to arrange them yourself,
             or tick Randomize to auto-shuffle. Change the game and the pairings every session — a

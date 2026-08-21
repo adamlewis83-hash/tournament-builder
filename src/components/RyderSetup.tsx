@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
-import { RyderSessionType, TEAM_SESSION_TYPES } from "@/lib/ryder";
+import { RYDER_SESSION_BLURBS, RyderSessionType, TEAM_SESSION_TYPES } from "@/lib/ryder";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { defaultCourse } from "@/lib/golf";
@@ -33,6 +33,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
   // The day's program: an ordered list of sessions, one per round, planned up
   // front (or left empty to build rounds captain-style as the cup unfolds).
   const [program, setProgram] = useState<RyderSessionType[]>([]);
+  const [info, setInfo] = useState<RyderSessionType | null>(null);
   const [scoring, setScoring] = useState<"match" | "session" | "round18">(
     t.config.ryderScoring ?? "match",
   );
@@ -544,13 +545,19 @@ export function RyderSetup({ t }: { t: Tournament }) {
             <button
               key={ty}
               type="button"
-              onClick={() => setProgram((p) => [...p, ty])}
+              onClick={() => { setProgram((p) => [...p, ty]); setInfo(ty); }}
               className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs hover:bg-[var(--hover)]"
             >
               + {ty}{TEAM_SESSION_TYPES.includes(ty) ? " (all play)" : ""}
             </button>
           ))}
         </div>
+        {info && (
+          <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
+            <span className="font-semibold">{info}:</span>{" "}
+            <span className="text-[var(--muted)]">{RYDER_SESSION_BLURBS[info]}</span>
+          </div>
+        )}
         {program.length > 0 && (
           <ol className="mb-3 space-y-1">
             {program.map((ty, i) => (

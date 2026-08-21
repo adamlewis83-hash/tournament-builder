@@ -9,6 +9,7 @@ import {
   GolfMode,
   GolfSegment,
   SegmentFormat,
+  SEGMENT_BLURBS,
   SEGMENT_LABELS,
   SOLO_SEGMENT_FORMATS,
   TEAM_SEGMENT_FORMATS,
@@ -90,6 +91,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [searching, setSearching] = useState(false);
   const [notConfigured, setNotConfigured] = useState(false);
   const [teamMode, setTeamMode] = useState<boolean>(!!t.golf?.teams);
+  const [segInfo, setSegInfo] = useState<SegmentFormat | null>(null);
   const [segments, setSegments] = useState<GolfSegment[]>(
     t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18, !!t.golf?.teams),
   );
@@ -953,6 +955,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                       const next = [...segments];
                       next[i] = { ...next[i], format: e.target.value as SegmentFormat };
                       setSegments(next);
+                      setSegInfo(e.target.value as SegmentFormat);
                     }}
                     className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 bg-[var(--surface)]"
                   >
@@ -984,6 +987,12 @@ export function GolfSetup({ t }: { t: Tournament }) {
             >
               + Add segment
             </button>
+            {segInfo && (
+              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
+                <span className="font-semibold">{SEGMENT_LABELS[segInfo]}:</span>{" "}
+                <span className="text-[var(--muted)]">{SEGMENT_BLURBS[segInfo]}</span>
+              </div>
+            )}
           </div>
         )}
       </Card>

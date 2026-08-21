@@ -82,6 +82,28 @@ export const TEAM_SESSION_TYPES: RyderSessionType[] = [
   "Team Stableford",
 ];
 
+export const RYDER_SESSION_BLURBS: Record<RyderSessionType, string> = {
+  Foursomes:
+    "Alternate shot, 2v2 — partners share one ball and take turns hitting it. One team score per hole, net match play.",
+  Fourball:
+    "Best ball, 2v2 — everyone plays their own ball; each pair counts its best net score per hole.",
+  "Best Ball":
+    "Everyone plays their own ball; the pair's best net score counts each hole (same game as Fourball).",
+  Shamble:
+    "Everyone tees off, the pair picks the best drive, then each plays their own ball in from there — best net counts.",
+  Scramble:
+    "2v2 — everyone hits, the pair plays its next shot from the best ball, and repeats. One team score per hole.",
+  Vegas:
+    "2v2, played gross — each pair's two scores combine into one number, low ball first (4 & 5 → 45). Lower number wins the hole.",
+  Singles: "Head-to-head 1v1, net match play.",
+  "Team Scramble":
+    "The whole team as one unit — everyone hits, play the best ball, repeat. One team score, one match, one result.",
+  "Team Alt Shot":
+    "The whole team shares one ball, rotating through the batting order shot by shot. One match, one result.",
+  "Team Stableford":
+    "Everyone plays their own ball; each hole the team's combined Stableford points decide who wins it. One match, one result.",
+};
+
 function shuffled<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
