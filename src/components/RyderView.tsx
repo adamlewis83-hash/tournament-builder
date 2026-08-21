@@ -137,9 +137,9 @@ function RyderMatchCard({
             <span className="inline-block h-1 w-1 rounded-full bg-amber-400 align-middle" /> = a handicap
             stroke on that hole · net result per hole
             {m.label === "Foursomes" || m.label === "Team Alt Shot"
-              ? " · one ball per team (alternate shot)"
+              ? " · partners share one ball, alternating shots"
               : m.label === "Scramble" || m.label === "Team Scramble"
-                ? " · one ball per team (scramble)"
+                ? " · everyone hits, team plays the best shot — one team score"
                 : m.label === "Fourball" || m.label === "Best Ball"
                   ? " · best net of the pair"
                   : m.label === "Shamble"

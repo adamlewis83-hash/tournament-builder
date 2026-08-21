@@ -93,7 +93,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [segments, setSegments] = useState<GolfSegment[]>(
     t.golf?.segments?.length ? t.golf.segments : defaultSegments(t.golf?.holes ?? 18, !!t.golf?.teams),
   );
-  // In Build-Your-Own you can play as teams (one ball per team), like scramble.
+  // In Build-Your-Own you can play as teams (one score per team per hole), like scramble.
   const teamsMode = isScramble || (mode === "mixed" && teamMode);
   const segFormats = teamMode ? TEAM_SEGMENT_FORMATS : SOLO_SEGMENT_FORMATS;
 

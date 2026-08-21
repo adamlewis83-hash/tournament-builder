@@ -12,7 +12,7 @@ export interface MatchEntity {
 export const ONE_BALL_SESSIONS = ["Foursomes", "Scramble", "Team Scramble", "Team Alt Shot"];
 const oneBall = (label?: string) => ONE_BALL_SESSIONS.includes(label ?? "");
 
-/** The score-entry columns for a match: one ball per team, or per player. */
+/** The score-entry columns for a match: one team score, or per player. */
 export function entitiesForMatch(m: Match): MatchEntity[] {
   if (oneBall(m.label)) {
     return [

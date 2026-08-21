@@ -84,7 +84,7 @@ export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
 };
 
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
-// Individual formats: stroke/stableford/skins/bingo. Team formats (one ball per team):
+// Individual formats: stroke/stableford/skins/bingo. Team formats (one score per team):
 // scramble/bestball/altshot — all scored to-par like stroke, just played differently.
 export type SegmentFormat =
   | "stroke"
@@ -117,13 +117,13 @@ export const SEGMENT_BLURBS: Record<SegmentFormat, string> = {
   stableford: "Most Stableford points (net score vs par) over these holes wins.",
   skins: "Win the most holes outright on low net over this stretch — ties carry over.",
   bingo: "Bingo Bango Bongo points (first on, closest once all on, first in) over these holes.",
-  scramble: "Team plays one ball from the best shot each time — lowest team score wins.",
+  scramble: "Everyone hits, then the team plays from the best shot — lowest team score wins.",
   bestball: "Each teammate plays their own ball; the team takes the lower score each hole.",
   shamble: "Take the best drive, then everyone plays their own ball in; the team takes the lower score.",
   altshot: "Alternate Shot: partners share one ball, taking turns hitting each shot.",
 };
 
-// Segment formats that are team games (one ball per team).
+// Segment formats that are team games (one score per team).
 export const TEAM_SEGMENT_FORMATS: SegmentFormat[] = ["scramble", "bestball", "shamble", "altshot", "stableford", "skins"];
 export const SOLO_SEGMENT_FORMATS: SegmentFormat[] = ["stroke", "stableford", "skins", "bingo"];
 
@@ -181,7 +181,7 @@ export interface GolfData {
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices
   segments?: GolfSegment[]; // "Build Your Own": format per hole range
-  teams?: boolean; // "Build Your Own" played as teams (one ball per team)
+  teams?: boolean; // "Build Your Own" played as teams (one score per team per hole)
 }
 
 export interface Match {

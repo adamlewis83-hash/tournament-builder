@@ -339,7 +339,7 @@ export function MixedGolfView({ t }: { t: Tournament }) {
           <span className="font-bold text-sm">
             Scorecard
             {g.teams && (
-              <span className="ml-2 font-normal text-xs text-[var(--muted)]">· one ball per team</span>
+              <span className="ml-2 font-normal text-xs text-[var(--muted)]">· one score per team</span>
             )}
           </span>
           <Button variant="outline" className="px-2.5 py-1 text-xs" onClick={() => setCardOpen(true)}>
