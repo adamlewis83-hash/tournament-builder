@@ -2,9 +2,24 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { GOLF_MODE_BLURBS, GOLF_MODE_LABELS, GolfMode, Tournament } from "@/lib/types";
+import {
+  GOLF_MODE_BLURBS,
+  GOLF_MODE_LABELS,
+  GOLF_SCORING_LABELS,
+  GolfMode,
+  GolfScoring,
+  Tournament,
+} from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { computeGolf, computeVegas, effectiveHandicap, formatToPar, holeStrokes } from "@/lib/golf";
+import {
+  computeGolf,
+  computeGolfMatch,
+  computeVegas,
+  effectiveHandicap,
+  formatToPar,
+  golfScoringOptions,
+  holeStrokes,
+} from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -42,6 +57,16 @@ export function GolfView({ t }: { t: Tournament }) {
   const isVegas = mode === "vegas";
   const strokeLike = mode === "stroke" || (isScramble && !isVegas);
   const isNassau = mode === "nassau";
+
+  // How this card is READ, independent of how it is played. Team games used to be
+  // locked to stroke play — a Best Ball round had no way to be settled as a match or
+  // on Stableford points without re-entering the whole card under another format.
+  const scoringChoices = golfScoringOptions(t);
+  const scoring: GolfScoring = scoringChoices.includes(t.config.golfScoring as GolfScoring)
+    ? (t.config.golfScoring as GolfScoring)
+    : "stroke";
+  const teamScoring = isScramble && !isVegas;
+  const golfMatch = scoring === "match" ? computeGolfMatch(t) : null;
   // Disc golf is scored exactly like golf but has its own vocabulary — swap the
   // player-facing words (labels only; all scoring math is unchanged).
   const isDisc = /disc\s*golf/i.test(t.sport);
@@ -51,7 +76,7 @@ export function GolfView({ t }: { t: Tournament }) {
     isDisc && mode === "stroke"
       ? "Count every throw — lowest net total wins. Standard disc golf."
       : GOLF_MODE_BLURBS[mode];
-  const rows = computeGolf(t, mode);
+  const rows = computeGolf(t, teamScoring && scoring !== "match" ? scoring : mode);
   const started = rows.filter((r) => r.thru > 0);
   const minFront = started.length ? Math.min(...started.map((r) => r.frontNet)) : 0;
   const minBack = started.length ? Math.min(...started.map((r) => r.backNet)) : 0;
@@ -66,8 +91,28 @@ export function GolfView({ t }: { t: Tournament }) {
   return (
     <div className="space-y-5">
       {isScramble ? (
-        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)]">
-          {GOLF_MODE_LABELS[mode]}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)]">
+            {GOLF_MODE_LABELS[mode]}
+          </div>
+          {scoringChoices.length > 1 && (
+            <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+              {scoringChoices.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => patch(t.id, { config: { ...t.config, golfScoring: v } })}
+                  title={GOLF_SCORING_LABELS[v].hint}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    scoring === v
+                      ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
+                      : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {GOLF_SCORING_LABELS[v].label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
@@ -85,6 +130,47 @@ export function GolfView({ t }: { t: Tournament }) {
             </button>
           ))}
         </div>
+      )}
+
+      {golfMatch && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 text-center min-w-0">
+              <div className="text-sm font-semibold text-[var(--brand)] truncate">
+                {golfMatch.a.name}
+              </div>
+              <div className="text-3xl font-extrabold tabular-nums">{golfMatch.upA}</div>
+            </div>
+            <div className="text-center shrink-0">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] font-bold">
+                holes won
+              </div>
+              <div className="text-xs text-[var(--muted)]">
+                {golfMatch.halved} halved
+              </div>
+            </div>
+            <div className="flex-1 text-center min-w-0">
+              <div className="text-sm font-semibold text-rose-300 truncate">{golfMatch.b.name}</div>
+              <div className="text-3xl font-extrabold tabular-nums">{golfMatch.upB}</div>
+            </div>
+          </div>
+          <p className="mt-2 text-center text-sm font-bold">{golfMatch.text}</p>
+          {/* Hole-by-hole ribbon: who took each hole, at a glance. */}
+          <div className="mt-2.5 flex gap-0.5 overflow-x-auto">
+            {golfMatch.holeWinners.map((w, i) => (
+              <div key={i} className="flex-1 min-w-[14px] text-center">
+                <div
+                  className={`h-1.5 rounded-full ${
+                    w === "A" ? "bg-[var(--brand)]" : w === "B" ? "bg-rose-400" : "bg-[var(--border)]"
+                  }`}
+                />
+                <div className="mt-0.5 text-[9px] text-[var(--muted)] tabular-nums">
+                  {holeNo(i)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       <p className="no-print -mt-2 text-xs text-[var(--muted)] leading-relaxed max-w-prose">

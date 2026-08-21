@@ -17,6 +17,9 @@ import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
   computeGolf,
+  computeGolfMatch,
+  golfMatchAvailable,
+  golfScoringOptions,
   computeBbb,
   computeWolf,
   computeMixedOverall,
@@ -939,6 +942,92 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     t.ryderGolf!.sessionMethods = { 1: "stroke" }; // must be ignored for a fixed game
     t.matches[0].label = "Vegas";
     assert(methodForMatch(t, t.matches[0]) === "match", "Vegas took the session method");
+  });
+}
+
+// ---- Reading a golf card as a match ----------------------------------------
+// Team games (Best Ball & co.) used to be locked to stroke play. They can now be read
+// as Stableford, skins, or — with two sides on the card — as a match.
+{
+  const twoSided = (mode: GolfMode, scores: Record<string, (number | null)[]>) => {
+    const P: Participant[] = [
+      { id: "t1", name: "Red", handicap: 0 },
+      { id: "t2", name: "Blue", handicap: 0 },
+    ];
+    const t = tour({ format: "golf", participants: P, config: cfg({ golfMode: mode }) }) as Tournament;
+    t.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores };
+    return t;
+  };
+
+  check("golf match — holes won, halves, and the closeout line", () => {
+    // Red takes 1 and 2, hole 3 is halved → Red 2 up with none to play.
+    const t = twoSided("bestball", { t1: [3, 3, 4], t2: [4, 4, 4] });
+    const m = computeGolfMatch(t)!;
+    assert(m !== null, "no match computed for a two-sided card");
+    assert(m.upA === 2 && m.upB === 0, `holes ${m.upA}–${m.upB}, want 2–0`);
+    assert(m.halved === 1, `halved ${m.halved}, want 1`);
+    assert(m.decided && m.thru === 3, `decided=${m.decided} thru=${m.thru}`);
+    assert(m.text.startsWith("Red wins"), `text "${m.text}"`);
+    assert(m.holeWinners.join(",") === "A,A,", `ribbon ${m.holeWinners.join(",")}`);
+  });
+
+  check("golf match — closes out early when the lead outruns the holes left", () => {
+    const t = twoSided("bestball", { t1: [3, 3, null], t2: [5, 5, null] });
+    const m = computeGolfMatch(t)!;
+    assert(m.decided, "2 up with 1 to play should be closed out");
+    assert(m.text.includes("2 & 1"), `text "${m.text}"`);
+  });
+
+  check("golf match — all square reads as square, then halved", () => {
+    const live = computeGolfMatch(twoSided("bestball", { t1: [4, 4, null], t2: [4, 4, null] }))!;
+    assert(!live.decided && live.text.includes("All Square"), `live "${live.text}"`);
+    const done = computeGolfMatch(twoSided("bestball", { t1: [4, 4, 4], t2: [4, 4, 4] }))!;
+    assert(done.decided && done.text === "Halved", `done "${done.text}"`);
+  });
+
+  check("golf match — net strokes decide the hole, not gross", () => {
+    const P: Participant[] = [
+      { id: "t1", name: "Red", handicap: 0 },
+      { id: "t2", name: "Blue", handicap: 3 }, // one stroke on each of the three holes
+    ];
+    const t = tour({ format: "golf", participants: P, config: cfg({ golfMode: "bestball" }) }) as Tournament;
+    t.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores: { t1: [4, 4, 4], t2: [5, 5, 5] } };
+    const m = computeGolfMatch(t)!;
+    assert(m.upA === 0 && m.upB === 0 && m.halved === 3, `net strokes ignored: ${m.upA}–${m.upB}`);
+  });
+
+  check("golf match — only offered with exactly two sides", () => {
+    const three = tour({
+      format: "golf",
+      participants: [
+        { id: "p1", name: "A", handicap: 0 },
+        { id: "p2", name: "B", handicap: 0 },
+        { id: "p3", name: "C", handicap: 0 },
+      ],
+      config: cfg({ golfMode: "bestball" }),
+    }) as Tournament;
+    three.golf = { holes: 3, pars: [4, 4, 4], strokeIndex: [1, 2, 3], scores: {} };
+    assert(computeGolfMatch(three) === null, "a three-way card produced a match");
+    assert(!golfMatchAvailable(three), "match offered to a three-way field");
+    assert(!golfScoringOptions(three).includes("match"), "match listed for three sides");
+  });
+
+  check("golf scoring options — Vegas has no re-reading, team games have three or four", () => {
+    const vegas = twoSided("vegas", { t1: [45, 45, 45], t2: [44, 44, 44] });
+    assert(golfScoringOptions(vegas).length === 0, "Vegas offered scoring views");
+    assert(!golfMatchAvailable(vegas), "Vegas offered match play");
+    const bb = twoSided("bestball", { t1: [4, 4, 4], t2: [4, 4, 4] });
+    const opts = golfScoringOptions(bb);
+    assert(opts.length === 4 && opts.includes("match"), `best ball options ${opts.join(",")}`);
+  });
+
+  check("golf scoring — the same card ranks by the chosen reading", () => {
+    // Red blows up one hole: better on holes won, worse on total strokes.
+    const t = twoSided("bestball", { t1: [3, 3, 9], t2: [4, 4, 4] });
+    const byStroke = computeGolf(t, "stroke");
+    assert(byStroke[0].name === "Blue", `stroke leader ${byStroke[0].name}, want Blue`);
+    const m = computeGolfMatch(t)!;
+    assert(m.upA === 2 && m.upB === 1, `match ${m.upA}–${m.upB}, want 2–1 to Red`);
   });
 }
 

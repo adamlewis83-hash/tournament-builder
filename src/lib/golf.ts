@@ -1,4 +1,13 @@
-import { GolfData, GolfMode, GolfSegment, Participant, SegmentFormat, TeeSet, Tournament } from "./types";
+import {
+  GolfData,
+  GolfMode,
+  GolfScoring,
+  GolfSegment,
+  Participant,
+  SegmentFormat,
+  TeeSet,
+  Tournament,
+} from "./types";
 
 /** USGA course handicap for a tee set: index × slope/113 + (rating − par), rounded. */
 export function courseHandicap(index: number, tee: TeeSet): number {
@@ -378,4 +387,102 @@ export function computeVegas(t: Tournament): VegasRow[] {
       };
     })
     .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}
+
+
+// ---- Reading a golf card as a match ------------------------------------------
+
+export interface GolfMatchStatus {
+  a: GolfRow;
+  b: GolfRow;
+  upA: number;
+  upB: number;
+  halved: number;
+  thru: number;
+  holes: number;
+  decided: boolean;
+  /** Per-hole winner over the scored range: "A", "B", or null for a halve/unplayed. */
+  holeWinners: ("A" | "B" | null)[];
+  text: string;
+}
+
+/**
+ * Net match play off an ordinary golf card. Only defined when exactly two sides are
+ * on it — two players, or two pairs in a team game, where each participant row is
+ * already the side. With three or more there is no single match to report.
+ */
+export function computeGolfMatch(t: Tournament, range?: HoleRange): GolfMatchStatus | null {
+  const g = t.golf;
+  if (!g || t.participants.length !== 2) return null;
+  const rows = computeGolf(t, "stroke", range);
+  const [pa, pb] = t.participants;
+  const rowOf = (id: string) => rows.find((r) => r.participantId === id);
+  const a = rowOf(pa.id);
+  const b = rowOf(pb.id);
+  if (!a || !b) return null;
+
+  const lo = range ? range.from - 1 : 0;
+  const hi = range ? range.to - 1 : g.holes - 1;
+  const net = (p: Participant, h: number) => {
+    const sc = g.scores[p.id]?.[h];
+    if (sc == null) return null;
+    return sc - holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes);
+  };
+
+  let upA = 0;
+  let upB = 0;
+  let halved = 0;
+  let thru = 0;
+  const holeWinners: ("A" | "B" | null)[] = [];
+  for (let h = lo; h <= hi; h++) {
+    const na = net(pa, h);
+    const nb = net(pb, h);
+    if (na == null || nb == null) {
+      holeWinners.push(null);
+      continue;
+    }
+    thru++;
+    if (na < nb) {
+      upA++;
+      holeWinners.push("A");
+    } else if (nb < na) {
+      upB++;
+      holeWinners.push("B");
+    } else {
+      halved++;
+      holeWinners.push(null);
+    }
+  }
+
+  const holes = hi - lo + 1;
+  const remaining = holes - thru;
+  const diff = Math.abs(upA - upB);
+  const decided = thru === holes || diff > remaining;
+  const leader = upA > upB ? a : b;
+  const text = !thru
+    ? "—"
+    : diff === 0
+      ? thru === holes
+        ? "Halved"
+        : `All Square · thru ${thru}`
+      : decided && remaining > 0
+        ? `${leader.name} wins ${diff} & ${remaining}`
+        : thru === holes
+          ? `${leader.name} wins ${diff} up`
+          : `${leader.name} ${diff} up · thru ${thru}`;
+
+  return { a, b, upA, upB, halved, thru, holes, decided, holeWinners, text };
+}
+
+/** Can this card be read as a match? Two sides, and a game whose per-hole entry is a
+ *  real stroke count (Vegas types a combined number, so it has no net to compare). */
+export function golfMatchAvailable(t: Tournament): boolean {
+  return t.participants.length === 2 && t.config.golfMode !== "vegas";
+}
+
+/** The scoring views this golf round can be read through, given how it is played. */
+export function golfScoringOptions(t: Tournament): GolfScoring[] {
+  if (t.config.golfMode === "vegas") return [];
+  const base: GolfScoring[] = ["stroke", "stableford", "skins"];
+  return golfMatchAvailable(t) ? [...base, "match"] : base;
 }

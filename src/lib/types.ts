@@ -83,6 +83,18 @@ export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
   mixed: "Build Your Own: assign a different game to each stretch of holes; the winner of each segment earns a point.",
 };
 
+// How a golf card is read into a result. "match" needs exactly two sides on the card
+// (two players, or two pairs/teams) — with three or more there is no match to play,
+// so it is offered only when the field is two.
+export type GolfScoring = "stroke" | "stableford" | "skins" | "match";
+
+export const GOLF_SCORING_LABELS: Record<GolfScoring, { label: string; hint: string }> = {
+  stroke: { label: "Stroke play", hint: "lowest net total wins" },
+  stableford: { label: "Stableford", hint: "points vs par each hole — most points wins" },
+  skins: { label: "Skins", hint: "low net takes the hole; a tie carries it over" },
+  match: { label: "Match play", hint: "hole by hole — most holes won wins (two sides only)" },
+};
+
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
 // Individual formats: stroke/stableford/skins/bingo. Team formats (one score per team):
 // scramble/bestball/altshot — all scored to-par like stroke, just played differently.
@@ -294,7 +306,11 @@ export interface TournamentConfig {
   // The cup's session program (labels in playing order), mirrored from the
   // generated sessions so Edit setup can restore the list instead of wiping it.
   ryderProgram?: string[];
-  golfMode: GolfMode; // golf scoring mode
+  golfMode: GolfMode; // how the golf round is PLAYED (drives score entry: per player, or one ball per team)
+  // How that same card is READ. Independent of golfMode, so a Best Ball round can be
+  // settled on strokes, Stableford points, skins, or as a match — without re-entering
+  // anything or changing how scores are typed in. Absent = the format's own default.
+  golfScoring?: GolfScoring;
   scoreLowWins: boolean; // Score Challenge: lowest total wins (e.g. disc golf) vs highest
 }
 
