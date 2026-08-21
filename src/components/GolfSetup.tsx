@@ -285,11 +285,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
   function saveCurrentCourse() {
     if (!courseName.trim()) return;
+    // Save the whole course (up to 18 holes) even when playing a 9-hole round —
+    // the saved entry should work for future front-or-back picks anywhere.
     saveCourse({
       name: courseName,
-      holes,
-      pars: pars.slice(0, holes),
-      strokeIndex: si.slice(0, holes),
+      holes: Math.min(pars.length, 18),
+      pars: pars.slice(0, Math.min(pars.length, 18)),
+      strokeIndex: si.slice(0, Math.min(si.length, 18)),
       tees: tees.length ? tees : undefined,
     });
     setCourseSaved(true);

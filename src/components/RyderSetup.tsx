@@ -303,12 +303,18 @@ export function RyderSetup({ t }: { t: Tournament }) {
               variant="primary"
               className="px-2.5 py-1 text-xs inline-flex items-center gap-1.5"
               onClick={() => {
-                saveCourse({
-                  name: course.courseName!,
-                  holes: course.holes,
-                  pars: course.pars.slice(0, course.holes),
-                  strokeIndex: course.strokeIndex.slice(0, course.holes),
-                });
+                {
+                  // Save the whole course, not just this cup's session length —
+                  // a 9-hole session on an 18-hole course shouldn't strand the
+                  // back nine out of every future course picker.
+                  const full = Math.min(course.pars.length, 18);
+                  saveCourse({
+                    name: course.courseName!,
+                    holes: full,
+                    pars: course.pars.slice(0, full),
+                    strokeIndex: course.strokeIndex.slice(0, full),
+                  });
+                }
                 setCourseSaved(true);
                 setTimeout(() => setCourseSaved(false), 1800);
               }}

@@ -222,6 +222,7 @@ function SessionCourseControl({ t, round }: { t: Tournament; round: number }) {
         ) : (
           <option key={c.id} value={c.id}>
             ⛳ {c.name}
+            {nineHoles && c.holes < 18 ? " · 9 holes (as saved)" : ""}
           </option>
         ),
       )}
