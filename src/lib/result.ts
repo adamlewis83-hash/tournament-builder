@@ -2,7 +2,7 @@ import { Match, Tournament } from "./types";
 import { isFinal } from "./score";
 import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
-import { ryderScore } from "./ryder";
+import { cupScore } from "./ryderGolf";
 import { computeBbb, computeGolf, computeMixedOverall, computeVegas, mixedComplete } from "./golf";
 
 export interface TournamentResult {
@@ -77,7 +77,7 @@ export function getResult(t: Tournament): TournamentResult {
   }
 
   if (t.format === "ryder") {
-    const sc = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
+    const sc = cupScore(t);
     if (sc.status === "a-wins") return { complete: true, winner: t.config.teamNames?.[0] ?? "Team A" };
     if (sc.status === "b-wins") return { complete: true, winner: t.config.teamNames?.[1] ?? "Team B" };
     if (sc.status === "tie") return { complete: true, winner: "Tie" };

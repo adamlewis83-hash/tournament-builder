@@ -15,7 +15,7 @@ import {
 import { uid } from "./id";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
-import { genRyder, genRyderSession, RyderSessionType } from "./ryder";
+import { genRyder, genRyderSession, RyderScoring, RyderSessionType } from "./ryder";
 import { matchStatus } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
@@ -126,6 +126,7 @@ interface State {
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   removeRyderRound: (id: string, round: number) => void;
+  setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderSessionCourse: (
     id: string,
     round: number,
@@ -906,6 +907,19 @@ export const useStore = create<State>()(
               updatedAt: Date.now(),
             };
           }),
+        }));
+        pushReplace(id);
+      },
+
+      // How the cup counts its points. Only the scoreboard's arithmetic changes —
+      // matches, pairings and every hole on the card are untouched — so a host can
+      // switch mid-cup. Pushed live so spectators re-weigh with the same rule.
+      setRyderScoring: (id, scoring) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id ? { ...t, config: { ...t.config, ryderScoring: scoring }, updatedAt: Date.now() } : t,
+          ),
         }));
         pushReplace(id);
       },

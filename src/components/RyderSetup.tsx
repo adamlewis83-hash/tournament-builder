@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
-import { RYDER_SESSION_BLURBS, RyderSessionType, TEAM_SESSION_TYPES } from "@/lib/ryder";
+import {
+  CUP_SCORING_LABELS,
+  RYDER_SESSION_BLURBS,
+  RyderScoring,
+  RyderSessionType,
+  TEAM_SESSION_TYPES,
+} from "@/lib/ryder";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { defaultCourse } from "@/lib/golf";
@@ -38,9 +44,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
     (t.config.ryderProgram as RyderSessionType[] | undefined) ?? [],
   );
   const [info, setInfo] = useState<RyderSessionType | null>(null);
-  const [scoring, setScoring] = useState<"match" | "session" | "round18">(
-    t.config.ryderScoring ?? "match",
-  );
+  const [scoring, setScoring] = useState<RyderScoring>(t.config.ryderScoring ?? "match");
   const [courseSaved, setCourseSaved] = useState(false);
 
   const toText = (team: 0 | 1) =>
@@ -160,6 +164,15 @@ export function RyderSetup({ t }: { t: Tournament }) {
   }
 
   function handleGenerate() {
+    // Regenerating rebuilds every match with a fresh id, and the scorecard is keyed
+    // by match id — so a cup already underway would lose the holes played so far.
+    if (
+      Object.keys(t.ryderGolf?.scores ?? {}).length > 0 &&
+      !confirm(
+        "This cup already has scores on the card. Regenerating rebuilds the sessions and clears every hole entered so far. Continue?",
+      )
+    )
+      return;
     patch(t.id, {
       config: {
         ...t.config,
@@ -601,13 +614,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
           Cup scoring
         </div>
         <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["match", "1 point per match", "classic Ryder Cup"],
-              ["session", "1 point per session", "matches split the session's point"],
-              ["round18", "1 point per 18 holes", "sessions share the point across each 18"],
-            ] as const
-          ).map(([val, label, hint]) => (
+          {(Object.keys(CUP_SCORING_LABELS) as RyderScoring[]).map((val) => (
             <button
               key={val}
               type="button"
@@ -618,11 +625,16 @@ export function RyderSetup({ t }: { t: Tournament }) {
                   : "border-[var(--border)] hover:bg-[var(--hover)]"
               }`}
             >
-              <span className="block font-medium">{label}</span>
-              <span className="block text-[10px] text-[var(--muted)]">{hint}</span>
+              <span className="block font-medium">{CUP_SCORING_LABELS[val].label}</span>
+              <span className="block text-[10px] text-[var(--muted)]">
+                {CUP_SCORING_LABELS[val].hint}
+              </span>
             </button>
           ))}
         </div>
+        <p className="mt-2 text-[10px] text-[var(--muted)]">
+          Changeable mid-cup from the scoreboard — no need to come back here.
+        </p>
       </Card>
 
       <div className="flex justify-end">

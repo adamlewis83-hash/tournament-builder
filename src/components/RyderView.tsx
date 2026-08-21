@@ -2,9 +2,23 @@
 
 import { useState } from "react";
 import { Match, Participant, Tournament } from "@/lib/types";
-import { RYDER_SESSION_BLURBS, ryderScore, RyderSessionType } from "@/lib/ryder";
+import {
+  CUP_SCORING_LABELS,
+  RYDER_SESSION_BLURBS,
+  RyderScoring,
+  RyderSessionType,
+} from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
-import { entitiesForMatch, entityStrokes, holeNets, matchStatus, matchText, sessionCard } from "@/lib/ryderGolf";
+import {
+  cupScore,
+  cupWeights,
+  entitiesForMatch,
+  entityStrokes,
+  holeNets,
+  matchStatus,
+  matchText,
+  sessionCard,
+} from "@/lib/ryderGolf";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
@@ -294,6 +308,58 @@ function PairingEditor({
   );
 }
 
+/** Change how the cup is scored mid-cup. Re-weighing the matches is all this
+ *  does — hole scores and results stay exactly where they are. */
+function CupScoringControl({ t }: { t: Tournament }) {
+  const setRyderScoring = useStore((s) => s.setRyderScoring);
+  const [open, setOpen] = useState(false);
+  const current: RyderScoring = t.config.ryderScoring ?? "match";
+
+  return (
+    <div className="no-print mt-3 border-t border-[var(--border)] pt-2.5">
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs">
+        <span className="text-[var(--muted)]">Scoring:</span>
+        <span className="font-medium">{CUP_SCORING_LABELS[current].label}</span>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="text-[var(--brand)] font-medium hover:underline"
+        >
+          {open ? "Close" : "Change"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {(Object.keys(CUP_SCORING_LABELS) as RyderScoring[]).map((val) => (
+            <button
+              key={val}
+              onClick={() => {
+                setRyderScoring(t.id, val);
+                setOpen(false);
+              }}
+              className={`rounded-lg border px-3 py-1.5 text-left text-xs transition ${
+                current === val
+                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              <span className="block font-medium">{CUP_SCORING_LABELS[val].label}</span>
+              <span className="block text-[10px] text-[var(--muted)]">
+                {CUP_SCORING_LABELS[val].hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && (
+        <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
+          Switching only re-weighs the scoreboard — every hole and result you have
+          entered stays put.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function RyderView({ t }: { t: Tournament }) {
   const noEdit = !canEditScores(t); // spectator without scorekeeper rights
   // Default into captain's-picks mode until scoring has started.
@@ -305,17 +371,20 @@ export function RyderView({ t }: { t: Tournament }) {
   const addRyderSession = useStore((s) => s.addRyderSession);
   const removeRyderRound = useStore((s) => s.removeRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
-  const score = ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes);
+  const score = cupScore(t);
+  const weights = cupWeights(t);
   const ryder = t.matches.filter((m) => m.phase === "ryder");
   const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
   const teamA = t.participants.filter((p) => p.team === 0);
   const teamB = t.participants.filter((p) => p.team === 1);
 
   const winnerName = score.status === "a-wins" ? nameA : score.status === "b-wins" ? nameB : null;
-  const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(2).replace(/0$/, ""));
+  const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(3).replace(/\.?0+$/, ""));
 
   // Live projection: official points plus in-progress matches counted as they stand
-  // now (leader gets the point, all-square splits) — updates hole by hole.
+  // now (leader gets the match's point value, all-square splits it) — updates hole
+  // by hole. It has to use the same point value the finished match will earn, or
+  // the projection overshoots the cup whenever a match is worth less than a point.
   let liveA = score.a;
   let liveB = score.b;
   let inPlay = 0;
@@ -324,11 +393,12 @@ export function RyderView({ t }: { t: Tournament }) {
     const st = matchStatus(t, m);
     if (st.thru === 0) continue; // not started
     inPlay++;
-    if (st.upA > st.upB) liveA += 1;
-    else if (st.upB > st.upA) liveB += 1;
+    const w = weights.get(m.id) ?? 1;
+    if (st.upA > st.upB) liveA += w;
+    else if (st.upB > st.upA) liveB += w;
     else {
-      liveA += 0.5;
-      liveB += 0.5;
+      liveA += w / 2;
+      liveB += w / 2;
     }
   }
 
@@ -387,6 +457,7 @@ export function RyderView({ t }: { t: Tournament }) {
             ? `${fmt(score.clinch)} points wins the cup · ${fmt(score.a + score.b)}/${fmt(score.total)} points decided`
             : "Final result"}
         </p>
+        {!noEdit && <CupScoringControl t={t} />}
       </Card>
 
       {!noEdit && (

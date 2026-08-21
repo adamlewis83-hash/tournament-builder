@@ -3,7 +3,14 @@
 import { genSinglesRR, genDoublesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./src/lib/schedule";
 import { genSingleElim, genSingleElimSides, genDoubleElim, propagateBracket, bracketChampion } from "./src/lib/bracket";
 import { buildMatches, buildFinals, resyncFinals, shuffled } from "./src/lib/store";
-import { genRyder, genRyderSession, ryderScore, RyderSessionType } from "./src/lib/ryder";
+import {
+  genRyder,
+  genRyderSession,
+  matchWeights,
+  ryderScore,
+  RyderScoring,
+  RyderSessionType,
+} from "./src/lib/ryder";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
@@ -722,6 +729,93 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     ms[0].final = true; // host posts the result
     assert(getResult(t).complete, "cup should be decided once the last match is final");
   });
+
+// ---- Cup scoring: a session's point splits across its matches -------------
+// A 2-match session where each team wins one is 1–1 the classic way, and ½–½ when
+// the session itself is the point. What must never happen is a cup calling itself
+// over, or a point changing value, because of how the modes were counted.
+{
+  const ryderMatch = (round: number, order: number, a: number | null, b: number | null): Match => ({
+    id: `r${round}m${order}`,
+    phase: "ryder",
+    round,
+    order,
+    label: "Fourball",
+    sideA: ["a1", "a2"],
+    sideB: ["b1", "b2"],
+    scoreA: a,
+    scoreB: b,
+  });
+  // One 9-hole session of 2 matches, split one apiece.
+  const front = [ryderMatch(1, 0, 3, 1), ryderMatch(1, 1, 1, 3)];
+  const expect: Record<RyderScoring, [number, number]> = {
+    match: [1, 1],
+    session: [0.5, 0.5],
+    round18: [0.25, 0.25], // half a session of an 18 — the back nine is still to come
+  };
+  for (const mode of Object.keys(expect) as RyderScoring[])
+    check(`ryder scoring ${mode} — split session`, () => {
+      const sc = ryderScore(front, mode, 9);
+      const [a, b] = expect[mode];
+      assert(sc.a === a && sc.b === b, `${mode}: got ${sc.a}–${sc.b}, want ${a}–${b}`);
+      // This session is the whole cup so far, and it came out even.
+      assert(sc.status === "tie", `${mode}: even split read as ${sc.status}`);
+    });
+
+  // A planned 2-session cup is not over when session one is: `played` used to count
+  // matches while `total` counted session points, which crowned a tie at halfway.
+  check("ryder scoring — first session done is not the whole cup", () => {
+    const both = [...front, ryderMatch(2, 0, null, null), ryderMatch(2, 1, null, null)];
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const sc = ryderScore(both, mode, 9);
+      assert(sc.status === "in-progress", `${mode}: cup called ${sc.status} with a session unplayed`);
+      assert(sc.played < sc.total, `${mode}: played ${sc.played} of ${sc.total} reads as complete`);
+    }
+  });
+
+  // Captain-style cups add sessions as the day goes. A point already earned must
+  // not be re-priced when the next session appears.
+  check("ryder scoring — adding a session keeps earned points at their value", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const before = ryderScore(front, mode, 9);
+      const after = ryderScore([...front, ryderMatch(2, 0, null, null), ryderMatch(2, 1, null, null)], mode, 9);
+      assert(
+        before.a === after.a && before.b === after.b,
+        `${mode}: ${before.a}–${before.b} became ${after.a}–${after.b} when the next session was added`,
+      );
+    }
+  });
+
+  // Sweeping a session clinches it outright in every mode.
+  check("ryder scoring — a sweep wins the cup in every mode", () => {
+    const swept = [ryderMatch(1, 0, 3, 1), ryderMatch(1, 1, 2, 0)];
+    for (const mode of ["match", "session"] as RyderScoring[]) {
+      const sc = ryderScore(swept, mode, 18);
+      assert(sc.status === "a-wins", `${mode}: sweep read as ${sc.status}`);
+      assert(sc.a === sc.total, `${mode}: sweep scored ${sc.a} of ${sc.total}`);
+    }
+  });
+
+  // Weights are what the live projection adds per in-progress match, so they have
+  // to sum to the cup total rather than to one point apiece.
+  check("ryder scoring — weights sum to the cup total", () => {
+    for (const mode of ["match", "session", "round18"] as RyderScoring[]) {
+      const w = matchWeights(front, mode, 9);
+      const sum = [...w.values()].reduce((x, y) => x + y, 0);
+      assert(Math.abs(sum - ryderScore(front, mode, 9).total) < 1e-9, `${mode}: weights ${sum} ≠ total`);
+      assert(w.size === front.length, `${mode}: ${w.size} weights for ${front.length} matches`);
+    }
+  });
+
+  // Sessions on different cards: an 18-hole session is a full point, a nine is half.
+  check("ryder scoring — round18 weighs each session on its own card", () => {
+    const mixed = [ryderMatch(1, 0, 3, 1), ryderMatch(2, 0, 3, 1)];
+    const holesOf = (r: number) => (r === 1 ? 9 : 18);
+    const w = matchWeights(mixed, "round18", 18, holesOf);
+    assert(w.get("r1m0") === 0.5, `nine-hole session worth ${w.get("r1m0")}, want 0.5`);
+    assert(w.get("r2m0") === 1, `18-hole session worth ${w.get("r2m0")}, want 1`);
+  });
+}
 
 // Live scoring drives the round-robin hero card, so walk a real game point by
 // point for every sport that offers it — 1–1 stays on, the winning point ends it.

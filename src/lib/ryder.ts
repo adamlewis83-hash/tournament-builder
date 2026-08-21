@@ -159,42 +159,88 @@ export interface RyderScore {
   a: number;
   b: number;
   total: number;
-  played: number;
+  played: number; // points decided so far, in the same currency as `total`
   clinch: number; // points needed to win the cup
   status: "in-progress" | "a-wins" | "b-wins" | "tie";
 }
 
 export type RyderScoring = "match" | "session" | "round18";
 
+/** How each scoring mode reads to a host — shared so setup and the cup scoreboard
+ *  describe the modes in the same words. */
+export const CUP_SCORING_LABELS: Record<RyderScoring, { label: string; hint: string }> = {
+  match: { label: "1 point per match", hint: "classic Ryder Cup — every match is its own point" },
+  session: { label: "1 point per session", hint: "the session's matches split one point (2 matches → ½ each)" },
+  round18: { label: "1 point per 18 holes", hint: "sessions on the same 18 share one point between them" },
+};
+
+// Points can be fractional once a session's point is split across its matches,
+// so every comparison here is float-safe.
+const EPS = 1e-9;
+
+/**
+ * What each match is worth, by match id, under the cup's scoring mode.
+ *
+ *   "match"   — every match is a point of its own (classic Ryder Cup).
+ *   "session" — each session (round) is one point, split evenly across its matches.
+ *   "round18" — each 18 holes is one point: a session's matches split the point,
+ *               then divide again by how many sessions make up an 18 (two 9-hole
+ *               sessions, three 6-hole ones).
+ *
+ * round18 divides by the *planned* sessions per 18 rather than by the sessions
+ * currently on the board — that is what keeps a point won on the front nine worth
+ * the same after the back nine is added. Weighting by what happened to exist at
+ * the time meant a captain-built cup silently re-priced points already earned.
+ *
+ * `holesOfRound` reports the holes a given session plays, so a cup whose sessions
+ * sit on different cards (a nine here, a full 18 there) weighs each one correctly.
+ */
+export function matchWeights(
+  matches: Match[],
+  scoring: RyderScoring = "match",
+  sessionHoles = 18,
+  holesOfRound?: (round: number) => number,
+): Map<string, number> {
+  const ryder = matches.filter((m) => m.phase === "ryder");
+  const perRound = new Map<number, number>();
+  for (const m of ryder) perRound.set(m.round, (perRound.get(m.round) ?? 0) + 1);
+
+  const out = new Map<string, number>();
+  for (const m of ryder) {
+    const n = perRound.get(m.round) ?? 1;
+    if (scoring === "match") {
+      out.set(m.id, 1);
+      continue;
+    }
+    if (scoring === "session") {
+      out.set(m.id, 1 / n);
+      continue;
+    }
+    const h = holesOfRound?.(m.round) ?? sessionHoles;
+    const holes = Number.isFinite(h) && h > 0 ? h : 18;
+    const per18 = holes < 18 ? Math.max(1, Math.round(18 / holes)) : 1;
+    out.set(m.id, 1 / (n * per18));
+  }
+  return out;
+}
+
 export function ryderScore(
   matches: Match[],
   scoring: RyderScoring = "match",
   sessionHoles = 18,
+  holesOfRound?: (round: number) => number,
 ): RyderScore {
   const ryder = matches.filter((m) => m.phase === "ryder");
-  // Scoring units: "match" = every match is a unit; "session" = each round is a
-  // 1-point unit split across its matches; "round18" = each 18 holes is the
-  // unit — with 9-hole sessions, consecutive rounds pair up (front + back nine)
-  // and split the point across all their matches.
-  // Sessions per 18: 9-hole sessions chunk in pairs, 6-hole in threes.
-  const chunk = scoring === "round18" && sessionHoles < 18 ? Math.max(1, Math.round(18 / sessionHoles)) : 1;
-  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((x, y) => x - y);
-  const unitOf = new Map<number, number>();
-  rounds.forEach((r, i) => unitOf.set(r, scoring === "match" ? r : Math.floor(i / chunk)));
-  const unitSize = new Map<number, number>();
-  for (const m of ryder) {
-    const u = unitOf.get(m.round) ?? 0;
-    unitSize.set(u, (unitSize.get(u) ?? 0) + 1);
-  }
-  const weight = (m: Match) =>
-    scoring === "match" ? 1 : 1 / (unitSize.get(unitOf.get(m.round) ?? 0) ?? 1);
+  const weights = matchWeights(matches, scoring, sessionHoles, holesOfRound);
+  const weightOf = (m: Match) => weights.get(m.id) ?? 0;
+
   let a = 0;
   let b = 0;
   let played = 0;
   for (const m of ryder) {
     if (!isFinal(m) || m.scoreA === null || m.scoreB === null) continue; // a live match hasn't earned a point yet
-    played++;
-    const w = weight(m);
+    const w = weightOf(m);
+    played += w;
     if (m.scoreA > m.scoreB) a += w;
     else if (m.scoreB > m.scoreA) b += w;
     else {
@@ -202,11 +248,19 @@ export function ryderScore(
       b += w / 2;
     }
   }
-  const total = scoring === "match" ? ryder.length : unitSize.size;
-  const clinch = total / 2 + 0.5;
+
+  // `played` and `total` have to be counted the same way, or a cup ends early:
+  // counting matches played against a total measured in session points declared
+  // a 2-session cup over — "Tie" — the moment the first session's 2 matches were in.
+  const total = ryder.reduce((s, m) => s + weightOf(m), 0);
+  // You clinch as soon as you are past half by the smallest step the cup can
+  // move, which is half a match's value — a halved match splits it.
+  const step = ryder.length ? Math.min(...ryder.map(weightOf)) / 2 : 0.5;
+  const clinch = total / 2 + step;
   let status: RyderScore["status"] = "in-progress";
-  if (a >= clinch) status = "a-wins";
-  else if (b >= clinch) status = "b-wins";
-  else if (played === total && total > 0) status = a > b ? "a-wins" : b > a ? "b-wins" : "tie";
+  if (a >= clinch - EPS) status = "a-wins";
+  else if (b >= clinch - EPS) status = "b-wins";
+  else if (total > EPS && played >= total - EPS)
+    status = a > b + EPS ? "a-wins" : b > a + EPS ? "b-wins" : "tie";
   return { a, b, total, played, clinch, status };
 }

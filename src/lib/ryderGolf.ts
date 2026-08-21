@@ -1,5 +1,6 @@
 import { Match, Participant, Tournament } from "./types";
 import { holeStrokes } from "./golf";
+import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
 export interface MatchEntity {
   key: string; // participantId or "A"/"B"
@@ -149,4 +150,18 @@ export function matchText(s: MatchStatus): string {
   if (s.decided && remaining > 0) return `${leader === "A" ? "▲" : "▼"} ${diff} & ${remaining}`;
   if (s.thru === s.holes) return `${leader === "A" ? "▲" : "▼"} ${diff} up`;
   return `${leader === "A" ? "▲" : "▼"} ${diff} up · thru ${s.thru}`;
+}
+
+/** Holes a given session plays — its own card if it has one, else the cup's. */
+export const roundHoles = (t: Tournament) => (round: number) =>
+  sessionCard(t, round)?.holes ?? t.ryderGolf?.holes ?? 18;
+
+/** The cup scoreboard, with each session weighed on the card it is played on. */
+export function cupScore(t: Tournament): RyderScore {
+  return ryderScore(t.matches, t.config.ryderScoring, t.ryderGolf?.holes, roundHoles(t));
+}
+
+/** What each match is worth on this cup's scoreboard, by match id. */
+export function cupWeights(t: Tournament): Map<string, number> {
+  return matchWeights(t.matches, t.config.ryderScoring, t.ryderGolf?.holes, roundHoles(t));
 }
