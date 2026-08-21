@@ -11,6 +11,7 @@ import {
   SEGMENT_LABELS,
   Tournament,
 } from "@/lib/types";
+import { RYDER_SESSION_BLURBS, RyderSessionType } from "@/lib/ryder";
 
 interface Def {
   title: string;
@@ -30,11 +31,17 @@ function definitions(t: Tournament): Def[] {
     return [{ title: GOLF_MODE_LABELS[mode], text: GOLF_MODE_BLURBS[mode] }];
   }
   if (t.format === "ryder") {
+    // The games this cup actually plays, in playing order. This used to be a fixed
+    // Foursomes/Fourball/Singles trio, which explained games a cup might never play
+    // and stayed silent on the ones it did — every game added since (Shamble, Vegas,
+    // the whole-team sessions) was missing from the only in-tournament rules screen.
+    const seen: string[] = [];
+    for (const m of t.matches.filter((x) => x.phase === "ryder").sort((a, b) => a.round - b.round))
+      if (m.label && !seen.includes(m.label)) seen.push(m.label);
+    const games = seen.filter((l): l is RyderSessionType => l in RYDER_SESSION_BLURBS);
     return [
       { title: "Ryder Cup", text: FORMAT_BLURBS.ryder },
-      { title: "Foursomes", text: "Partners share one ball, alternating shots (2 v 2)." },
-      { title: "Fourball", text: "Each plays their own ball; the team takes the lower score (2 v 2)." },
-      { title: "Singles", text: "One-on-one net match play (1 v 1)." },
+      ...games.map((g) => ({ title: g, text: RYDER_SESSION_BLURBS[g] })),
     ];
   }
   const defs: Def[] = [{ title: FORMAT_LABELS[t.format], text: FORMAT_BLURBS[t.format] }];

@@ -362,12 +362,18 @@ function CupScoringControl({ t }: { t: Tournament }) {
 
 export function RyderView({ t }: { t: Tournament }) {
   const noEdit = !canEditScores(t); // spectator without scorekeeper rights
-  // Default into captain's-picks mode until scoring has started.
+  // Default into captain's-picks mode until scoring has started — but never for a
+  // spectator, who has no "Done" button to leave it with and whose pairing edits the
+  // store drops anyway. They were being shown dead dropdowns instead of the match play.
   const [editing, setEditing] = useState(
-    () => !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
+    () => !noEdit && !(t.ryderGolf && Object.keys(t.ryderGolf.scores).length > 0),
   );
   const [shuffle, setShuffle] = useState(false);
   const [info, setInfo] = useState<RyderSessionType | null>(null);
+  // Which session has its rules open. The blurb used to show only in the instant
+  // after a session was added, and only for the host — so once play started, nobody
+  // could look up how the game they were playing worked.
+  const [rulesFor, setRulesFor] = useState<number | null>(null);
   const addRyderSession = useStore((s) => s.addRyderSession);
   const removeRyderRound = useStore((s) => s.removeRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
@@ -549,10 +555,24 @@ export function RyderView({ t }: { t: Tournament }) {
         const ms = ryder.filter((m) => m.round === round).sort((a, b) => a.order - b.order);
         if (!ms.length) return null;
         const label = ms[0].label ?? `Round ${round}`;
+        const rules = RYDER_SESSION_BLURBS[label as RyderSessionType];
         return (
           <div key={round}>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 className="font-semibold">{label}</h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-semibold">{label}</h3>
+                {rules && (
+                  <button
+                    type="button"
+                    onClick={() => setRulesFor((r) => (r === round ? null : round))}
+                    aria-label={`How ${label} works`}
+                    aria-expanded={rulesFor === round}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] text-[11px] font-bold leading-none text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--foreground)]"
+                  >
+                    ?
+                  </button>
+                )}
+              </div>
               {!noEdit && <SessionCourseControl t={t} round={round} />}
               {editing && !noEdit && (
                 <button
@@ -565,6 +585,12 @@ export function RyderView({ t }: { t: Tournament }) {
                 </button>
               )}
             </div>
+            {rulesFor === round && rules && (
+              <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
+                <span className="font-semibold">{label}:</span>{" "}
+                <span className="text-[var(--muted)]">{rules}</span>
+              </div>
+            )}
             {editing ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ms.map((m) => (
