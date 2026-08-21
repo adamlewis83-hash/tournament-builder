@@ -105,8 +105,9 @@ export interface VegasRules {
   /** What in a team's own scores flips the OPPONENT's number (high ball first).
    *  "birdie" means birdie-or-better, so an eagle flips too. */
   flipOn: "off" | "birdie" | "eagle";
-  /** Teams for the round: fixed all 18, or partners rotating every 6 holes. */
-  teams: "fixed" | "rotate6";
+  /** Teams for the round: fixed all 18, partners rotating every 6 holes, or
+   *  picked hole by hole (true Vegas: whoever's tee shots land left & right). */
+  teams: "fixed" | "rotate6" | "byHole";
   /** Auto-press when the margin reaches this many points. 0 = no presses. */
   pressAt: number;
   /** Cap on presses running at once. 0 = uncapped. */
@@ -240,6 +241,10 @@ export interface GolfData {
   wolf?: WolfData; // Wolf partner choices
   segments?: GolfSegment[]; // "Build Your Own": format per hole range
   teams?: boolean; // "Build Your Own" played as teams (one score per team per hole)
+  // Vegas "pick per hole" partners: per-hole pairing choice for player 1 —
+  // 0 = with player 2, 1 = with player 3, 2 = with player 4. null inherits the
+  // previous hole's pairing (holes before any pick use pairing 0).
+  vegasPairs?: (0 | 1 | 2 | null)[];
 }
 
 export interface Match {

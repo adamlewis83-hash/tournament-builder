@@ -190,6 +190,7 @@ interface State {
     participantId: string | null,
   ) => void;
   setGolfWolf: (id: string, hole: number, partner: string | "lone" | null) => void;
+  setVegasPairing: (id: string, hole: number, choice: 0 | 1 | 2 | null) => void;
   setGolfPin: (id: string, hole: number, coords: [number, number] | null) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
@@ -1290,6 +1291,22 @@ export const useStore = create<State>()(
             };
             bbb[kind][hole] = participantId;
             return { ...t, golf: { ...t.golf, bbb }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      // Vegas "pick per hole": record which player partners player 1 from this
+      // hole on (0 = with P2, 1 = with P3, 2 = with P4; null clears the pick so
+      // the previous pairing carries forward again).
+      setVegasPairing: (id, hole, choice) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const pairs = [...(t.golf.vegasPairs ?? Array(t.golf.holes).fill(null))];
+            pairs[hole] = choice;
+            return { ...t, golf: { ...t.golf, vegasPairs: pairs }, updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);

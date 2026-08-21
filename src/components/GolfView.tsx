@@ -124,10 +124,10 @@ function VegasRulesPanel({ t, rules }: { t: Tournament; rules: VegasRules }) {
               onPick={(v) => set({ flipOn: v })}
             />
           </RuleRow>
-          <RuleRow label="Teams" hint="fixed for the round, or partners swapping every 6 holes">
+          <RuleRow label="Teams" hint="fixed, swapping every 6, or picked hole by hole (tee shots decide)">
             <RulePills<VegasRules["teams"]>
               value={rules.teams}
-              options={[["fixed", "Set teams"], ["rotate6", "Rotate /6"]]}
+              options={[["fixed", "Set teams"], ["rotate6", "Rotate /6"], ["byHole", "Pick per hole"]]}
               onPick={(v) => set({ teams: v })}
             />
           </RuleRow>
@@ -202,6 +202,23 @@ function VegasLedgerView({
           <div className="text-3xl font-extrabold tabular-nums">{pointsB}</div>
         </div>
       </div>
+
+      {ledger.rows.length > 0 &&
+        (() => {
+          const last = ledger.rows[ledger.rows.length - 1];
+          return (
+            <p className="mt-1.5 text-center text-xs text-[var(--muted)]">
+              Hole {startHole + last.hole}: <span className="tabular-nums">{last.numA}</span> vs{" "}
+              <span className="tabular-nums">{last.numB}</span>
+              {last.winner === null
+                ? ` — push${rules.carryTies ? ` · ${last.carriedIn + 1} carried` : ""}`
+                : ` — +${last.points} ${(last.winner === "A" ? ledger.namesA : ledger.namesB)
+                    .map((n) => n.split(" ")[0])
+                    .join(" & ")}`}
+              {last.flippedA || last.flippedB ? " · flipped!" : ""}
+            </p>
+          );
+        })()}
 
       {(rules.pointValue > 0 || presses.length > 0) && (
         <p className="mt-2 text-center text-sm">
@@ -285,6 +302,7 @@ function VegasLedgerView({
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfScore = useStore((s) => s.setGolfScore);
+  const setVegasPairing = useStore((s) => s.setVegasPairing);
   const setGolfPin = useStore((s) => s.setGolfPin);
   const [hole, setHole] = useState(0);
   const [showCard, setShowCard] = useState(true);
@@ -516,6 +534,45 @@ export function GolfView({ t }: { t: Tournament }) {
                 );
               })}
             </div>
+            {vegasLedger && vegasRules.teams === "byHole" && t.participants.length === 4 && (
+              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--subtle)] px-3 py-2">
+                <p className="mb-1.5 text-xs text-[var(--muted)]">
+                  Partners from this hole on — tap who joins{" "}
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {t.participants[0].name.split(" ")[0]}
+                  </span>{" "}
+                  (tee shots decide):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {([0, 1, 2] as const).map((c) => {
+                    const first = t.participants[0].name.split(" ")[0];
+                    const mate = t.participants[c + 1].name.split(" ")[0];
+                    // The pairing in force on this hole (picks carry forward).
+                    let eff = 0;
+                    for (let i = 0; i <= h; i++) {
+                      const pv = g.vegasPairs?.[i];
+                      if (pv != null) eff = pv;
+                    }
+                    const pickedHere = g.vegasPairs?.[h] === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setVegasPairing(t.id, h, pickedHere ? null : c)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                          eff === c
+                            ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                            : "border-[var(--border)] hover:bg-[var(--hover)]"
+                        }`}
+                      >
+                        {first} &amp; {mate}
+                        {eff === c && g.vegasPairs?.[h] == null ? " (carried)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="mt-3 space-y-2">
               {t.participants.map((p) => {
                 const v = g.scores[p.id]?.[h];

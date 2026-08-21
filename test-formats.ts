@@ -1108,6 +1108,27 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(L.pointsA === 9 && L.pointsB === 0, `ledger ${L.pointsA}–${L.pointsB}`);
   });
 
+  check("vegas — pick-per-hole partners carry forward until the next pick", () => {
+    const ids = ["p1", "p2", "p3", "p4"];
+    const pairs: (0 | 1 | 2 | null)[] = [null, 1, null, 2];
+    // Hole 1: no pick yet → default pairing (p1+p2). Hole 2: picked p1+p3.
+    // Hole 3: no pick → still p1+p3. Hole 4: picked p1+p4.
+    assert(vegasTeamsForHole(ids, 0, "byHole", pairs)![0].join() === "p1,p2", "hole 1 default");
+    assert(vegasTeamsForHole(ids, 1, "byHole", pairs)![0].join() === "p1,p3", "hole 2 pick");
+    assert(vegasTeamsForHole(ids, 2, "byHole", pairs)![0].join() === "p1,p3", "hole 3 carry");
+    assert(vegasTeamsForHole(ids, 3, "byHole", pairs)![0].join() === "p1,p4", "hole 4 pick");
+    // The ledger pays each hole under that hole's partners.
+    const t = vegasRound([4, 4], [[4, 4], [5, 6], [4, 5], [6, 4]]);
+    t.golf!.vegasPairs = [null, 1];
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, teams: "byHole" })!;
+    // Hole 1 (p1+p2 vs p3+p4): 45 vs 46 → A +1. Hole 2 (p1+p3 vs p2+p4): 45 vs 46 → A +1.
+    assert(
+      L.rows[0].numA === 45 && L.rows[0].numB === 46 && L.rows[1].numA === 45 && L.rows[1].numB === 46,
+      `numbers h1 ${L.rows[0].numA}v${L.rows[0].numB}, h2 ${L.rows[1].numA}v${L.rows[1].numB}`,
+    );
+    assert(L.pointsA === 2 && L.pointsB === 0, `ledger ${L.pointsA}–${L.pointsB}, want 2–0`);
+  });
+
   check("vegas — low ball goes first regardless of entry order", () => {
     assert(vegasNumber([6, 4], false) === 46, "high-first input not normalised");
     assert(vegasNumber([4, 6], false) === 46, "low-first input changed");

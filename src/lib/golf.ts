@@ -491,19 +491,28 @@ export function golfScoringOptions(t: Tournament): GolfScoring[] {
 // ---- Vegas: the full 4-man game ----------------------------------------------
 
 /** Partners for a hole. Fixed keeps the entry order; rotate6 runs the three
- *  pairings six holes each, the way a 4-man game usually shares partners. */
+ *  pairings six holes each; byHole follows the host's per-hole picks (true
+ *  Vegas — tee shots decide), each pick carrying forward until the next. */
 export function vegasTeamsForHole(
   ids: string[],
   hole: number,
   mode: VegasRules["teams"],
+  pairs?: (0 | 1 | 2 | null)[],
 ): [string[], string[]] | null {
   if (ids.length !== 4) return null;
   const [p0, p1, p2, p3] = ids;
-  if (mode === "fixed") return [[p0, p1], [p2, p3]];
-  const block = Math.floor(hole / 6) % 3;
-  if (block === 0) return [[p0, p1], [p2, p3]];
-  if (block === 1) return [[p0, p2], [p1, p3]];
-  return [[p0, p3], [p1, p2]];
+  const pairing = (c: number): [string[], string[]] =>
+    c === 1 ? [[p0, p2], [p1, p3]] : c === 2 ? [[p0, p3], [p1, p2]] : [[p0, p1], [p2, p3]];
+  if (mode === "fixed") return pairing(0);
+  if (mode === "byHole") {
+    let c = 0;
+    for (let i = 0; i <= hole; i++) {
+      const v = pairs?.[i];
+      if (v != null) c = v;
+    }
+    return pairing(c);
+  }
+  return pairing(Math.floor(hole / 6) % 3);
 }
 
 /** A pair's Vegas number. Low ball first normally; flipped puts the high ball first.
@@ -587,7 +596,7 @@ export function computeVegasLedger(t: Tournament, rules: VegasRules): VegasLedge
       presses.push({ from: pendingPress, pointsA: 0, pointsB: 0 });
       pendingPress = null;
     }
-    const sides = vegasTeamsForHole(ids, h, rules.teams);
+    const sides = vegasTeamsForHole(ids, h, rules.teams, g.vegasPairs);
     if (!sides) break;
     const [teamA, teamB] = sides;
     const ballsA = teamA.map((id) => ballFor(id, h));
@@ -646,7 +655,7 @@ export function computeVegasLedger(t: Tournament, rules: VegasRules): VegasLedge
     (pointsA - pointsB) * rules.pointValue +
     presses.reduce((sum, pr) => sum + (pr.pointsA - pr.pointsB) * rules.pressValue, 0);
 
-  const sides0 = vegasTeamsForHole(ids, 0, rules.teams)!;
+  const sides0 = vegasTeamsForHole(ids, 0, rules.teams, g.vegasPairs)!;
   return {
     rows, thru, pointsA, pointsB, presses, moneyA,
     namesA: sides0[0].map(nameOf),
