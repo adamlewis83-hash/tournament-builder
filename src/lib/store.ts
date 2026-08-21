@@ -29,6 +29,14 @@ import { applyProfilePhoto } from "./profile";
 import { canEditScores } from "./perms";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
 
+// The cup's session list (labels in playing order), derived from the matches —
+// mirrored into config.ryderProgram so Edit setup can restore the program.
+const ryderProgramOf = (matches: Match[]): string[] => {
+  const ryder = matches.filter((m) => m.phase === "ryder");
+  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
+  return rounds.map((r) => ryder.find((m) => m.round === r)?.label ?? "Fourball");
+};
+
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
   courts: 4,
@@ -890,7 +898,13 @@ export const useStore = create<State>()(
             const maxRound = t.matches.reduce((mx, m) => Math.max(mx, m.round), 0);
             const next = genRyderSession(t.participants, type, maxRound + 1, shuffle);
             if (!next.length) return t;
-            return { ...t, matches: [...t.matches, ...next], updatedAt: Date.now() };
+            const matches = [...t.matches, ...next];
+            return {
+              ...t,
+              matches,
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
           }),
         }));
         pushReplace(id);
@@ -899,11 +913,16 @@ export const useStore = create<State>()(
       removeRyderRound: (id, round) => {
         if (blocked(id)) return;
         set((s) => ({
-          tournaments: s.tournaments.map((t) =>
-            t.id === id
-              ? { ...t, matches: t.matches.filter((m) => m.round !== round), updatedAt: Date.now() }
-              : t,
-          ),
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const matches = t.matches.filter((m) => m.round !== round);
+            return {
+              ...t,
+              matches,
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
+          }),
         }));
         pushReplace(id);
       },

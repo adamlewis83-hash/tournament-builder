@@ -32,7 +32,11 @@ export function RyderSetup({ t }: { t: Tournament }) {
   const [nameB, setNameB] = useState(t.config.teamNames?.[1] ?? "Team B");
   // The day's program: an ordered list of sessions, one per round, planned up
   // front (or left empty to build rounds captain-style as the cup unfolds).
-  const [program, setProgram] = useState<RyderSessionType[]>([]);
+  // Seed from the stored program so Edit setup restores the session list
+  // (order included) instead of starting from scratch.
+  const [program, setProgram] = useState<RyderSessionType[]>(
+    (t.config.ryderProgram as RyderSessionType[] | undefined) ?? [],
+  );
   const [info, setInfo] = useState<RyderSessionType | null>(null);
   const [scoring, setScoring] = useState<"match" | "session" | "round18">(
     t.config.ryderScoring ?? "match",
@@ -163,6 +167,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
         ryderFourball: 0,
         ryderSingles: 0,
         ryderScoring: scoring,
+        ryderProgram: program,
       },
     });
     setRyderTeams(

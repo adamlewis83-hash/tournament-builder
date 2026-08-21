@@ -271,6 +271,9 @@ export interface TournamentConfig {
   //                       consecutive sessions pair up (front+back nine) and
   //                       split the point across all their matches.
   ryderScoring?: "match" | "session" | "round18";
+  // The cup's session program (labels in playing order), mirrored from the
+  // generated sessions so Edit setup can restore the list instead of wiping it.
+  ryderProgram?: string[];
   golfMode: GolfMode; // golf scoring mode
   scoreLowWins: boolean; // Score Challenge: lowest total wins (e.g. disc golf) vs highest
 }
