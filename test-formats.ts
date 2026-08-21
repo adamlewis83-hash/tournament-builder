@@ -20,6 +20,7 @@ import {
   computeGolfMatch,
   computeVegas,
   computeVegasLedger,
+  vegasIsPerPlayer,
   golfMatchAvailable,
   golfScoringOptions,
   vegasNumber,
@@ -1270,6 +1271,39 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(vegasTeamsForHole(["a", "b", "c"], 0, "fixed") === null, "three players formed teams");
   });
 
+  check("vegas — a round predating the flag still gets the full game", () => {
+    // The bug: the full game was gated on a config flag only written by saves made
+    // after it shipped, so every Vegas round created before was stuck on pair scoring
+    // with no flip — while the screen kept advertising one.
+    const t = vegasRound([4, 4], [[3, 4], [5, 5], [4, 4], [6, 5]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "a four-player card with single-digit balls read as a pair card");
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    assert(L.rows[0].flippedB, "the flip still did not fire on a pre-flag round");
+    assert(L.rows[0].numB === 64 && L.rows[0].points === 29, `${L.rows[0].numB} / ${L.rows[0].points}`);
+  });
+
+  check("vegas — a blow-up hole doesn't demote a per-player round", () => {
+    // One score of 11+ is a bad hole, not a combined pair number. Only a card where
+    // EVERY entered score looks combined is the old format.
+    const t = vegasRound([4, 4], [[3, 12], [5, 5], [4, 4], [6, 5]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "an 11+ on one hole threw the round back to pair scoring");
+  });
+
+  check("vegas — an empty four-player card is the new game", () => {
+    const t = vegasRound([4], [[null as unknown as number], [null as unknown as number],
+                               [null as unknown as number], [null as unknown as number]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "a fresh four-player card was treated as a pair card");
+  });
+
+  check("vegas — an explicit flag still wins over the card", () => {
+    const t = vegasRound([4], [[3], [5], [4], [6]]);
+    (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer = false;
+    assert(!vegasIsPerPlayer(t), "an explicit false flag was ignored");
+  });
+
   check("vegas — a legacy pair card is never read as the full game", () => {
     // Four PAIRS with pre-combined numbers. Without the per-player flag this must keep
     // its old pair scoring, or two duels would be misread as one four-player game.
@@ -1283,6 +1317,7 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     };
     assert(!t.config.vegasPerPlayer, "fixture should have no per-player flag");
     // The old duel scoring still reads it: pair0 beats pair1 by 11, pair2 beats pair3 by 11.
+    assert(!vegasIsPerPlayer(t), "four pairs of combined numbers read as four players");
     const legacy = computeVegas(t);
     const byName = (n: string) => legacy.find((r) => r.name === n)!;
     assert(byName("A&B").points === 11, `legacy pair scoring changed: ${byName("A&B").points}`);

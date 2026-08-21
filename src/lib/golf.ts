@@ -475,6 +475,35 @@ export function computeGolfMatch(t: Tournament, range?: HoleRange): GolfMatchSta
   return { a, b, upA, upB, halved, thru, holes, decided, holeWinners, text };
 }
 
+/**
+ * Is this Vegas round scored from each player's own ball, rather than one
+ * pre-combined number per pair?
+ *
+ * Only a per-player card can show a birdie, so this is what decides whether the
+ * full game — flips, presses, carries, the settlement — can run at all.
+ *
+ * It used to be an explicit config flag alone, written when a round was saved
+ * through setup. That flag can only exist on rounds saved since the full game
+ * shipped, so every Vegas round created before it was stranded on the old pair
+ * scoring — while the on-screen blurb went on promising the flip. It read exactly
+ * like the flip being broken.
+ *
+ * So the flag is honoured when present, and otherwise the card itself is read. A
+ * pair card holds combined numbers, which are two digits for any real hole (1+1 →
+ * 11); an individual ball is a single digit. Requiring EVERY entered score to look
+ * combined keeps a genuine blow-up (an 11 on one hole) from throwing a per-player
+ * round back onto the old scoring.
+ */
+export function vegasIsPerPlayer(t: Tournament): boolean {
+  if (t.config.vegasPerPlayer != null) return t.config.vegasPerPlayer;
+  if (t.participants.length !== 4) return false;
+  const entered = Object.values(t.golf?.scores ?? {})
+    .flat()
+    .filter((v): v is number => v != null);
+  if (!entered.length) return true; // nothing typed yet — four players means four balls
+  return !entered.every((v) => v >= 11);
+}
+
 /** Can this card be read as a match? Two sides, and a game whose per-hole entry is a
  *  real stroke count (Vegas types a combined number, so it has no net to compare). */
 export function golfMatchAvailable(t: Tournament): boolean {
