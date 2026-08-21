@@ -1284,6 +1284,36 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
   });
 }
 
+// ---- A sport is only offered formats that suit it ---------------------------
+// The setup screen's format switcher used to ignore the sport: a golf round was
+// offered Round Robin, Swiss, King of the Court and brackets — all built on courts,
+// rounds and a points-to target — while golf and Ryder Cup were hidden, so a golf
+// event could switch into a court format with no way back.
+check("formats by sport — golf gets golf formats and no court ones", () => {
+  const golf = formatsForSport("Golf");
+  for (const f of ["golf", "ryder"] as Format[])
+    assert(golf.includes(f), `golf is missing ${f} — there would be no way back to it`);
+  for (const f of ["round-robin", "swiss", "kotc", "single-elim", "double-elim", "pool-bracket"] as Format[])
+    assert(!golf.includes(f), `golf offered the court format ${f}`);
+  assert(formatsForSport("Disc Golf").includes("golf"), "disc golf lost its scorecard format");
+});
+
+check("formats by sport — court sports keep their full list and no golf formats", () => {
+  const pb = formatsForSport("Pickleball");
+  for (const f of ["round-robin", "swiss", "single-elim", "double-elim"] as Format[])
+    assert(pb.includes(f), `pickleball lost ${f}`);
+  for (const f of ["golf", "ryder"] as Format[])
+    assert(!pb.includes(f), `pickleball offered the golf format ${f}`);
+});
+
+check("formats by sport — every sport offers something, and nothing unknown", () => {
+  for (const sport of SPORTS) {
+    const list = formatsForSport(sport);
+    assert(list.length > 0, `${sport} has no formats at all`);
+    for (const f of list) assert(ALL_FORMATS.includes(f), `${sport} offers unknown format ${f}`);
+  }
+});
+
 // Live scoring drives the round-robin hero card, so walk a real game point by
 // point for every sport that offers it — 1–1 stays on, the winning point ends it.
 for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("round-robin")))

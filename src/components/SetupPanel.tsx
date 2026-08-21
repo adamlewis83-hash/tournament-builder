@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Format,
   FORMAT_LABELS,
+  formatsForSport,
   PLAYSTYLE_LABELS,
   playStylesForFormat,
   Tiebreaker,
@@ -287,6 +288,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
     return (
       <div className="space-y-5">
         <RegistrationPanel t={t} />
+        <FormatSwitcher t={t} onChange={(p) => patch(t.id, p)} />
         <RyderSetup t={t} />
       </div>
     );
@@ -294,6 +296,7 @@ export function SetupPanel({ t }: { t: Tournament }) {
     return (
       <div className="space-y-5">
         <RegistrationPanel t={t} />
+        <FormatSwitcher t={t} onChange={(p) => patch(t.id, p)} />
         <GolfSetup t={t} />
       </div>
     );
@@ -772,12 +775,15 @@ export function SetupPanel({ t }: { t: Tournament }) {
 }
 
 // Pre-generation format/play-style switcher: picking the wrong tile on the
-// create form used to mean starting the whole tournament over. Golf and Ryder
-// have dedicated setup flows, so they're neither offered nor reachable here.
-const SWITCHABLE_FORMATS = (Object.keys(FORMAT_LABELS) as Format[]).filter(
-  (f) => f !== "golf" && f !== "ryder",
-);
-
+// create form used to mean starting the whole tournament over.
+//
+// The list is the sport's own, not every format in the app. It used to be a fixed
+// global list minus golf/ryder, which offered a golf round Round Robin, Swiss, King
+// of the Court and brackets — court formats built around courts, rounds and a
+// points-to target, none of which mean anything on a golf course — while hiding the
+// two formats that do. A golf event could switch into a court format and had no way
+// back. Golf and Ryder Cup are reachable here now; SetupPanel already renders their
+// dedicated setup flows, so landing on them just swaps the panel.
 function FormatSwitcher({
   t,
   onChange,
@@ -786,6 +792,7 @@ function FormatSwitcher({
   onChange: (p: Partial<Tournament>) => void;
 }) {
   const styles = playStylesForFormat(t.format);
+  const choices = formatsForSport(t.sport);
 
   function setFormat(f: Format) {
     if (f === t.format) return;
@@ -798,11 +805,12 @@ function FormatSwitcher({
       <div>
         <h2 className="font-semibold">Format &amp; play style</h2>
         <p className="text-sm text-[var(--muted)]">
-          Picked the wrong one? Change it here — anything goes until you generate.
+          Picked the wrong one? Change it here — these are the formats that suit{" "}
+          {t.sport}.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {SWITCHABLE_FORMATS.map((f) => (
+        {choices.map((f) => (
           <button
             key={f}
             type="button"
