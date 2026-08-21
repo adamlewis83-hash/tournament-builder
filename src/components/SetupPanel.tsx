@@ -232,6 +232,26 @@ export function SetupPanel({ t }: { t: Tournament }) {
     );
   const addTeam = () => update([...teams, emptyTeam()]);
   const removeTeam = (ti: number) => update(teams.filter((_, i) => i !== ti));
+
+  // Shape the roster in one go: N teams × M players each. Growing adds empty
+  // slots; shrinking only drops empty trailing teams/rows — never typed names.
+  const blankTeam = (tm: { name: string; members: string[] }) =>
+    !tm.name.trim() && tm.members.every((m) => !m.trim());
+  const applyShape = (nTeams: number, perTeam: number) => {
+    const next = [...teams];
+    while (next.length < nTeams) next.push(emptyTeam());
+    while (next.length > nTeams && blankTeam(next[next.length - 1])) next.pop();
+    update(
+      next.map((tm) => {
+        const members = [...tm.members];
+        while (members.length < perTeam) members.push("");
+        while (members.length > perTeam && !members[members.length - 1].trim()) members.pop();
+        return { ...tm, members };
+      }),
+    );
+  };
+  const shapeTeams = teams.length;
+  const shapePerTeam = Math.max(1, ...teams.map((tm) => tm.members.length));
   const fillSampleTeams = () => {
     const next = Array.from({ length: sampleCount }, (_, i) => ({
       name: isFixed ? "" : `Team ${i + 1}`,
@@ -335,6 +355,43 @@ export function SetupPanel({ t }: { t: Tournament }) {
               ? "Two players per pair — partners stay together all event."
               : "Name each team, then add its players (2+ each)."}
           </p>
+          {isTeams && (
+            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-[var(--subtle)] px-3 py-2 text-sm">
+              <label className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Teams</span>
+                <input
+                  type="number"
+                  min={2}
+                  max={32}
+                  value={shapeTeams}
+                  onChange={(e) => {
+                    const n = Math.max(2, Math.min(32, Math.round(Number(e.target.value) || 0)));
+                    if (n) applyShape(n, shapePerTeam);
+                  }}
+                  aria-label="Number of teams"
+                  className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                />
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">Players per team</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={shapePerTeam}
+                  onChange={(e) => {
+                    const n = Math.max(1, Math.min(12, Math.round(Number(e.target.value) || 0)));
+                    if (n) applyShape(shapeTeams, n);
+                  }}
+                  aria-label="Players per team"
+                  className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                />
+              </label>
+              <span className="text-xs text-[var(--muted)]">
+                Shrinking never removes anyone you&apos;ve typed.
+              </span>
+            </div>
+          )}
           <div className="space-y-3">
             {teams.map((tm, ti) => (
               <div key={ti} className="rounded-xl border border-[var(--border)] p-3">
