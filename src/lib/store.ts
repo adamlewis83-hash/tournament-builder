@@ -451,9 +451,18 @@ export const useStore = create<State>()(
           })
           .catch(() => {});
       };
+      /** Structure changed — sessions added, removed, re-ordered, rebuilt. The whole
+       *  tournament has to go, scorecards included, because the matches themselves moved. */
       const pushReplace = (id: string) => {
         const t = get().tournaments.find((x) => x.id === id);
         if (t?.liveCode) pushPatch(id, { kind: "replace", data: { ...t } });
+      };
+      /** Only settings changed. Sends everything but the matches and the scorecards, so
+       *  a host adjusting the scoring or the scorekeepers can't wipe a card a teammate is
+       *  filling in on another phone. */
+      const pushSettings = (id: string) => {
+        const t = get().tournaments.find((x) => x.id === id);
+        if (t?.liveCode) pushPatch(id, { kind: "settings", data: { ...t } });
       };
       // Spectators (joined via live code) are read-only unless the host granted them as a
       // scorekeeper (matched by profile name). The host is never blocked.
@@ -670,6 +679,10 @@ export const useStore = create<State>()(
             t.id === id ? { ...t, ...patch, updatedAt: Date.now() } : t,
           ),
         }));
+        // This never pushed at all, so everything routed through it stayed on one
+        // phone: the cup's Vegas house rules, the golf scoring view, the name at the
+        // top. A settings push, so it still can't tread on anyone's scorecard.
+        pushSettings(id);
       },
 
       // Host-only: choose which players may keep score from their own device.
@@ -679,7 +692,7 @@ export const useStore = create<State>()(
             t.id === id && !t.spectator ? { ...t, scorers: names, updatedAt: Date.now() } : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       // Start/pause/reset one match's game clock — synced so every viewer sees the same countdown.
@@ -980,7 +993,10 @@ export const useStore = create<State>()(
             return { ...tWith, matches, updatedAt: Date.now() };
           }),
         }));
-        pushReplace(id);
+        // Send the one hole, not the whole tournament. A "replace" here overwrote the
+        // server with this phone's copy, so two people scoring different matches at
+        // once each wiped the other's card — which read as live scoring not syncing.
+        pushPatch(id, { kind: "ryderScore", matchId, key, hole, strokes: value });
       },
 
       // Trim the cup back to its first `keep` sessions, leaving those matches — and the
@@ -1093,7 +1109,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setRyderScoring: (id, scoring) => {
@@ -1106,7 +1122,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       // Which way a session is read off the scorecard. Purely interpretive — no hole
@@ -1126,7 +1142,7 @@ export const useStore = create<State>()(
             return { ...tWith, matches, updatedAt: Date.now() };
           }),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       /** Drop a session — see `removeRyderRoundFrom` for what goes with it. */
@@ -1152,7 +1168,7 @@ export const useStore = create<State>()(
             return { ...t, ryderGolf: { ...t.ryderGolf, sessionCourses }, updatedAt: Date.now() };
           }),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setGolfPlayers: (id, input) => {
@@ -1228,7 +1244,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setParticipantColor: (id, participantId, color) => {
@@ -1247,7 +1263,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setGolfHandicap: (id, participantId, handicap) => {
@@ -1265,7 +1281,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setGolfTee: (id, participantId, tee) => {
@@ -1283,7 +1299,7 @@ export const useStore = create<State>()(
               : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setGolfTees: (id, tees) => {
@@ -1293,7 +1309,7 @@ export const useStore = create<State>()(
             t.id === id && t.golf ? { ...t, golf: { ...t.golf, tees }, updatedAt: Date.now() } : t,
           ),
         }));
-        pushReplace(id);
+        pushSettings(id);
       },
 
       setGolfScore: (id, participantId, hole, strokes) => {
