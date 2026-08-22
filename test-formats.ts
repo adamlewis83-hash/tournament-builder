@@ -45,6 +45,7 @@ import {
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
 import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
+import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import {
   formatsForSport,
@@ -1467,6 +1468,89 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
     // Eight players is four a side, so two pairs per team meeting in two matches.
     assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
+// ---- Live sync: two phones scoring at once ---------------------------------
+// Cup hole scores had no mergeable patch, so every entry pushed a whole-tournament
+// "replace" — one phone's copy, seconds stale, overwriting the server. Two people
+// scoring different matches each wiped the other, which is what "live scoring isn't
+// syncing" and "the scorekeeper doesn't work" both looked like.
+{
+  const liveCup = (): Tournament => {
+    // Scratch players: this block is about sync, and handicap strokes would otherwise
+    // decide the holes (over a 1-hole card a 2 handicap gets two shots on it).
+    const P = players(4, true).map((p) => ({ ...p, handicap: 0 }));
+    const mk = (id: string, order: number): Match => ({
+      id, phase: "ryder", round: 1, order, label: "Fourball",
+      sideA: [P[0].id], sideB: [P[2].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P, matches: [mk("m1", 0), mk("m2", 1)],
+      config: cfg({ teamNames: ["Red", "Blue"] }),
+    }) as Tournament;
+    t.liveCode = "ABCD";
+    t.ryderGolf = { holes: 9, pars: Array(9).fill(4), strokeIndex: [1,2,3,4,5,6,7,8,9], scores: {} };
+    return t;
+  };
+  const holesOn = (t: Tournament, mid: string) =>
+    Object.values(t.ryderGolf?.scores[mid] ?? {}).reduce(
+      (n, card) => n + card.filter((v) => v != null).length, 0);
+
+  check("live sync — two phones scoring different matches both survive", () => {
+    let server = liveCup();
+    // Each phone sends only the hole it typed.
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: "p0", hole: 0, strokes: 4 });
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m2", key: "p0", hole: 0, strokes: 5 });
+    assert(holesOn(server, "m1") === 1, "the first phone's hole was lost");
+    assert(holesOn(server, "m2") === 1, "the second phone's hole was lost");
+  });
+
+  check("live sync — a whole-tournament replace still clobbers, which is why it isn't used for scores", () => {
+    let server = liveCup();
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: "p0", hole: 0, strokes: 4 });
+    // A phone that fetched before that hole was entered, pushing its stale copy.
+    const stale = liveCup();
+    const clobbered = applyPatch(server, { kind: "replace", data: stale });
+    assert(holesOn(clobbered, "m1") === 0, "replace no longer overwrites — the test's premise is stale");
+  });
+
+  check("live sync — a host changing settings can't wipe a card being filled in", () => {
+    let server = liveCup();
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: "p0", hole: 0, strokes: 4 });
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: "p0", hole: 1, strokes: 5 });
+    // The host's copy predates both holes, and they tap a setting.
+    const hostCopy = liveCup();
+    hostCopy.scorers = ["Dave"];
+    hostCopy.config = { ...hostCopy.config, ryderScoring: "session" };
+    const after = applyPatch(server, { kind: "settings", data: hostCopy });
+    assert(holesOn(after, "m1") === 2, `the card lost holes (${holesOn(after, "m1")} of 2 left)`);
+    assert(after.scorers?.join() === "Dave", "the scorekeeper list did not arrive");
+    assert(after.config.ryderScoring === "session", "the setting did not arrive");
+  });
+
+  check("live sync — a settings push carries the cup's house rules and per-session cards", () => {
+    let server = liveCup();
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m2", key: "p0", hole: 3, strokes: 6 });
+    const hostCopy = liveCup();
+    hostCopy.config = { ...hostCopy.config, vegasRules: { ...VEGAS_BASIC, flipOn: "birdie" } };
+    hostCopy.ryderGolf!.sessionMethods = { 1: "stroke" };
+    const after = applyPatch(server, { kind: "settings", data: hostCopy });
+    assert(after.config.vegasRules?.flipOn === "birdie", "house rules did not sync");
+    assert(after.ryderGolf!.sessionMethods![1] === "stroke", "the session's scoring method did not sync");
+    assert(holesOn(after, "m2") === 1, "the settings push trod on a scorecard");
+  });
+
+  check("live sync — a merged hole re-derives the match result server-side", () => {
+    let server = liveCup();
+    server.ryderGolf!.holes = 1;
+    server.ryderGolf!.pars = [4];
+    server.ryderGolf!.strokeIndex = [1];
+    const P = server.participants;
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: P[0].id, hole: 0, strokes: 3 });
+    server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: P[2].id, hole: 0, strokes: 5 });
+    const m = server.matches.find((x) => x.id === "m1")!;
+    assert(m.scoreA === 1 && m.scoreB === 0, `result ${m.scoreA}/${m.scoreB}, want 1/0 to side A`);
   });
 }
 
