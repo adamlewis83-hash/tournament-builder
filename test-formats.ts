@@ -9,11 +9,19 @@ import {
   matchWeights,
   pointsOnTheLine,
   reorderRyderRounds,
+  TEAM_SESSION_TYPES,
   ryderScore,
   RyderScoring,
   RyderSessionType,
+  RYDER_SESSION_BLURBS,
 } from "./src/lib/ryder";
-import { matchOutcome, methodForMatch, methodIsChoosable } from "./src/lib/ryderGolf";
+import {
+  entitiesForMatch,
+  holeNets,
+  matchOutcome,
+  methodForMatch,
+  methodIsChoosable,
+} from "./src/lib/ryderGolf";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
@@ -1377,6 +1385,54 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
       ],
     }) as Tournament;
     assert(scoreCount(live) === 0, "a game still being scored counted as a saved result");
+  });
+}
+
+// ---- Alt Shot is Foursomes under its plain-English name ---------------------
+// Same game, two names — mirroring Best Ball / Fourball, which the cup already
+// offers both ways. So it has to behave identically, not merely look similar.
+{
+  const P = players(4, true);
+  const cupWith = (label: string) => {
+    const ms = genRyderSession(P, label as RyderSessionType, 1);
+    const t = tour({ format: "ryder", participants: P, matches: ms, config: cfg() }) as Tournament;
+    t.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      // One ball per side: the card is keyed "A"/"B", not per player.
+      scores: { [ms[0].id]: { A: [4, 4], B: [5, 5] } },
+    };
+    return { t, m: ms[0] };
+  };
+
+  check("alt shot — pairs up 2v2 like Foursomes, not as a whole team", () => {
+    const ms = genRyderSession(P, "Alt Shot", 1);
+    assert(ms.length === 1, `${ms.length} matches for 4 players`);
+    assert(ms[0].sideA.length === 2 && ms[0].sideB.length === 2, "Alt Shot was not 2v2");
+    assert(!TEAM_SESSION_TYPES.includes("Alt Shot" as RyderSessionType), "Alt Shot listed as a whole-team game");
+  });
+
+  check("alt shot — one shared ball per side, like Foursomes", () => {
+    const alt = entitiesForMatch(cupWith("Alt Shot").m);
+    const four = entitiesForMatch(cupWith("Foursomes").m);
+    assert(alt.length === 2, `${alt.length} score columns — should be one per side`);
+    assert(
+      alt.map((e) => e.key).join() === four.map((e) => e.key).join(),
+      "Alt Shot's score entry differs from Foursomes'",
+    );
+  });
+
+  check("alt shot — scores the same hole the same way Foursomes does", () => {
+    const a = cupWith("Alt Shot");
+    const f = cupWith("Foursomes");
+    const an = holeNets(a.t, a.m, 0)!;
+    const fn = holeNets(f.t, f.m, 0)!;
+    assert(an.netA === fn.netA && an.netB === fn.netB, `${an.netA}/${an.netB} vs ${fn.netA}/${fn.netB}`);
+    assert(matchOutcome(a.t, a.m).text === matchOutcome(f.t, f.m).text, "results read differently");
+  });
+
+  check("alt shot — has its rules written, and can be re-scored", () => {
+    assert(!!RYDER_SESSION_BLURBS["Alt Shot" as RyderSessionType], "Alt Shot has no rules blurb");
+    assert(methodIsChoosable("Alt Shot"), "Alt Shot should offer match/stroke/Stableford");
   });
 }
 

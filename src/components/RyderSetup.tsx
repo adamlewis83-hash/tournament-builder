@@ -574,6 +574,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
             [
               "Fourball",
               "Foursomes",
+              "Alt Shot",
               "Best Ball",
               "Shamble",
               "Scramble",

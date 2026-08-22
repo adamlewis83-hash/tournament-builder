@@ -153,7 +153,7 @@ function RyderMatchCard({
           <p className="text-[10px] text-[var(--muted)] mt-1.5">
             <span className="inline-block h-1 w-1 rounded-full bg-amber-400 align-middle" /> = a handicap
             stroke on that hole · net result per hole
-            {m.label === "Foursomes" || m.label === "Team Alt Shot"
+            {m.label === "Foursomes" || m.label === "Alt Shot" || m.label === "Team Alt Shot"
               ? " · partners share one ball, alternating shots"
               : m.label === "Scramble" || m.label === "Team Scramble"
                 ? " · everyone hits, team plays the best shot — one team score"
@@ -584,7 +584,15 @@ export function RyderView({ t }: { t: Tournament }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {(
-                ["Fourball", "Foursomes", "Best Ball", "Shamble", "Scramble", "Vegas"] as RyderSessionType[]
+                [
+                  "Fourball",
+                  "Foursomes",
+                  "Alt Shot",
+                  "Best Ball",
+                  "Shamble",
+                  "Scramble",
+                  "Vegas",
+                ] as RyderSessionType[]
               ).map((ty) => (
                 <Button
                   key={ty}

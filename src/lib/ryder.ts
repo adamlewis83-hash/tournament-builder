@@ -65,6 +65,7 @@ export function genRyder(participants: Participant[], sessions: RyderSessions): 
 
 export type RyderSessionType =
   | "Foursomes"
+  | "Alt Shot"
   | "Fourball"
   | "Best Ball"
   | "Shamble"
@@ -87,6 +88,8 @@ export const RYDER_SESSION_BLURBS: Record<RyderSessionType, string> = {
     "Alternate shot, 2v2 — partners share one ball and take turns hitting it. One team score per hole, net match play.",
   Fourball:
     "Best ball, 2v2 — everyone plays their own ball; each pair counts its best net score per hole.",
+  "Alt Shot":
+    "Partners share one ball, taking turns hitting it — one team score per hole (same game as Foursomes).",
   "Best Ball":
     "Everyone plays their own ball; the pair's best net score counts each hole (same game as Fourball).",
   Shamble:
