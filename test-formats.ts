@@ -17,7 +17,9 @@ import {
   RYDER_SESSION_BLURBS,
 } from "./src/lib/ryder";
 import {
+  cupVegasRules,
   entitiesForMatch,
+  roundPoints,
   holeNets,
   matchOutcome,
   methodForMatch,
@@ -60,6 +62,7 @@ import {
   Format,
   ALL_FORMATS,
   playStylesForFormat,
+  CUP_VEGAS_DEFAULTS,
   VEGAS_BASIC,
   VEGAS_DEFAULTS,
 } from "./src/lib/types";
@@ -991,6 +994,7 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     t.matches[0].sideA = ["a1", "a2"];
     t.matches[0].sideB = ["b1", "b2"];
     t.ryderGolf!.scores = { s1: { a1: [3], a2: [5], b1: [4], b2: [6] } };
+    t.config.vegasRules = { ...VEGAS_BASIC, flipOn: "off" };
     const plain = matchOutcome(t, t.matches[0]);
     assert(plain.marginA === 11 && plain.marginB === 0, `plain ${plain.marginA}–${plain.marginB}, want 11–0`);
     t.config.vegasRules = { ...VEGAS_BASIC, flipOn: "birdie" };
@@ -1468,6 +1472,147 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
     // Eight players is four a side, so two pairs per team meeting in two matches.
     assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
+// ---- A cup's Vegas session flips by default --------------------------------
+// The flip is the game: a birdie turning the other pair's number around is the point
+// of Vegas. A cup session used to default to "no flips", so the headline rule was off
+// unless the host found the 🎰 card.
+{
+  const cupVegas = (rules?: Partial<typeof CUP_VEGAS_DEFAULTS>) => {
+    const P: Participant[] = ["A1", "A2", "B1", "B2"].map((n, i) => ({
+      id: `v${i}`, name: n, team: (i < 2 ? 0 : 1) as 0 | 1, handicap: 0,
+    }));
+    const m: Match = {
+      id: "m1", phase: "ryder", round: 1, order: 0, label: "Vegas",
+      sideA: ["v0", "v1"], sideB: ["v2", "v3"], scoreA: null, scoreB: null,
+    };
+    const t = tour({
+      format: "ryder", participants: P, matches: [m],
+      config: cfg(rules ? { vegasRules: { ...CUP_VEGAS_DEFAULTS, ...rules } } : {}),
+    }) as Tournament;
+    // Par 4. A: 3 + 5 (a birdie) = 35. B: 4 + 6 = 46, which a flip turns into 64.
+    t.ryderGolf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { m1: { v0: [3], v1: [5], v2: [4], v3: [6] } },
+    };
+    return { t, m };
+  };
+
+  check("cup vegas — a birdie flips the other pair with no house rules set", () => {
+    const { t, m } = cupVegas();
+    assert(cupVegasRules(t).flipOn === "birdie", `default flip is ${cupVegasRules(t).flipOn}`);
+    const n = holeNets(t, m, 0)!;
+    assert(n.netA === 35 && n.netB === 64, `${n.netA} v ${n.netB}, want 35 v 64`);
+  });
+
+  check("cup vegas — balls stay gross by default", () => {
+    assert(!cupVegasRules(cupVegas().t).net, "the cup default went to net balls");
+  });
+
+  check("cup vegas — a host who turns flips off keeps them off", () => {
+    const { t, m } = cupVegas({ flipOn: "off" });
+    assert(cupVegasRules(t).flipOn === "off", "an explicit off was overridden by the default");
+    const n = holeNets(t, m, 0)!;
+    assert(n.netB === 46, `flip applied while explicitly off (${n.netB})`);
+  });
+
+  check("cup vegas — presses and money never reach cup points", () => {
+    const r = cupVegasRules(cupVegas().t);
+    assert(r.pressAt === 0 && r.pressValue === 0, "the cup default carries a press bet");
+  });
+}
+
+// ---- Points per session, per session ---------------------------------------
+// A day can escalate: a 2-point Fourball, a 4-point Scramble, Singles worth 8.
+{
+  const threeSessions = () => {
+    const P = players(4, true);
+    const mk = (round: number, label: string, id: string): Match => ({
+      id, phase: "ryder", round, order: 0, label,
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: 1, scoreB: 0,
+    });
+    const t = tour({
+      format: "ryder", participants: P,
+      matches: [mk(1, "Fourball", "s1"), mk(2, "Scramble", "s2"), mk(3, "Singles", "s3")],
+      config: cfg(),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes: 1, pars: [4], strokeIndex: [1], scores: {},
+      sessionPoints: { 1: 2, 2: 4, 3: 8 },
+    };
+    return t;
+  };
+  const points = (t: Tournament) => roundPoints(t);
+
+  check("session points — each session pays its own number", () => {
+    const t = threeSessions();
+    for (const [round, want] of [[1, 2], [2, 4], [3, 8]] as const)
+      assert(
+        pointsOnTheLine(t.matches, round, "match", 1, undefined, undefined, points(t)) === want,
+        `round ${round} paid ${pointsOnTheLine(t.matches, round, "match", 1, undefined, undefined, points(t))}, want ${want}`,
+      );
+    // A sweep of all three is worth 2 + 4 + 8.
+    const sc = ryderScore(t.matches, "match", 1, undefined, undefined, points(t));
+    assert(sc.a === 14 && sc.b === 0, `${sc.a}–${sc.b}, want 14–0`);
+    assert(sc.total === 14, `total ${sc.total}, want 14`);
+  });
+
+  check("session points — a session's number splits across its matches", () => {
+    const P = players(8, true);
+    const ms = genRyderSession(P, "Fourball", 1); // four a side → two matches
+    const t = tour({ format: "ryder", participants: P, matches: ms, config: cfg() }) as Tournament;
+    t.ryderGolf = { holes: 1, pars: [4], strokeIndex: [1], scores: {}, sessionPoints: { 1: 4 } };
+    const w = matchWeights(ms, "match", 1, undefined, undefined, roundPoints(t));
+    assert(ms.length === 2, `expected two matches, got ${ms.length}`);
+    assert([...w.values()].every((v) => v === 2), `weights ${[...w.values()].join()}, want 2 each`);
+  });
+
+  check("session points — most specific wins: session, then cup, then preset", () => {
+    const t = threeSessions();
+    delete t.ryderGolf!.sessionPoints![2]; // round 2 falls back
+    const withCup = ryderScore(t.matches, "match", 1, undefined, 3, points(t));
+    // 2 (own) + 3 (cup-wide) + 8 (own) = 13.
+    assert(withCup.total === 13, `total ${withCup.total}, want 13`);
+    const noCup = ryderScore(t.matches, "match", 1, undefined, undefined, points(t));
+    // 2 + 1 (the "1 point per match" preset, one match) + 8 = 11.
+    assert(noCup.total === 11, `total ${noCup.total}, want 11`);
+  });
+
+  check("session points — junk and zero fall through rather than zeroing a session", () => {
+    const t = threeSessions();
+    for (const bad of [0, -3, NaN]) {
+      t.ryderGolf!.sessionPoints![2] = bad;
+      const sc = ryderScore(t.matches, "match", 1, undefined, undefined, points(t));
+      assert(sc.total === 11, `${bad} gave total ${sc.total}, want 11 (fell back to the preset)`);
+    }
+  });
+
+  check("session points — follow their session when it is moved", () => {
+    const moved = reorderRyderRounds(threeSessions(), 2, 0); // Singles (8 pts) to the front
+    const roundOf = (label: string) => moved.matches.find((m) => m.label === label)!.round;
+    const p = moved.ryderGolf!.sessionPoints!;
+    assert(p[roundOf("Singles")] === 8, `Singles is worth ${p[roundOf("Singles")]}, want 8`);
+    assert(p[roundOf("Fourball")] === 2, `Fourball is worth ${p[roundOf("Fourball")]}, want 2`);
+    assert(p[roundOf("Scramble")] === 4, `Scramble is worth ${p[roundOf("Scramble")]}, want 4`);
+    // And the cup is worth the same however it is ordered.
+    const before = ryderScore(threeSessions().matches, "match", 1, undefined, undefined, points(threeSessions()));
+    const after = ryderScore(moved.matches, "match", 1, undefined, undefined, points(moved));
+    assert(before.total === after.total, `total changed with the order: ${before.total} → ${after.total}`);
+  });
+
+  check("session points — go with a removed session, and aren't inherited", () => {
+    const t = removeRyderRoundFrom(threeSessions(), 2); // drop the 4-point Scramble
+    assert(t.ryderGolf!.sessionPoints![2] === undefined, "the removed session's points stayed");
+    const sc = ryderScore(t.matches, "match", 1, undefined, undefined, roundPoints(t));
+    assert(sc.total === 10, `total ${sc.total}, want 10 (2 + 8)`);
+    // Now pull the last session to the front: nothing may pick up the dropped 4.
+    const moved = reorderRyderRounds(t, 1, 0);
+    assert(
+      !Object.values(moved.ryderGolf!.sessionPoints!).includes(4),
+      "a re-order inherited the removed session's points",
+    );
   });
 }
 

@@ -1,4 +1,11 @@
-import { Match, Participant, RyderMethod, Tournament, VEGAS_BASIC, VegasRules } from "./types";
+import {
+  CUP_VEGAS_DEFAULTS,
+  Match,
+  Participant,
+  RyderMethod,
+  Tournament,
+  VegasRules,
+} from "./types";
 import { holeStrokes, vegasNumber } from "./golf";
 import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
@@ -66,11 +73,11 @@ export function entityStrokes(t: Tournament, m: Match, key: string, h: number): 
   return holeStrokes(hcpOf(t.participants, key), si, card.holes);
 }
 
-/** The cup's Vegas house rules: plain game unless the host changed them.
- *  Only `net` and `flipOn` apply here — presses and money are side bets that
- *  belong to the standalone Vegas game, never to cup points. */
+/** The cup's Vegas house rules. Only `net` and `flipOn` apply here — presses and
+ *  money are side bets that belong to the standalone Vegas game, never to cup points.
+ *  A host's saved choice always wins over the default, including an explicit "off". */
 export function cupVegasRules(t: Tournament): VegasRules {
-  return { ...VEGAS_BASIC, ...(t.config.vegasRules ?? {}) };
+  return { ...CUP_VEGAS_DEFAULTS, ...(t.config.vegasRules ?? {}) };
 }
 
 /**
@@ -281,6 +288,10 @@ export function matchOutcome(t: Tournament, m: Match): MatchOutcome {
   return { method, thru, holes, decided, a, b: 1 - a, marginA: valA, marginB: valB, text };
 }
 
+/** Points a given session is worth, when it has been given its own number. */
+export const roundPoints = (t: Tournament) => (round: number) =>
+  t.ryderGolf?.sessionPoints?.[round];
+
 /** Holes a given session plays — its own card if it has one, else the cup's. */
 export const roundHoles = (t: Tournament) => (round: number) =>
   sessionCard(t, round)?.holes ?? t.ryderGolf?.holes ?? 18;
@@ -293,6 +304,7 @@ export function cupScore(t: Tournament): RyderScore {
     t.ryderGolf?.holes,
     roundHoles(t),
     t.config.ryderPointsPerSession,
+    roundPoints(t),
   );
 }
 
@@ -304,5 +316,6 @@ export function cupWeights(t: Tournament): Map<string, number> {
     t.ryderGolf?.holes,
     roundHoles(t),
     t.config.ryderPointsPerSession,
+    roundPoints(t),
   );
 }

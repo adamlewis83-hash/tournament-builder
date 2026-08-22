@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Match, Participant, RYDER_METHOD_LABELS, RyderMethod, Tournament } from "@/lib/types";
 import {
   CUP_SCORING_LABELS,
+  pointsOnTheLine,
   RYDER_SESSION_BLURBS,
   RyderScoring,
   RyderSessionType,
@@ -19,6 +20,8 @@ import {
   holeNets,
   matchOutcome,
   methodForMatch,
+  roundHoles,
+  roundPoints,
   methodIsChoosable,
   sessionCard,
 } from "@/lib/ryderGolf";
@@ -193,6 +196,57 @@ const PAIR_SESSIONS: RyderSessionType[] = [
 /** Change which game a session plays. Sides differ between games — one 4v4 match
  *  versus two 2v2 ones — so this rebuilds the session, taking its scorecards with it.
  *  Anything already entered is spelled out before it goes. */
+/** What this session is worth. Blank means it follows the cup — set a number and
+ *  this session alone is worth it, so a day can escalate: a 2-point Fourball, a
+ *  4-point Scramble, Singles for 8. */
+function SessionPointsControl({ t, round }: { t: Tournament; round: number }) {
+  const setPoints = useStore((s) => s.setRyderSessionPoints);
+  const own = t.ryderGolf?.sessionPoints?.[round];
+  const [draft, setDraft] = useState(own != null ? String(own) : "");
+  const matches = t.matches.filter((m) => m.phase === "ryder" && m.round === round).length;
+  const onTheLine = pointsOnTheLine(
+    t.matches,
+    round,
+    t.config.ryderScoring,
+    t.ryderGolf?.holes,
+    roundHoles(t),
+    t.config.ryderPointsPerSession,
+    roundPoints(t),
+  );
+  const num = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(3).replace(/\.?0+$/, ""));
+
+  const commit = (raw: string) => {
+    const v = parseFloat(raw);
+    setPoints(t.id, round, Number.isFinite(v) && v > 0 ? v : undefined);
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        inputMode="decimal"
+        value={draft}
+        placeholder={num(onTheLine)}
+        aria-label="Points this session is worth"
+        title={
+          own != null
+            ? `This session is worth ${num(own)} point${own === 1 ? "" : "s"}, split across its ${matches} match${matches === 1 ? "" : "es"}`
+            : `Following the cup — ${num(onTheLine)} on the line here. Type a number to make this session worth its own.`
+        }
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && commit((e.target as HTMLInputElement).value)}
+        className={`w-14 rounded-lg border bg-[var(--surface)] px-1.5 py-1 text-center text-xs tabular-nums outline-none focus:border-[var(--brand)] ${
+          own != null ? "border-[var(--brand)] font-semibold" : "border-[var(--border)]"
+        }`}
+      />
+      <span className="text-[10px] text-[var(--muted)]">pts</span>
+    </span>
+  );
+}
+
 function SessionGameControl({ t, round }: { t: Tournament; round: number }) {
   const setType = useStore((s) => s.setRyderSessionType);
   const ms = t.matches.filter((m) => m.phase === "ryder" && m.round === round);
@@ -774,6 +828,18 @@ export function RyderView({ t }: { t: Tournament }) {
                   </span>
                 )}
                 {!noEdit && <SessionGameControl t={t} round={round} />}
+                {!noEdit && (
+                  // Keyed by the stored value as well as the round. The box holds a
+                  // draft while you type, and re-ordering renumbers sessions back onto
+                  // the same round numbers — so without this React reuses the component
+                  // and the box goes on showing the points of whichever session used to
+                  // sit in that position.
+                  <SessionPointsControl
+                    key={`pts-${round}-${t.ryderGolf?.sessionPoints?.[round] ?? ""}`}
+                    t={t}
+                    round={round}
+                  />
+                )}
                 {!noEdit && <SessionMethodControl t={t} round={round} />}
                 {!noEdit && <SessionCourseControl t={t} round={round} />}
                 {/* Removing a session lived behind "Set pairings", which is not where

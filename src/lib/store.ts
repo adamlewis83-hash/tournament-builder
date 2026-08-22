@@ -155,6 +155,7 @@ interface State {
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderPointsPerSession: (id: string, points: number | undefined) => void;
   setRyderSessionMethod: (id: string, round: number, method: RyderMethod) => void;
+  setRyderSessionPoints: (id: string, round: number, points: number | undefined) => void;
   setRyderSessionCourse: (
     id: string,
     round: number,
@@ -1157,6 +1158,25 @@ export const useStore = create<State>()(
       },
 
       // Multi-course cups: assign (or clear) the course card one session plays on.
+      /** Points on the line for one session, overriding the cup-wide number. Clearing
+       *  it (undefined) hands the session back to whatever the cup says. */
+      setRyderSessionPoints: (id, round, points) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || t.spectator || !t.ryderGolf) return t;
+            const next = { ...(t.ryderGolf.sessionPoints ?? {}) };
+            if (points != null && Number.isFinite(points) && points > 0) next[round] = points;
+            else delete next[round];
+            return {
+              ...t,
+              ryderGolf: { ...t.ryderGolf, sessionPoints: next },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushSettings(id);
+      },
+
       setRyderSessionCourse: (id, round, card) => {
         if (blocked(id)) return;
         set((s) => ({
