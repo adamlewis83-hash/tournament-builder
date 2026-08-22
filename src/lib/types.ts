@@ -313,6 +313,10 @@ export interface RyderGolf {
   // classic cup default. Vegas and Team Stableford ignore this: their comparison is
   // the game itself, so there is nothing to re-score.
   sessionMethods?: Record<number, RyderMethod>;
+  // Points on the line in a given session, overriding the cup-wide number and the
+  // preset. Lets a day escalate — a 2-point Fourball, a 4-point Scramble, then
+  // Singles worth 8 — instead of every session being worth the same.
+  sessionPoints?: Record<number, number>;
 }
 
 // How a session's winner is worked out from the same scorecard:

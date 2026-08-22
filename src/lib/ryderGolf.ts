@@ -288,6 +288,10 @@ export function matchOutcome(t: Tournament, m: Match): MatchOutcome {
   return { method, thru, holes, decided, a, b: 1 - a, marginA: valA, marginB: valB, text };
 }
 
+/** Points a given session is worth, when it has been given its own number. */
+export const roundPoints = (t: Tournament) => (round: number) =>
+  t.ryderGolf?.sessionPoints?.[round];
+
 /** Holes a given session plays — its own card if it has one, else the cup's. */
 export const roundHoles = (t: Tournament) => (round: number) =>
   sessionCard(t, round)?.holes ?? t.ryderGolf?.holes ?? 18;
@@ -300,6 +304,7 @@ export function cupScore(t: Tournament): RyderScore {
     t.ryderGolf?.holes,
     roundHoles(t),
     t.config.ryderPointsPerSession,
+    roundPoints(t),
   );
 }
 
@@ -311,5 +316,6 @@ export function cupWeights(t: Tournament): Map<string, number> {
     t.ryderGolf?.holes,
     roundHoles(t),
     t.config.ryderPointsPerSession,
+    roundPoints(t),
   );
 }

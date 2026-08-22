@@ -204,22 +204,24 @@ export function matchWeights(
   sessionHoles = 18,
   holesOfRound?: (round: number) => number,
   pointsPerSession?: number,
+  pointsOfRound?: (round: number) => number | undefined,
 ): Map<string, number> {
   const ryder = matches.filter((m) => m.phase === "ryder");
   const perRound = new Map<number, number>();
   for (const m of ryder) perRound.set(m.round, (perRound.get(m.round) ?? 0) + 1);
 
-  // An explicit points-per-session number is the whole rule: that many points are on
-  // the line each session, split evenly across its matches. The three presets are the
-  // same idea with the number derived instead of typed.
-  const typed =
-    pointsPerSession != null && Number.isFinite(pointsPerSession) && pointsPerSession > 0
-      ? pointsPerSession
-      : null;
+  // A points number is the whole rule: that many points are on the line for the
+  // session, split evenly across its matches. The three presets are the same idea
+  // with the number derived instead of typed. Most specific wins — this session's
+  // own number, then the cup-wide one, then the preset.
+  const usable = (n: number | undefined | null) =>
+    n != null && Number.isFinite(n) && n > 0 ? n : null;
+  const cupWide = usable(pointsPerSession);
 
   const out = new Map<string, number>();
   for (const m of ryder) {
     const n = perRound.get(m.round) ?? 1;
+    const typed = usable(pointsOfRound?.(m.round)) ?? cupWide;
     if (typed != null) {
       out.set(m.id, typed / n);
       continue;
@@ -248,8 +250,16 @@ export function pointsOnTheLine(
   sessionHoles = 18,
   holesOfRound?: (round: number) => number,
   pointsPerSession?: number,
+  pointsOfRound?: (round: number) => number | undefined,
 ): number {
-  const w = matchWeights(matches, scoring, sessionHoles, holesOfRound, pointsPerSession);
+  const w = matchWeights(
+    matches,
+    scoring,
+    sessionHoles,
+    holesOfRound,
+    pointsPerSession,
+    pointsOfRound,
+  );
   return matches
     .filter((m) => m.phase === "ryder" && m.round === round)
     .reduce((sum, m) => sum + (w.get(m.id) ?? 0), 0);
@@ -261,9 +271,17 @@ export function ryderScore(
   sessionHoles = 18,
   holesOfRound?: (round: number) => number,
   pointsPerSession?: number,
+  pointsOfRound?: (round: number) => number | undefined,
 ): RyderScore {
   const ryder = matches.filter((m) => m.phase === "ryder");
-  const weights = matchWeights(matches, scoring, sessionHoles, holesOfRound, pointsPerSession);
+  const weights = matchWeights(
+    matches,
+    scoring,
+    sessionHoles,
+    holesOfRound,
+    pointsPerSession,
+    pointsOfRound,
+  );
   const weightOf = (m: Match) => weights.get(m.id) ?? 0;
 
   let a = 0;
@@ -315,6 +333,37 @@ export function ryderProgramOf(matches: Match[]): string[] {
  * one session's course and scoring rules to another. Everything else about a session
  * is derived from the round number its matches carry.
  */
+/**
+ * The parts of a cup keyed by ROUND rather than by match id — the course card, the
+ * scoring method and the points on the line. Listed once, because every operation
+ * that moves or drops a session has to carry all of them: a session that keeps its
+ * matches but loses its course, or a removed session that leaves its points behind
+ * for whoever is renumbered into the slot, is the bug this list exists to prevent.
+ */
+function remapRoundKeyed(
+  g: NonNullable<Tournament["ryderGolf"]>,
+  move: (round: number) => number | undefined,
+): NonNullable<Tournament["ryderGolf"]> {
+  const remap = <V,>(rec: Record<number, V> | undefined) => {
+    if (!rec) return undefined;
+    const out: Record<number, V> = {};
+    for (const [k, v] of Object.entries(rec)) {
+      const next = move(Number(k));
+      if (next != null) out[next] = v;
+    }
+    return out;
+  };
+  const courses = remap(g.sessionCourses);
+  const methods = remap(g.sessionMethods);
+  const points = remap(g.sessionPoints);
+  return {
+    ...g,
+    ...(courses ? { sessionCourses: courses } : {}),
+    ...(methods ? { sessionMethods: methods } : {}),
+    ...(points ? { sessionPoints: points } : {}),
+  };
+}
+
 export function reorderRyderRounds(t: Tournament, from: number, to: number): Tournament {
   const rounds = Array.from(
     new Set(t.matches.filter((m) => m.phase === "ryder").map((m) => m.round)),
@@ -330,31 +379,11 @@ export function reorderRyderRounds(t: Tournament, from: number, to: number): Tou
   const matches = t.matches.map((m) =>
     m.phase === "ryder" ? { ...m, round: renumber.get(m.round) ?? m.round } : m,
   );
-  const remap = <V,>(rec: Record<number, V> | undefined) => {
-    if (!rec) return undefined;
-    const out: Record<number, V> = {};
-    for (const [k, v] of Object.entries(rec)) {
-      const next = renumber.get(Number(k));
-      if (next != null) out[next] = v;
-    }
-    return out;
-  };
-
   const g = t.ryderGolf;
-  const courses = remap(g?.sessionCourses);
-  const methods = remap(g?.sessionMethods);
   return {
     ...t,
     matches,
-    ...(g
-      ? {
-          ryderGolf: {
-            ...g,
-            ...(courses ? { sessionCourses: courses } : {}),
-            ...(methods ? { sessionMethods: methods } : {}),
-          },
-        }
-      : {}),
+    ...(g ? { ryderGolf: remapRoundKeyed(g, (r) => renumber.get(r)) } : {}),
     config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
     updatedAt: Date.now(),
   };
@@ -377,30 +406,18 @@ export function removeRyderRoundFrom(t: Tournament, round: number): Tournament {
   if (!dropped.size) return t;
   const matches = t.matches.filter((m) => !dropped.has(m.id));
   const g = t.ryderGolf;
-  const without = <V,>(rec: Record<number, V> | undefined) => {
-    if (!rec) return undefined;
-    const out = { ...rec };
-    delete out[round];
-    return out;
-  };
-  const scores = g
-    ? Object.fromEntries(Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)))
+  const trimmed = g
+    ? {
+        ...remapRoundKeyed(g, (r) => (r === round ? undefined : r)),
+        scores: Object.fromEntries(
+          Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)),
+        ),
+      }
     : undefined;
-  const courses = without(g?.sessionCourses);
-  const methods = without(g?.sessionMethods);
   return {
     ...t,
     matches,
-    ...(g && scores
-      ? {
-          ryderGolf: {
-            ...g,
-            scores,
-            ...(courses ? { sessionCourses: courses } : {}),
-            ...(methods ? { sessionMethods: methods } : {}),
-          },
-        }
-      : {}),
+    ...(trimmed ? { ryderGolf: trimmed } : {}),
     config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
     updatedAt: Date.now(),
   };
