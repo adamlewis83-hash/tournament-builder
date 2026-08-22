@@ -19,6 +19,7 @@ import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRoun
 import {
   genRyder,
   genRyderSession,
+  removeRyderRoundFrom,
   reorderRyderRounds,
   ryderProgramOf,
   RyderScoring,
@@ -1128,19 +1129,13 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
+      /** Drop a session — see `removeRyderRoundFrom` for what goes with it. */
       removeRyderRound: (id, round) => {
         if (blocked(id)) return;
         set((s) => ({
-          tournaments: s.tournaments.map((t) => {
-            if (t.id !== id) return t;
-            const matches = t.matches.filter((m) => m.round !== round);
-            return {
-              ...t,
-              matches,
-              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
-              updatedAt: Date.now(),
-            };
-          }),
+          tournaments: s.tournaments.map((t) =>
+            t.id === id ? removeRyderRoundFrom(t, round) : t,
+          ),
         }));
         pushReplace(id);
       },

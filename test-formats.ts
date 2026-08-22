@@ -8,6 +8,7 @@ import {
   genRyderSession,
   matchWeights,
   pointsOnTheLine,
+  removeRyderRoundFrom,
   reorderRyderRounds,
   TEAM_SESSION_TYPES,
   ryderScore,
@@ -1466,6 +1467,66 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
     // Eight players is four a side, so two pairs per team meeting in two matches.
     assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
+// ---- Removing a session ----------------------------------------------------
+// Everything a session owns has to go with it. The scorecards are keyed by match id
+// and the course card and scoring method by round, so leaving either behind meant
+// dead weight in storage — and a round-keyed pair waiting to be inherited by whoever
+// a later re-order renumbered into that slot.
+{
+  const cup = () => {
+    const P = players(4, true);
+    const mk = (round: number, label: string): Match => ({
+      id: `s${round}`, phase: "ryder", round, order: 0, label,
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P,
+      matches: [mk(1, "Fourball"), mk(2, "Foursomes"), mk(3, "Singles")],
+      config: cfg(),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { s1: { [P[0].id]: [4] }, s2: { [P[0].id]: [5] }, s3: { [P[0].id]: [6] } },
+      sessionMethods: { 1: "match", 2: "stroke", 3: "stableford" },
+      sessionCourses: { 2: { courseName: "Back nine", pars: [3], strokeIndex: [1] } },
+    };
+    return t;
+  };
+
+  check("remove session — takes its matches, card, course and method with it", () => {
+    const t = removeRyderRoundFrom(cup(), 2);
+    assert(!t.matches.some((m) => m.round === 2), "the session's matches survived");
+    assert(!t.ryderGolf!.scores.s2, "the removed session's scorecard was left behind");
+    assert(t.ryderGolf!.sessionMethods![2] === undefined, "its scoring method was left behind");
+    assert(t.ryderGolf!.sessionCourses![2] === undefined, "its course card was left behind");
+  });
+
+  check("remove session — leaves every other session untouched", () => {
+    const t = removeRyderRoundFrom(cup(), 2);
+    assert(Object.keys(t.ryderGolf!.scores).sort().join() === "s1,s3", "other cards were disturbed");
+    assert(t.ryderGolf!.sessionMethods![1] === "match", "session 1 lost its method");
+    assert(t.ryderGolf!.sessionMethods![3] === "stableford", "session 3 lost its method");
+    assert(t.config.ryderProgram!.join() === "Fourball,Singles", `program: ${t.config.ryderProgram}`);
+  });
+
+  check("remove session — a later re-order can't inherit the gap's leftovers", () => {
+    // Drop the middle session, then pull the last one to the front. Nothing should
+    // pick up the removed session's back-nine card or its stroke-play rule.
+    const t = reorderRyderRounds(removeRyderRoundFrom(cup(), 2), 1, 0);
+    const g = t.ryderGolf!;
+    assert(Object.keys(g.sessionCourses ?? {}).length === 0, "a stale course card was inherited");
+    const roundOf = (label: string) => t.matches.find((m) => m.label === label)!.round;
+    assert(g.sessionMethods![roundOf("Singles")] === "stableford", "Singles lost its method");
+    assert(g.sessionMethods![roundOf("Fourball")] === "match", "Fourball lost its method");
+    assert(!Object.values(g.sessionMethods!).includes("stroke"), "the dropped rule came back");
+  });
+
+  check("remove session — removing one that isn't there changes nothing", () => {
+    const before = cup();
+    assert(removeRyderRoundFrom(before, 9) === before, "a no-op removal rebuilt the cup");
   });
 }
 

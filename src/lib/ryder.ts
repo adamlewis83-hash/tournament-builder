@@ -359,3 +359,49 @@ export function reorderRyderRounds(t: Tournament, from: number, to: number): Tou
     updatedAt: Date.now(),
   };
 }
+
+
+/**
+ * Drop a session from the cup, taking everything that hung off it: the matches, the
+ * scorecards keyed to those match ids, and the course card and scoring method keyed
+ * to the round.
+ *
+ * Left behind, the cards accumulated in storage for the life of the cup, and the
+ * round-keyed pair sat waiting to be handed to whichever session a later re-order
+ * renumbered into that slot.
+ */
+export function removeRyderRoundFrom(t: Tournament, round: number): Tournament {
+  const dropped = new Set(
+    t.matches.filter((m) => m.phase === "ryder" && m.round === round).map((m) => m.id),
+  );
+  if (!dropped.size) return t;
+  const matches = t.matches.filter((m) => !dropped.has(m.id));
+  const g = t.ryderGolf;
+  const without = <V,>(rec: Record<number, V> | undefined) => {
+    if (!rec) return undefined;
+    const out = { ...rec };
+    delete out[round];
+    return out;
+  };
+  const scores = g
+    ? Object.fromEntries(Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)))
+    : undefined;
+  const courses = without(g?.sessionCourses);
+  const methods = without(g?.sessionMethods);
+  return {
+    ...t,
+    matches,
+    ...(g && scores
+      ? {
+          ryderGolf: {
+            ...g,
+            scores,
+            ...(courses ? { sessionCourses: courses } : {}),
+            ...(methods ? { sessionMethods: methods } : {}),
+          },
+        }
+      : {}),
+    config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+    updatedAt: Date.now(),
+  };
+}

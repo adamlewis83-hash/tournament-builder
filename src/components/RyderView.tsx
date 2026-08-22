@@ -776,17 +776,33 @@ export function RyderView({ t }: { t: Tournament }) {
                 {!noEdit && <SessionGameControl t={t} round={round} />}
                 {!noEdit && <SessionMethodControl t={t} round={round} />}
                 {!noEdit && <SessionCourseControl t={t} round={round} />}
+                {/* Removing a session lived behind "Set pairings", which is not where
+                    anyone looks for it. It belongs with the session's other controls. */}
+                {!noEdit && (
+                  <button
+                    aria-label={`Remove this ${label} session`}
+                    onClick={() => {
+                      const entered = ms.reduce(
+                        (n, m) =>
+                          n +
+                          Object.values(t.ryderGolf?.scores?.[m.id] ?? {}).reduce(
+                            (k, card) => k + card.filter((v) => v != null).length,
+                            0,
+                          ),
+                        0,
+                      );
+                      const cost = entered
+                        ? ` The ${entered} score${entered === 1 ? "" : "s"} on it will be lost.`
+                        : "";
+                      if (confirm(`Remove this ${label} session?${cost}`))
+                        removeRyderRound(t.id, round);
+                    }}
+                    className="px-1.5 text-xs text-[var(--muted)] hover:text-rose-400"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              {editing && !noEdit && (
-                <button
-                  onClick={() => {
-                    if (confirm(`Remove this ${label} session?`)) removeRyderRound(t.id, round);
-                  }}
-                  className="text-xs text-[var(--muted)] hover:text-rose-400"
-                >
-                  Remove
-                </button>
-              )}
             </div>
             {rulesFor === round && rules && (
               <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
