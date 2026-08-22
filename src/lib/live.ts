@@ -1,5 +1,6 @@
 import { Tournament } from "./types";
 import { propagateBracket } from "./bracket";
+import { matchOutcome } from "./ryderGolf";
 
 // A patch is a minimal, mergeable mutation applied server-side to the stored tournament.
 export type LivePatch =
@@ -7,6 +8,20 @@ export type LivePatch =
   // spectators. Omitted keeps the legacy "both scores = result in" meaning.
   | { kind: "matchScore"; matchId: string; a: number | null; b: number | null; final?: boolean }
   | { kind: "golfScore"; participantId: string; hole: number; strokes: number | null }
+  // One hole of one cup match. `key` is a participant id, or "A"/"B" for the shared
+  // ball of an alternate-shot or scramble session.
+  | {
+      kind: "ryderScore";
+      matchId: string;
+      key: string;
+      hole: number;
+      strokes: number | null;
+    }
+  // Settings only: everything about the tournament EXCEPT the matches and the
+  // scorecards. A host changing the scoring, the scorekeepers or a session's course
+  // mid-round used to send a full "replace" — their copy, seconds stale, overwriting
+  // whatever a teammate had just entered on another phone.
+  | { kind: "settings"; data: Tournament }
   | { kind: "replace"; data: Tournament };
 
 export interface LiveState {
@@ -21,6 +36,22 @@ export function applyPatch(data: Tournament, patch: LivePatch): Tournament {
 
   const next: Tournament = structuredClone(data);
 
+  if (patch.kind === "settings") {
+    // Keep the server's play — matches and every scorecard — and take the rest.
+    const play = {
+      matches: next.matches,
+      golfScores: next.golf?.scores,
+      ryderScores: next.ryderGolf?.scores,
+      challengeScores: next.scoreChallenge?.scores,
+    };
+    const merged: Tournament = { ...structuredClone(patch.data), matches: play.matches };
+    if (merged.golf && play.golfScores) merged.golf.scores = play.golfScores;
+    if (merged.ryderGolf && play.ryderScores) merged.ryderGolf.scores = play.ryderScores;
+    if (merged.scoreChallenge && play.challengeScores)
+      merged.scoreChallenge.scores = play.challengeScores;
+    return merged;
+  }
+
   if (patch.kind === "matchScore") {
     const m = next.matches.find((x) => x.id === patch.matchId);
     if (m) {
@@ -30,6 +61,27 @@ export function applyPatch(data: Tournament, patch: LivePatch): Tournament {
       else m.final = patch.final;
       // re-derive bracket advancement (no-op for non-bracket matches)
       next.matches = propagateBracket(next.matches);
+    }
+    return next;
+  }
+
+  if (patch.kind === "ryderScore" && next.ryderGolf) {
+    // Merge one hole into the stored card rather than replacing the tournament, so
+    // two phones scoring different matches at the same time both survive. This is why
+    // the kind exists: cup scoring used to push a whole-tournament "replace", and
+    // whichever phone saved last wiped the other's card.
+    const g = next.ryderGolf;
+    const card = { ...(g.scores[patch.matchId] ?? {}) };
+    const arr = [...(card[patch.key] ?? Array(g.holes).fill(null))];
+    arr[patch.hole] = patch.strokes;
+    card[patch.key] = arr;
+    g.scores[patch.matchId] = card;
+    // Re-derive the match result from the merged card, the same way the device does.
+    const m = next.matches.find((x) => x.id === patch.matchId);
+    if (m) {
+      const o = matchOutcome(next, m);
+      m.scoreA = o.decided ? o.a : null;
+      m.scoreB = o.decided ? o.b : null;
     }
     return next;
   }
