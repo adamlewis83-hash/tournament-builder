@@ -29,6 +29,7 @@ import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
 import { Confetti } from "./Confetti";
+import { CollapsibleCard } from "./CollapsibleCard";
 import { useReorder } from "@/hooks/useReorder";
 
 function RyderMatchCard({
@@ -686,22 +687,21 @@ export function RyderView({ t }: { t: Tournament }) {
       </Card>
 
       {!noEdit && (
-        <Card className="no-print p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm">
-              <span className="font-semibold">Add a session</span>
-              <span className="text-[var(--muted)]"> — build the next round as the cup unfolds.</span>
-            </div>
-            <label className="flex items-center gap-1.5 text-xs text-[var(--muted)] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={shuffle}
-                onChange={(e) => setShuffle(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[var(--brand)]"
-              />
-              🎲 Randomize pairings
-            </label>
-          </div>
+        <CollapsibleCard
+          id="ryder-add-session"
+          title="Add a session"
+          summary={`${rounds.length} on the program`}
+          defaultOpen={rounds.length === 0}
+        >
+          <label className="flex items-center gap-1.5 text-xs text-[var(--muted)] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={shuffle}
+              onChange={(e) => setShuffle(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[var(--brand)]"
+            />
+            🎲 Randomize pairings
+          </label>
           <div className="mt-3 space-y-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
               Pairs (2v2)
@@ -749,7 +749,7 @@ export function RyderView({ t }: { t: Tournament }) {
             or tick Randomize to auto-shuffle. Change the game and the pairings every session — a
             9-hole session per game works great for team days.
           </p>
-        </Card>
+        </CollapsibleCard>
       )}
 
       {!noEdit && rounds.length > 0 && (
@@ -912,7 +912,6 @@ export function RyderView({ t }: { t: Tournament }) {
 // game, never on the cup scoreboard. Applies to every Vegas session in the cup.
 function CupVegasRules({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
-  const [open, setOpen] = useState(false);
   const rules = cupVegasRules(t);
   const set = (part: Partial<typeof rules>) =>
     patch(t.id, { config: { ...t.config, vegasRules: { ...rules, ...part } } });
@@ -949,13 +948,8 @@ function CupVegasRules({ t }: { t: Tournament }) {
   );
 
   return (
-    <Card className="no-print p-4">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
-        <span className="text-sm font-semibold">🎰 Vegas house rules</span>
-        <span className="text-xs text-[var(--muted)]">{open ? "▾ Hide" : `▸ ${summary}`}</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-2.5">
+    <CollapsibleCard id="cup-vegas-rules" title="🎰 Vegas house rules" summary={summary}>
+      <div className="space-y-2.5">
           <div className="flex flex-wrap items-center gap-3">
             <span className="w-24 text-sm font-medium">Handicaps</span>
             <Pill
@@ -981,8 +975,7 @@ function CupVegasRules({ t }: { t: Tournament }) {
             session, re-scoring live from the entered holes. Presses &amp; money stay in the
             standalone Vegas game.
           </p>
-        </div>
-      )}
-    </Card>
+      </div>
+    </CollapsibleCard>
   );
 }

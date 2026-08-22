@@ -9,7 +9,7 @@ import { colorFor } from "@/lib/colors";
 import { Avatar } from "./Avatar";
 import { PhotoCropper } from "./PhotoCropper";
 import { AvatarStylePicker } from "./AvatarStylePicker";
-import { Card } from "./ui";
+import { CollapsibleCard } from "./CollapsibleCard";
 
 // Host tool: tap any player's avatar to add/replace a photo (it then shows instead
 // of initials everywhere — cards, standings, brackets). Collapsed by default so the
@@ -20,7 +20,6 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
   const setHandicap = useStore((s) => s.setGolfHandicap);
   const setTee = useStore((s) => s.setGolfTee);
   const setCourseTees = useStore((s) => s.setGolfTees);
-  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<{ pid: string; file: File } | null>(null);
   const [choosing, setChoosing] = useState<string | null>(null); // participant id
   const [teeForm, setTeeForm] = useState<{ name: string; rating: string; slope: string } | null>(
@@ -76,7 +75,11 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
   }
 
   return (
-    <Card className="p-4">
+    <CollapsibleCard
+      id="player-photos"
+      title={golfy ? "Players — photos, colors & handicaps" : "Player photos & colors"}
+      summary="customize players"
+    >
       {chooser && (
         <AvatarStylePicker
           name={chooser.name}
@@ -103,20 +106,6 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
           }}
         />
       )}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
-      >
-        <span className="font-semibold text-sm">
-          {golfy ? "Players — photos, colors & handicaps" : "Player photos & colors"}
-        </span>
-        <span className="text-xs text-[var(--muted)]">
-          {open ? "▾ Hide" : "▸ Customize players"}
-        </span>
-      </button>
-      {open && (
-        <>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Tap a player to pick their circle color or add a photo
             {golfy
@@ -343,8 +332,6 @@ export function PlayerPhotos({ t }: { t: Tournament }) {
               </span>
             ))}
           </div>
-        </>
-      )}
-    </Card>
+    </CollapsibleCard>
   );
 }

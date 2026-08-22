@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Radio } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { Button, Card } from "./ui";
+import { Button } from "./ui";
+import { CollapsibleCard } from "./CollapsibleCard";
 
 export function LivePanel({ t }: { t: Tournament }) {
   const publishLive = useStore((s) => s.publishLive);
@@ -53,36 +54,48 @@ export function LivePanel({ t }: { t: Tournament }) {
 
   if (!t.liveCode) {
     return (
-      <Card className="no-print p-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold flex items-center gap-2">
+      <CollapsibleCard
+        id="go-live"
+        title={
+          <span className="flex items-center gap-2">
             <Radio className="h-4 w-4 text-[var(--brand)]" /> Go live
-          </h3>
-          <p className="text-sm text-[var(--muted)]">
+          </span>
+        }
+        summary="share a join code"
+        defaultOpen
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-[var(--muted)] max-w-prose">
             Share a join code so everyone can follow live from their phones — and post in the{" "}
             <span className="font-medium text-[var(--foreground)]">💬 cheer feed</span> to hype the
             players. Scores stay yours to enter.
           </p>
+          <Button onClick={go} disabled={busy}>
+            {busy ? "Starting…" : "Go Live →"}
+          </Button>
         </div>
-        <Button onClick={go} disabled={busy}>
-          {busy ? "Starting…" : "Go Live →"}
-        </Button>
-      </Card>
+      </CollapsibleCard>
     );
   }
 
   return (
-    <Card className="no-print p-4 border-[var(--win)]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <CollapsibleCard
+      id="live-panel"
+      className="border-[var(--win)]"
+      // The code lives in the title, so the card folded still shows the one thing
+      // people walk over to the host's phone to read.
+      title={
+        <span className="flex items-center gap-2.5">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 border border-rose-400/40 px-2.5 py-0.5 text-xs font-bold text-rose-300">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-400 pulse-ring" /> LIVE
           </span>
-          <div>
-            <div className="text-sm text-[var(--muted)]">Join code</div>
-            <div className="text-2xl font-extrabold tracking-[0.2em] tabular-nums">{t.liveCode}</div>
-          </div>
-        </div>
+          <span className="text-base font-extrabold tracking-[0.2em] tabular-nums">{t.liveCode}</span>
+        </span>
+      }
+      summary={`${scorers.length ? `${scorers.length} scorekeeper${scorers.length === 1 ? "" : "s"}` : "share & scorekeepers"}`}
+      defaultOpen
+    >
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {copied && <span className="text-xs font-medium text-[var(--win)]">{copied}</span>}
           <Button variant="outline" className="px-2.5 py-1.5" onClick={() => copy(t.liveCode!, "Code copied!")}>
@@ -185,6 +198,6 @@ export function LivePanel({ t }: { t: Tournament }) {
           </div>
         )}
       </div>
-    </Card>
+    </CollapsibleCard>
   );
 }

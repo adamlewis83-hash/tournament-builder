@@ -6,7 +6,8 @@ import { useLiveComments } from "@/hooks/useLiveComments";
 import { getProfile } from "@/lib/profile";
 import { Avatar } from "./Avatar";
 import { EmojiPicker } from "./EmojiPicker";
-import { Button, Card } from "./ui";
+import { Button } from "./ui";
+import { CollapsibleCard } from "./CollapsibleCard";
 
 const EMOJI = ["👏", "🔥", "🎉", "💪", "🙌", "😤", "⚡", "🏆"];
 const NAME_KEY = "seeded-cheer-name";
@@ -97,23 +98,28 @@ export function CommentsPanel({ t }: { t: Tournament }) {
   const holes = t.golf?.holes ?? t.ryderGolf?.holes ?? 0;
 
   return (
-    <Card className="no-print p-0 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)]">
-        <h2 className="font-bold text-sm flex items-center gap-1.5">
+    <CollapsibleCard
+      id="cheers"
+      title={
+        <span className="flex items-center gap-1.5 font-bold">
           Cheers <span className="text-base">💬</span>
-        </h2>
-        {name && (
+        </span>
+      }
+      summary={comments.length ? `${comments.length} cheer${comments.length === 1 ? "" : "s"}` : "hype the group"}
+      defaultOpen
+      action={
+        name ? (
           <button
             onClick={() => setName("")}
-            className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="shrink-0 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             cheering as <span className="font-semibold text-[var(--foreground)]">{name}</span> · change
           </button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {/* Feed */}
-      <div ref={feedRef} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
+      <div ref={feedRef} className="max-h-64 overflow-y-auto py-1 space-y-3">
         {comments.length === 0 ? (
           <p className="text-sm text-[var(--muted)] text-center py-4">
             No cheers yet — be the first to hype the group. 📣
@@ -254,6 +260,6 @@ export function CommentsPanel({ t }: { t: Tournament }) {
           </div>
         )}
       </div>
-    </Card>
+    </CollapsibleCard>
   );
 }
