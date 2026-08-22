@@ -1,4 +1,11 @@
-import { Match, Participant, RyderMethod, Tournament, VEGAS_BASIC, VegasRules } from "./types";
+import {
+  CUP_VEGAS_DEFAULTS,
+  Match,
+  Participant,
+  RyderMethod,
+  Tournament,
+  VegasRules,
+} from "./types";
 import { holeStrokes, vegasNumber } from "./golf";
 import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
@@ -66,11 +73,11 @@ export function entityStrokes(t: Tournament, m: Match, key: string, h: number): 
   return holeStrokes(hcpOf(t.participants, key), si, card.holes);
 }
 
-/** The cup's Vegas house rules: plain game unless the host changed them.
- *  Only `net` and `flipOn` apply here — presses and money are side bets that
- *  belong to the standalone Vegas game, never to cup points. */
+/** The cup's Vegas house rules. Only `net` and `flipOn` apply here — presses and
+ *  money are side bets that belong to the standalone Vegas game, never to cup points.
+ *  A host's saved choice always wins over the default, including an explicit "off". */
 export function cupVegasRules(t: Tournament): VegasRules {
-  return { ...VEGAS_BASIC, ...(t.config.vegasRules ?? {}) };
+  return { ...CUP_VEGAS_DEFAULTS, ...(t.config.vegasRules ?? {}) };
 }
 
 /**

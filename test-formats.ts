@@ -17,6 +17,7 @@ import {
   RYDER_SESSION_BLURBS,
 } from "./src/lib/ryder";
 import {
+  cupVegasRules,
   entitiesForMatch,
   holeNets,
   matchOutcome,
@@ -59,6 +60,7 @@ import {
   Format,
   ALL_FORMATS,
   playStylesForFormat,
+  CUP_VEGAS_DEFAULTS,
   VEGAS_BASIC,
   VEGAS_DEFAULTS,
 } from "./src/lib/types";
@@ -990,6 +992,7 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     t.matches[0].sideA = ["a1", "a2"];
     t.matches[0].sideB = ["b1", "b2"];
     t.ryderGolf!.scores = { s1: { a1: [3], a2: [5], b1: [4], b2: [6] } };
+    t.config.vegasRules = { ...VEGAS_BASIC, flipOn: "off" };
     const plain = matchOutcome(t, t.matches[0]);
     assert(plain.marginA === 11 && plain.marginB === 0, `plain ${plain.marginA}–${plain.marginB}, want 11–0`);
     t.config.vegasRules = { ...VEGAS_BASIC, flipOn: "birdie" };
@@ -1467,6 +1470,55 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
     // Eight players is four a side, so two pairs per team meeting in two matches.
     assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
+// ---- A cup's Vegas session flips by default --------------------------------
+// The flip is the game: a birdie turning the other pair's number around is the point
+// of Vegas. A cup session used to default to "no flips", so the headline rule was off
+// unless the host found the 🎰 card.
+{
+  const cupVegas = (rules?: Partial<typeof CUP_VEGAS_DEFAULTS>) => {
+    const P: Participant[] = ["A1", "A2", "B1", "B2"].map((n, i) => ({
+      id: `v${i}`, name: n, team: (i < 2 ? 0 : 1) as 0 | 1, handicap: 0,
+    }));
+    const m: Match = {
+      id: "m1", phase: "ryder", round: 1, order: 0, label: "Vegas",
+      sideA: ["v0", "v1"], sideB: ["v2", "v3"], scoreA: null, scoreB: null,
+    };
+    const t = tour({
+      format: "ryder", participants: P, matches: [m],
+      config: cfg(rules ? { vegasRules: { ...CUP_VEGAS_DEFAULTS, ...rules } } : {}),
+    }) as Tournament;
+    // Par 4. A: 3 + 5 (a birdie) = 35. B: 4 + 6 = 46, which a flip turns into 64.
+    t.ryderGolf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { m1: { v0: [3], v1: [5], v2: [4], v3: [6] } },
+    };
+    return { t, m };
+  };
+
+  check("cup vegas — a birdie flips the other pair with no house rules set", () => {
+    const { t, m } = cupVegas();
+    assert(cupVegasRules(t).flipOn === "birdie", `default flip is ${cupVegasRules(t).flipOn}`);
+    const n = holeNets(t, m, 0)!;
+    assert(n.netA === 35 && n.netB === 64, `${n.netA} v ${n.netB}, want 35 v 64`);
+  });
+
+  check("cup vegas — balls stay gross by default", () => {
+    assert(!cupVegasRules(cupVegas().t).net, "the cup default went to net balls");
+  });
+
+  check("cup vegas — a host who turns flips off keeps them off", () => {
+    const { t, m } = cupVegas({ flipOn: "off" });
+    assert(cupVegasRules(t).flipOn === "off", "an explicit off was overridden by the default");
+    const n = holeNets(t, m, 0)!;
+    assert(n.netB === 46, `flip applied while explicitly off (${n.netB})`);
+  });
+
+  check("cup vegas — presses and money never reach cup points", () => {
+    const r = cupVegasRules(cupVegas().t);
+    assert(r.pressAt === 0 && r.pressValue === 0, "the cup default carries a press bet");
   });
 }
 

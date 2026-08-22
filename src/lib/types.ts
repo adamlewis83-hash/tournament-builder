@@ -142,6 +142,19 @@ export const VEGAS_BASIC: VegasRules = {
   pressValue: 0,
 };
 
+/**
+ * What a cup's Vegas session plays when the host hasn't set house rules.
+ *
+ * The plain game but with the flip on, because the flip is Vegas — a birdie turning
+ * the other pair's number around is the whole point of the game, and a cup session
+ * defaulting to "no flips" meant the headline rule was off unless you found the 🎰
+ * card. Balls stay gross: the combined number is its own equalizer.
+ *
+ * Presses and money are deliberately absent. They're side bets that belong to the
+ * standalone game, never to cup points.
+ */
+export const CUP_VEGAS_DEFAULTS: VegasRules = { ...VEGAS_BASIC, flipOn: "birdie" };
+
 // A stretch of holes (1-based, inclusive) scored by a chosen format — for "Build Your Own".
 // Individual formats: stroke/stableford/skins/bingo. Team formats (one score per team):
 // scramble/bestball/altshot — all scored to-par like stroke, just played differently.
