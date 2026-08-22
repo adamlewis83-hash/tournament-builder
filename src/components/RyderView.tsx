@@ -334,8 +334,11 @@ function SessionCourseControl({ t, round }: { t: Tournament; round: number }) {
   const setSessionCourse = useStore((s) => s.setRyderSessionCourse);
   const g = t.ryderGolf;
   if (!g) return null;
-  const nineHoles = g.holes <= 9;
   const current = g.sessionCourses?.[round];
+  // Every course with a full card is offered at every length. The cup's session
+  // length is only the default — it used to be a cage: a 9-hole cup offered nothing
+  // but nines, so a Team Scramble could never be played over 18.
+  const defFull = g.pars.length >= 18;
 
   // Re-rank a nine's stroke indexes 1..9 (their 18-hole values would bunch the
   // handicap strokes when only nine are in play).
@@ -345,58 +348,83 @@ function SessionCourseControl({ t, round }: { t: Tournament; round: number }) {
     order.forEach(([, idx], rank) => (out[idx] = rank + 1));
     return out;
   };
-  const slice = (pars: number[], si: number[], nine: "front" | "back") => {
+  const nineOf = (pars: number[], si: number[], nine: "front" | "back") => {
     const from = nine === "back" ? 9 : 0;
     return { pars: pars.slice(from, from + 9), strokeIndex: rerank(si.slice(from, from + 9)) };
   };
 
   const apply = (v: string) => {
     if (v === "default") return setSessionCourse(t.id, round, null);
-    const [cid, nine] = v.split("|") as [string, "front" | "back" | undefined];
-    const c = savedCourses.find((x) => x.id === cid);
-    if (!c) return;
-    if (nineHoles && c.holes >= 18 && nine) {
-      const cut = slice(c.pars, c.strokeIndex, nine);
-      setSessionCourse(t.id, round, { courseName: c.name, nine, ...cut });
+    const [cid, len] = v.split("|") as [string, "18" | "front" | "back" | undefined];
+    const src =
+      cid === "def"
+        ? { name: g.courseName, pars: g.pars, strokeIndex: g.strokeIndex }
+        : (() => {
+            const c = savedCourses.find((x) => x.id === cid);
+            return c ? { name: c.name, pars: c.pars, strokeIndex: c.strokeIndex } : null;
+          })();
+    if (!src) return;
+    if (len === "front" || len === "back") {
+      setSessionCourse(t.id, round, { courseName: src.name, nine: len, ...nineOf(src.pars, src.strokeIndex, len) });
     } else {
+      const n = Math.min(18, src.pars.length);
       setSessionCourse(t.id, round, {
-        courseName: c.name,
-        pars: c.pars.slice(0, nineHoles ? 9 : c.holes),
-        strokeIndex: nineHoles ? rerank(c.strokeIndex.slice(0, 9)) : c.strokeIndex.slice(0, c.holes),
+        courseName: src.name,
+        pars: src.pars.slice(0, n),
+        strokeIndex: src.strokeIndex.slice(0, n),
       });
     }
   };
 
   const value = current
     ? (() => {
-        const c = savedCourses.find((x) => x.name === current.courseName);
-        return c ? `${c.id}${current.nine ? `|${current.nine}` : ""}` : "custom";
+        // A card stored before lengths were choosable has neither a nine marker nor
+        // 18 holes; it falls to "custom" so the select still names what's in play.
+        const suffix = current.nine ? `|${current.nine}` : current.pars.length >= 18 ? "|18" : null;
+        if (!suffix) return "custom";
+        const saved = savedCourses.find((x) => x.name === current.courseName);
+        if (saved) return `${saved.id}${suffix}`;
+        if (current.courseName === g.courseName) return `def${suffix}`;
+        return "custom";
       })()
     : "default";
+
+  const label = (name: string | undefined, len: "18" | "front" | "back" | "default") =>
+    `⛳ ${name ?? "Default course"} · ${
+      len === "18" ? "18" : len === "front" ? "front 9" : len === "back" ? "back 9" : `${g.holes} holes`
+    }`;
 
   return (
     <select
       value={value}
       onChange={(e) => apply(e.target.value)}
       className="max-w-[220px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs outline-none focus:border-[var(--brand)]"
-      title="Course this session is played on"
+      title="Course & holes this session is played over"
     >
-      <option value="default">⛳ {g.courseName ?? "Default course"}{nineHoles ? " · front 9" : ""}</option>
+      <option value="default">{label(g.courseName, "default")}</option>
+      {defFull && g.holes < 18 && <option value="def|18">{label(g.courseName, "18")}</option>}
+      {defFull && (
+        <>
+          {g.holes !== 9 && <option value="def|front">{label(g.courseName, "front")}</option>}
+          <option value="def|back">{label(g.courseName, "back")}</option>
+        </>
+      )}
       {savedCourses.map((c) =>
-        nineHoles && c.holes >= 18 ? (
-          ["front", "back"].map((n) => (
-            <option key={`${c.id}|${n}`} value={`${c.id}|${n}`}>
-              ⛳ {c.name} · {n} 9
-            </option>
-          ))
+        c.holes >= 18 ? (
+          <>
+            <option key={`${c.id}|18`} value={`${c.id}|18`}>{label(c.name, "18")}</option>
+            <option key={`${c.id}|front`} value={`${c.id}|front`}>{label(c.name, "front")}</option>
+            <option key={`${c.id}|back`} value={`${c.id}|back`}>{label(c.name, "back")}</option>
+          </>
         ) : (
-          <option key={c.id} value={c.id}>
-            ⛳ {c.name}
-            {nineHoles && c.holes < 18 ? " · 9 holes (as saved)" : ""}
-          </option>
+          <option key={c.id} value={`${c.id}|18`}>⛳ {c.name} · {c.holes} holes (as saved)</option>
         ),
       )}
-      {value === "custom" && <option value="custom">⛳ {current?.courseName ?? "Custom"}</option>}
+      {value === "custom" && (
+        <option value="custom">
+          ⛳ {current?.courseName ?? "Custom"} · {current?.pars.length ?? g.holes} holes
+        </option>
+      )}
     </select>
   );
 }
