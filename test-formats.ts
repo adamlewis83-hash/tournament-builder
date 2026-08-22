@@ -18,7 +18,9 @@ import {
 } from "./src/lib/ryder";
 import {
   cupVegasRules,
+  cupWeights,
   entitiesForMatch,
+  sessionCard,
   roundPoints,
   holeNets,
   matchOutcome,
@@ -1696,6 +1698,78 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     server = applyPatch(server, { kind: "ryderScore", matchId: "m1", key: P[2].id, hole: 0, strokes: 5 });
     const m = server.matches.find((x) => x.id === "m1")!;
     assert(m.scoreA === 1 && m.scoreB === 0, `result ${m.scoreA}/${m.scoreB}, want 1/0 to side A`);
+  });
+}
+
+// ---- One cup, sessions of different lengths --------------------------------
+// The cup's session length is a default, not a cage. A session can carry its own
+// card — a full 18 in a 9-hole cup, or a nine in an 18-hole one — and everything
+// downstream (holes to score, when a match is decided, what the session weighs)
+// reads the session's card, not the cup's.
+{
+  const mixedCup = () => {
+    const P = players(4, true).map((p) => ({ ...p, handicap: 0 }));
+    const mk = (round: number, id: string): Match => ({
+      id, phase: "ryder", round, order: 0, label: "Fourball",
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P, matches: [mk(1, "s1"), mk(2, "s2")], config: cfg(),
+    }) as Tournament;
+    t.ryderGolf = {
+      // A 9-hole cup that kept its course's FULL card — what setup stores now.
+      holes: 9,
+      pars: Array(18).fill(4),
+      strokeIndex: Array.from({ length: 18 }, (_, i) => i + 1),
+      scores: {},
+      // Session 2 is played over the full 18.
+      sessionCourses: {
+        2: { courseName: "Big day", pars: Array(18).fill(4), strokeIndex: Array.from({ length: 18 }, (_, i) => i + 1) },
+      },
+    };
+    return { t, P };
+  };
+
+  check("mixed lengths — a default session is still the cup's 9, extra pars inert", () => {
+    const { t } = mixedCup();
+    assert(sessionCard(t, 1)!.holes === 9, `default session holes ${sessionCard(t, 1)!.holes}`);
+    assert(sessionCard(t, 2)!.holes === 18, `overridden session holes ${sessionCard(t, 2)!.holes}`);
+  });
+
+  check("mixed lengths — the 18-hole session plays past hole nine", () => {
+    const { t, P } = mixedCup();
+    // Side A wins the first nine holes of session 2 outright: dormie — 9 up with 9
+    // to play is NOT decided (a halve is still possible), where the same nine holes
+    // on the cup's default card would end the match.
+    const nine = (v: number) => Array.from({ length: 18 }, (_, i) => (i < 9 ? v : null));
+    t.ryderGolf!.scores = {
+      s2: { [P[0].id]: nine(3), [P[1].id]: nine(3), [P[2].id]: nine(5), [P[3].id]: nine(5) },
+    };
+    const m = t.matches.find((x) => x.id === "s2")!;
+    const o = matchOutcome(t, m);
+    assert(o.holes === 18, `match played over ${o.holes} holes, want 18`);
+    assert(!o.decided, "dormie-9 on an 18-hole card was closed out early");
+    // The tenth hole settles it: 10 up, 8 to play.
+    const ten = (v: number) => Array.from({ length: 18 }, (_, i) => (i < 10 ? v : null));
+    t.ryderGolf!.scores = {
+      s2: { [P[0].id]: ten(3), [P[1].id]: ten(3), [P[2].id]: ten(5), [P[3].id]: ten(5) },
+    };
+    assert(matchOutcome(t, m).decided, "10 & 8 should be closed out");
+    const card = nine;
+    // And the same score on the DEFAULT session ends at nine holes, not eighteen.
+    t.ryderGolf!.scores = {
+      s1: { [P[0].id]: card(3), [P[1].id]: card(3), [P[2].id]: card(5), [P[3].id]: card(5) },
+    };
+    const d = matchOutcome(t, t.matches.find((x) => x.id === "s1")!);
+    assert(d.holes === 9 && d.thru === 9 && d.decided, `default session read ${d.holes}/${d.thru}`);
+  });
+
+  check("mixed lengths — round18 weighs the 18-hole session as a full point", () => {
+    const { t } = mixedCup();
+    t.config.ryderScoring = "round18";
+    const w = cupWeights(t);
+    assert(w.get("s1") === 0.5, `nine worth ${w.get("s1")}, want 0.5`);
+    assert(w.get("s2") === 1, `eighteen worth ${w.get("s2")}, want 1`);
   });
 }
 

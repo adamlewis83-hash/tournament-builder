@@ -209,8 +209,11 @@ export function RyderSetup({ t }: { t: Tournament }) {
       [nameA.trim() || "Team A", nameB.trim() || "Team B"],
       {
         holes: course.holes,
-        pars: course.pars.slice(0, course.holes),
-        strokeIndex: course.strokeIndex.slice(0, course.holes),
+        // The FULL card, not sliced to the session length. Sessions read only up to
+        // their own hole count, and keeping the back nine is what lets one session in
+        // a 9-hole cup be played over 18 (or the back nine) from the match view.
+        pars: course.pars,
+        strokeIndex: course.strokeIndex,
         courseName: course.courseName,
       },
     );
