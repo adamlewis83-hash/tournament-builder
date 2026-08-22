@@ -10,7 +10,13 @@ export interface MatchEntity {
 
 // One ball per side (alternate shot / scramble variants): score entry is a
 // single team column. Everything else is per-player balls.
-export const ONE_BALL_SESSIONS = ["Foursomes", "Scramble", "Team Scramble", "Team Alt Shot"];
+export const ONE_BALL_SESSIONS = [
+  "Foursomes",
+  "Alt Shot",
+  "Scramble",
+  "Team Scramble",
+  "Team Alt Shot",
+];
 const oneBall = (label?: string) => ONE_BALL_SESSIONS.includes(label ?? "");
 
 /** The score-entry columns for a match: one team score, or per player. */

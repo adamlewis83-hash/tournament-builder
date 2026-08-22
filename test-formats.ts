@@ -8,11 +8,21 @@ import {
   genRyderSession,
   matchWeights,
   pointsOnTheLine,
+  removeRyderRoundFrom,
+  reorderRyderRounds,
+  TEAM_SESSION_TYPES,
   ryderScore,
   RyderScoring,
   RyderSessionType,
+  RYDER_SESSION_BLURBS,
 } from "./src/lib/ryder";
-import { matchOutcome, methodForMatch, methodIsChoosable } from "./src/lib/ryderGolf";
+import {
+  entitiesForMatch,
+  holeNets,
+  matchOutcome,
+  methodForMatch,
+  methodIsChoosable,
+} from "./src/lib/ryderGolf";
 import { computeStandings, pointsLeaderboard } from "./src/lib/standings";
 import {
   defaultGolf,
@@ -20,6 +30,7 @@ import {
   computeGolfMatch,
   computeVegas,
   computeVegasLedger,
+  vegasIsPerPlayer,
   golfMatchAvailable,
   golfScoringOptions,
   vegasNumber,
@@ -1270,6 +1281,39 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(vegasTeamsForHole(["a", "b", "c"], 0, "fixed") === null, "three players formed teams");
   });
 
+  check("vegas — a round predating the flag still gets the full game", () => {
+    // The bug: the full game was gated on a config flag only written by saves made
+    // after it shipped, so every Vegas round created before was stuck on pair scoring
+    // with no flip — while the screen kept advertising one.
+    const t = vegasRound([4, 4], [[3, 4], [5, 5], [4, 4], [6, 5]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "a four-player card with single-digit balls read as a pair card");
+    const L = computeVegasLedger(t, { ...VEGAS_BASIC, flipOn: "birdie" })!;
+    assert(L.rows[0].flippedB, "the flip still did not fire on a pre-flag round");
+    assert(L.rows[0].numB === 64 && L.rows[0].points === 29, `${L.rows[0].numB} / ${L.rows[0].points}`);
+  });
+
+  check("vegas — a blow-up hole doesn't demote a per-player round", () => {
+    // One score of 11+ is a bad hole, not a combined pair number. Only a card where
+    // EVERY entered score looks combined is the old format.
+    const t = vegasRound([4, 4], [[3, 12], [5, 5], [4, 4], [6, 5]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "an 11+ on one hole threw the round back to pair scoring");
+  });
+
+  check("vegas — an empty four-player card is the new game", () => {
+    const t = vegasRound([4], [[null as unknown as number], [null as unknown as number],
+                               [null as unknown as number], [null as unknown as number]]);
+    delete (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer;
+    assert(vegasIsPerPlayer(t), "a fresh four-player card was treated as a pair card");
+  });
+
+  check("vegas — an explicit flag still wins over the card", () => {
+    const t = vegasRound([4], [[3], [5], [4], [6]]);
+    (t.config as { vegasPerPlayer?: boolean }).vegasPerPlayer = false;
+    assert(!vegasIsPerPlayer(t), "an explicit false flag was ignored");
+  });
+
   check("vegas — a legacy pair card is never read as the full game", () => {
     // Four PAIRS with pre-combined numbers. Without the per-player flag this must keep
     // its old pair scoring, or two duels would be misread as one four-player game.
@@ -1283,6 +1327,7 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     };
     assert(!t.config.vegasPerPlayer, "fixture should have no per-player flag");
     // The old duel scoring still reads it: pair0 beats pair1 by 11, pair2 beats pair3 by 11.
+    assert(!vegasIsPerPlayer(t), "four pairs of combined numbers read as four players");
     const legacy = computeVegas(t);
     const byName = (n: string) => legacy.find((r) => r.name === n)!;
     assert(byName("A&B").points === 11, `legacy pair scoring changed: ${byName("A&B").points}`);
@@ -1341,6 +1386,246 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
       ],
     }) as Tournament;
     assert(scoreCount(live) === 0, "a game still being scored counted as a saved result");
+  });
+}
+
+// ---- Alt Shot is Foursomes under its plain-English name ---------------------
+// Same game, two names — mirroring Best Ball / Fourball, which the cup already
+// offers both ways. So it has to behave identically, not merely look similar.
+{
+  const P = players(4, true);
+  const cupWith = (label: string) => {
+    const ms = genRyderSession(P, label as RyderSessionType, 1);
+    const t = tour({ format: "ryder", participants: P, matches: ms, config: cfg() }) as Tournament;
+    t.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      // One ball per side: the card is keyed "A"/"B", not per player.
+      scores: { [ms[0].id]: { A: [4, 4], B: [5, 5] } },
+    };
+    return { t, m: ms[0] };
+  };
+
+  check("alt shot — pairs up 2v2 like Foursomes, not as a whole team", () => {
+    const ms = genRyderSession(P, "Alt Shot", 1);
+    assert(ms.length === 1, `${ms.length} matches for 4 players`);
+    assert(ms[0].sideA.length === 2 && ms[0].sideB.length === 2, "Alt Shot was not 2v2");
+    assert(!TEAM_SESSION_TYPES.includes("Alt Shot" as RyderSessionType), "Alt Shot listed as a whole-team game");
+  });
+
+  check("alt shot — one shared ball per side, like Foursomes", () => {
+    const alt = entitiesForMatch(cupWith("Alt Shot").m);
+    const four = entitiesForMatch(cupWith("Foursomes").m);
+    assert(alt.length === 2, `${alt.length} score columns — should be one per side`);
+    assert(
+      alt.map((e) => e.key).join() === four.map((e) => e.key).join(),
+      "Alt Shot's score entry differs from Foursomes'",
+    );
+  });
+
+  check("alt shot — scores the same hole the same way Foursomes does", () => {
+    const a = cupWith("Alt Shot");
+    const f = cupWith("Foursomes");
+    const an = holeNets(a.t, a.m, 0)!;
+    const fn = holeNets(f.t, f.m, 0)!;
+    assert(an.netA === fn.netA && an.netB === fn.netB, `${an.netA}/${an.netB} vs ${fn.netA}/${fn.netB}`);
+    assert(matchOutcome(a.t, a.m).text === matchOutcome(f.t, f.m).text, "results read differently");
+  });
+
+  check("alt shot — has its rules written, and can be re-scored", () => {
+    assert(!!RYDER_SESSION_BLURBS["Alt Shot" as RyderSessionType], "Alt Shot has no rules blurb");
+    assert(methodIsChoosable("Alt Shot"), "Alt Shot should offer match/stroke/Stableford");
+  });
+}
+
+// ---- Swapping a session's game ---------------------------------------------
+// A whole-team game and a 2v2 game don't put the same players against each other,
+// so changing one rebuilds the session's matchups rather than relabelling them.
+{
+  const eight = players(8, true);
+  check("session game — whole-team is one 4v4 match, pairs are 2v2 matches", () => {
+    const team = genRyderSession(eight, "Team Scramble", 1);
+    assert(team.length === 1, `Team Scramble made ${team.length} matches, want 1`);
+    assert(team[0].sideA.length === 4, `Team Scramble side of ${team[0].sideA.length}, want 4`);
+
+    const pairs = genRyderSession(eight, "Scramble", 1);
+    assert(pairs.length === 2, `Scramble made ${pairs.length} matches, want 2`);
+    assert(
+      pairs.every((m) => m.sideA.length === 2 && m.sideB.length === 2),
+      "Scramble was not 2v2",
+    );
+    // Everyone still plays, either way.
+    const played = (ms: Match[]) => new Set(ms.flatMap((m) => [...m.sideA, ...m.sideB])).size;
+    assert(played(team) === 8 && played(pairs) === 8, "someone was left out of a session");
+  });
+
+  check("session game — every pairs game fields the same 2v2 matchups", () => {
+    const shapes = ["Fourball", "Foursomes", "Alt Shot", "Best Ball", "Shamble", "Scramble", "Vegas"]
+      .map((ty) => {
+        const ms = genRyderSession(eight, ty as RyderSessionType, 1);
+        return `${ms.length}x${ms[0].sideA.length}v${ms[0].sideB.length}`;
+      });
+    assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
+    // Eight players is four a side, so two pairs per team meeting in two matches.
+    assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
+// ---- Removing a session ----------------------------------------------------
+// Everything a session owns has to go with it. The scorecards are keyed by match id
+// and the course card and scoring method by round, so leaving either behind meant
+// dead weight in storage — and a round-keyed pair waiting to be inherited by whoever
+// a later re-order renumbered into that slot.
+{
+  const cup = () => {
+    const P = players(4, true);
+    const mk = (round: number, label: string): Match => ({
+      id: `s${round}`, phase: "ryder", round, order: 0, label,
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P,
+      matches: [mk(1, "Fourball"), mk(2, "Foursomes"), mk(3, "Singles")],
+      config: cfg(),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes: 1, pars: [4], strokeIndex: [1],
+      scores: { s1: { [P[0].id]: [4] }, s2: { [P[0].id]: [5] }, s3: { [P[0].id]: [6] } },
+      sessionMethods: { 1: "match", 2: "stroke", 3: "stableford" },
+      sessionCourses: { 2: { courseName: "Back nine", pars: [3], strokeIndex: [1] } },
+    };
+    return t;
+  };
+
+  check("remove session — takes its matches, card, course and method with it", () => {
+    const t = removeRyderRoundFrom(cup(), 2);
+    assert(!t.matches.some((m) => m.round === 2), "the session's matches survived");
+    assert(!t.ryderGolf!.scores.s2, "the removed session's scorecard was left behind");
+    assert(t.ryderGolf!.sessionMethods![2] === undefined, "its scoring method was left behind");
+    assert(t.ryderGolf!.sessionCourses![2] === undefined, "its course card was left behind");
+  });
+
+  check("remove session — leaves every other session untouched", () => {
+    const t = removeRyderRoundFrom(cup(), 2);
+    assert(Object.keys(t.ryderGolf!.scores).sort().join() === "s1,s3", "other cards were disturbed");
+    assert(t.ryderGolf!.sessionMethods![1] === "match", "session 1 lost its method");
+    assert(t.ryderGolf!.sessionMethods![3] === "stableford", "session 3 lost its method");
+    assert(t.config.ryderProgram!.join() === "Fourball,Singles", `program: ${t.config.ryderProgram}`);
+  });
+
+  check("remove session — a later re-order can't inherit the gap's leftovers", () => {
+    // Drop the middle session, then pull the last one to the front. Nothing should
+    // pick up the removed session's back-nine card or its stroke-play rule.
+    const t = reorderRyderRounds(removeRyderRoundFrom(cup(), 2), 1, 0);
+    const g = t.ryderGolf!;
+    assert(Object.keys(g.sessionCourses ?? {}).length === 0, "a stale course card was inherited");
+    const roundOf = (label: string) => t.matches.find((m) => m.label === label)!.round;
+    assert(g.sessionMethods![roundOf("Singles")] === "stableford", "Singles lost its method");
+    assert(g.sessionMethods![roundOf("Fourball")] === "match", "Fourball lost its method");
+    assert(!Object.values(g.sessionMethods!).includes("stroke"), "the dropped rule came back");
+  });
+
+  check("remove session — removing one that isn't there changes nothing", () => {
+    const before = cup();
+    assert(removeRyderRoundFrom(before, 9) === before, "a no-op removal rebuilt the cup");
+  });
+}
+
+// ---- Reordering a cup's sessions -------------------------------------------
+// Scorecards are keyed by match id so they ride along with their matches; the course
+// card and scoring method are keyed by ROUND and have to be remapped to follow.
+{
+  const cupOf3 = () => {
+    const P = players(4, true);
+    const mk = (round: number, label: string): Match => ({
+      id: `s${round}`, phase: "ryder", round, order: 0, label,
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P,
+      matches: [mk(1, "Fourball"), mk(2, "Foursomes"), mk(3, "Singles")],
+      config: cfg({ ryderProgram: ["Fourball", "Foursomes", "Singles"] }),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      scores: {
+        s1: { [P[0].id]: [4, 4] },
+        s2: { [P[0].id]: [5, 5] },
+        s3: { [P[0].id]: [6, 6] },
+      },
+      sessionMethods: { 1: "match", 2: "stroke", 3: "stableford" },
+      sessionCourses: {
+        2: { courseName: "Back nine", pars: [3, 3], strokeIndex: [1, 2] },
+      },
+    };
+    return t;
+  };
+
+  // The very function the store calls — no mirror to drift out of step with it.
+  const moveRound = (t: Tournament, from: number, to: number) => reorderRyderRounds(t, from, to);
+
+  const labelsInOrder = (t: Tournament) =>
+    t.matches
+      .filter((m) => m.phase === "ryder")
+      .sort((a, b) => a.round - b.round)
+      .map((m) => m.label)
+      .join(",");
+
+  check("cup reorder — the last session can be played first", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    assert(labelsInOrder(t) === "Singles,Fourball,Foursomes", labelsInOrder(t));
+  });
+
+  check("cup reorder — a session's scorecard follows it", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    // Singles is now round 1, and its card (match id s3) is untouched.
+    const singles = t.matches.find((m) => m.label === "Singles")!;
+    assert(singles.round === 1, `Singles landed on round ${singles.round}`);
+    const card = t.ryderGolf!.scores[singles.id];
+    assert(card && Object.values(card)[0][0] === 6, "the Singles card did not travel with it");
+    // And no card was lost or duplicated.
+    assert(Object.keys(t.ryderGolf!.scores).length === 3, "scorecards changed in number");
+  });
+
+  check("cup reorder — scoring method and course card follow their session", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    const g = t.ryderGolf!;
+    const roundOf = (label: string) => t.matches.find((m) => m.label === label)!.round;
+    assert(g.sessionMethods![roundOf("Foursomes")] === "stroke", "stroke method left behind");
+    assert(g.sessionMethods![roundOf("Singles")] === "stableford", "stableford method left behind");
+    assert(g.sessionMethods![roundOf("Fourball")] === "match", "match method left behind");
+    assert(
+      g.sessionCourses![roundOf("Foursomes")]?.courseName === "Back nine",
+      "the back-nine card did not follow Foursomes",
+    );
+    assert(Object.keys(g.sessionCourses!).length === 1, "a course card was duplicated");
+  });
+
+  check("cup reorder — rounds stay 1..n with no gaps or repeats", () => {
+    for (const [from, to] of [[0, 2], [2, 0], [1, 2], [0, 1]] as const) {
+      const t = moveRound(cupOf3(), from, to);
+      const rs = t.matches.filter((m) => m.phase === "ryder").map((m) => m.round).sort();
+      assert(rs.join(",") === "1,2,3", `move ${from}→${to} produced rounds ${rs.join(",")}`);
+    }
+  });
+
+  check("cup reorder — moving a session back where it was restores the cup", () => {
+    const before = cupOf3();
+    const there = moveRound(before, 0, 2);
+    const back = moveRound(there, 2, 0);
+    assert(labelsInOrder(back) === labelsInOrder(before), `${labelsInOrder(back)}`);
+    assert(
+      JSON.stringify(back.ryderGolf!.sessionMethods) ===
+        JSON.stringify(before.ryderGolf!.sessionMethods),
+      "methods did not come back",
+    );
+  });
+
+  check("cup reorder — the points on the board don't change with the order", () => {
+    const t = cupOf3();
+    t.matches = t.matches.map((m) => ({ ...m, scoreA: 1, scoreB: 0 }));
+    const before = ryderScore(t.matches, "match");
+    const after = ryderScore(moveRound(t, 2, 0).matches, "match");
+    assert(before.a === after.a && before.b === after.b, `${before.a}-${before.b} → ${after.a}-${after.b}`);
   });
 }
 

@@ -16,7 +16,15 @@ import {
 import { uid } from "./id";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
-import { genRyder, genRyderSession, RyderScoring, RyderSessionType } from "./ryder";
+import {
+  genRyder,
+  genRyderSession,
+  removeRyderRoundFrom,
+  reorderRyderRounds,
+  ryderProgramOf,
+  RyderScoring,
+  RyderSessionType,
+} from "./ryder";
 import { matchOutcome } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
@@ -30,14 +38,6 @@ import { applyProfilePhoto } from "./profile";
 import { canEditScores } from "./perms";
 import { scoreCount } from "./snapshot";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
-
-// The cup's session list (labels in playing order), derived from the matches —
-// mirrored into config.ryderProgram so Edit setup can restore the program.
-const ryderProgramOf = (matches: Match[]): string[] => {
-  const ryder = matches.filter((m) => m.phase === "ryder");
-  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
-  return rounds.map((r) => ryder.find((m) => m.round === r)?.label ?? "Fourball");
-};
 
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
@@ -149,6 +149,8 @@ interface State {
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   keepRyderRounds: (id: string, keep: number) => void;
+  moveRyderRound: (id: string, from: number, to: number) => void;
+  setRyderSessionType: (id: string, round: number, type: RyderSessionType) => void;
   removeRyderRound: (id: string, round: number) => void;
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderPointsPerSession: (id: string, points: number | undefined) => void;
@@ -984,6 +986,16 @@ export const useStore = create<State>()(
       // Trim the cup back to its first `keep` sessions, leaving those matches — and the
       // scorecards keyed to their ids — exactly as they are. Used when Edit setup changes
       // the program: rather than rebuilding the whole cup, only the changed tail is redone.
+      /** Reorder the cup's sessions — see `reorderRyderRounds` for what moves with them. */
+      moveRyderRound: (id, from, to) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id && !t.spectator ? reorderRyderRounds(t, from, to) : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
       keepRyderRounds: (id, keep) => {
         snapshot(id, "Cup program changed");
         set((s) => ({
@@ -1019,6 +1031,45 @@ export const useStore = create<State>()(
             return {
               ...t,
               matches,
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      /**
+       * Change which game a session plays — a whole-team Scramble into a 2v2 one, say.
+       *
+       * The sides themselves differ between games (one 4v4 match versus two 2v2 ones),
+       * so this rebuilds that session's matches rather than relabelling them, and the
+       * scorecards keyed to the old match ids go with them. Callers warn first when
+       * there is anything to lose. The session's course card and scoring method are
+       * keyed by round and stay put — both are independent of which game is played.
+       */
+      setRyderSessionType: (id, round, type) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const next = genRyderSession(t.participants, type, round, false);
+            if (!next.length) return t;
+            const dropped = new Set(
+              t.matches.filter((m) => m.phase === "ryder" && m.round === round).map((m) => m.id),
+            );
+            const matches = [
+              ...t.matches.filter((m) => !dropped.has(m.id)),
+              ...next,
+            ].sort((a, b) => a.round - b.round || a.order - b.order);
+            const g = t.ryderGolf;
+            const scores = g
+              ? Object.fromEntries(Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)))
+              : undefined;
+            return {
+              ...t,
+              matches,
+              ...(g && scores ? { ryderGolf: { ...g, scores } } : {}),
               config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
               updatedAt: Date.now(),
             };
@@ -1078,19 +1129,13 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
+      /** Drop a session — see `removeRyderRoundFrom` for what goes with it. */
       removeRyderRound: (id, round) => {
         if (blocked(id)) return;
         set((s) => ({
-          tournaments: s.tournaments.map((t) => {
-            if (t.id !== id) return t;
-            const matches = t.matches.filter((m) => m.round !== round);
-            return {
-              ...t,
-              matches,
-              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
-              updatedAt: Date.now(),
-            };
-          }),
+          tournaments: s.tournaments.map((t) =>
+            t.id === id ? removeRyderRoundFrom(t, round) : t,
+          ),
         }));
         pushReplace(id);
       },

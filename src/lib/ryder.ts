@@ -1,4 +1,4 @@
-import { Match, Participant } from "./types";
+import { Match, Participant, Tournament } from "./types";
 import { isFinal } from "./score";
 import { uid } from "./id";
 
@@ -65,6 +65,7 @@ export function genRyder(participants: Participant[], sessions: RyderSessions): 
 
 export type RyderSessionType =
   | "Foursomes"
+  | "Alt Shot"
   | "Fourball"
   | "Best Ball"
   | "Shamble"
@@ -87,6 +88,8 @@ export const RYDER_SESSION_BLURBS: Record<RyderSessionType, string> = {
     "Alternate shot, 2v2 — partners share one ball and take turns hitting it. One team score per hole, net match play.",
   Fourball:
     "Best ball, 2v2 — everyone plays their own ball; each pair counts its best net score per hole.",
+  "Alt Shot":
+    "Partners share one ball, taking turns hitting it — one team score per hole (same game as Foursomes).",
   "Best Ball":
     "Everyone plays their own ball; the pair's best net score counts each hole (same game as Fourball).",
   Shamble:
@@ -292,4 +295,113 @@ export function ryderScore(
   else if (total > EPS && played >= total - EPS)
     status = a > b + EPS ? "a-wins" : b > a + EPS ? "b-wins" : "tie";
   return { a, b, total, played, clinch, status };
+}
+
+
+/** The cup's session list (labels in playing order), derived from the matches. */
+export function ryderProgramOf(matches: Match[]): string[] {
+  const ryder = matches.filter((m) => m.phase === "ryder");
+  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
+  return rounds.map((r) => ryder.find((m) => m.round === r)?.label ?? "Fourball");
+}
+
+/**
+ * Move a session to a different place in the playing order. `from` and `to` are
+ * positions in that order, not round numbers.
+ *
+ * Scorecards are keyed by match id, so they ride along with their matches for free.
+ * The per-session course card and scoring method are keyed by ROUND, so they are
+ * remapped to follow their session — otherwise a re-ordered cup would quietly hand
+ * one session's course and scoring rules to another. Everything else about a session
+ * is derived from the round number its matches carry.
+ */
+export function reorderRyderRounds(t: Tournament, from: number, to: number): Tournament {
+  const rounds = Array.from(
+    new Set(t.matches.filter((m) => m.phase === "ryder").map((m) => m.round)),
+  ).sort((a, b) => a - b);
+  if (from === to || from < 0 || to < 0 || from >= rounds.length || to >= rounds.length) return t;
+
+  const order = [...rounds];
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  // order[i] is the round that should now be played i-th.
+  const renumber = new Map(order.map((old, i) => [old, i + 1]));
+
+  const matches = t.matches.map((m) =>
+    m.phase === "ryder" ? { ...m, round: renumber.get(m.round) ?? m.round } : m,
+  );
+  const remap = <V,>(rec: Record<number, V> | undefined) => {
+    if (!rec) return undefined;
+    const out: Record<number, V> = {};
+    for (const [k, v] of Object.entries(rec)) {
+      const next = renumber.get(Number(k));
+      if (next != null) out[next] = v;
+    }
+    return out;
+  };
+
+  const g = t.ryderGolf;
+  const courses = remap(g?.sessionCourses);
+  const methods = remap(g?.sessionMethods);
+  return {
+    ...t,
+    matches,
+    ...(g
+      ? {
+          ryderGolf: {
+            ...g,
+            ...(courses ? { sessionCourses: courses } : {}),
+            ...(methods ? { sessionMethods: methods } : {}),
+          },
+        }
+      : {}),
+    config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+    updatedAt: Date.now(),
+  };
+}
+
+
+/**
+ * Drop a session from the cup, taking everything that hung off it: the matches, the
+ * scorecards keyed to those match ids, and the course card and scoring method keyed
+ * to the round.
+ *
+ * Left behind, the cards accumulated in storage for the life of the cup, and the
+ * round-keyed pair sat waiting to be handed to whichever session a later re-order
+ * renumbered into that slot.
+ */
+export function removeRyderRoundFrom(t: Tournament, round: number): Tournament {
+  const dropped = new Set(
+    t.matches.filter((m) => m.phase === "ryder" && m.round === round).map((m) => m.id),
+  );
+  if (!dropped.size) return t;
+  const matches = t.matches.filter((m) => !dropped.has(m.id));
+  const g = t.ryderGolf;
+  const without = <V,>(rec: Record<number, V> | undefined) => {
+    if (!rec) return undefined;
+    const out = { ...rec };
+    delete out[round];
+    return out;
+  };
+  const scores = g
+    ? Object.fromEntries(Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)))
+    : undefined;
+  const courses = without(g?.sessionCourses);
+  const methods = without(g?.sessionMethods);
+  return {
+    ...t,
+    matches,
+    ...(g && scores
+      ? {
+          ryderGolf: {
+            ...g,
+            scores,
+            ...(courses ? { sessionCourses: courses } : {}),
+            ...(methods ? { sessionMethods: methods } : {}),
+          },
+        }
+      : {}),
+    config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+    updatedAt: Date.now(),
+  };
 }

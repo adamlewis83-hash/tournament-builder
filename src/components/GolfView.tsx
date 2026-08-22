@@ -18,6 +18,7 @@ import {
   computeGolfMatch,
   computeVegas,
   computeVegasLedger,
+  vegasIsPerPlayer,
   effectiveHandicap,
   formatToPar,
   golfScoringOptions,
@@ -327,7 +328,7 @@ export function GolfView({ t }: { t: Tournament }) {
   // keep their pair card and their leaderboard.
   const vegasRules: VegasRules = { ...VEGAS_DEFAULTS, ...(t.config.vegasRules ?? {}) };
   const vegasLedger =
-    mode === "vegas" && t.config.vegasPerPlayer ? computeVegasLedger(t, vegasRules) : null;
+    mode === "vegas" && vegasIsPerPlayer(t) ? computeVegasLedger(t, vegasRules) : null;
   const isVegasPairCard = mode === "vegas" && !vegasLedger;
   const isVegas = isVegasPairCard;
   const strokeLike = mode === "stroke" || (isScramble && !isVegasPairCard);

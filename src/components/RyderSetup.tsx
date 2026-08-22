@@ -16,6 +16,7 @@ import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
+import { ReorderList } from "./ReorderList";
 
 interface CourseState {
   holes: number;
@@ -573,6 +574,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
             [
               "Fourball",
               "Foursomes",
+              "Alt Shot",
               "Best Ball",
               "Shamble",
               "Scramble",
@@ -600,31 +602,17 @@ export function RyderSetup({ t }: { t: Tournament }) {
           </div>
         )}
         {program.length > 0 && (
-          <ol className="mb-3 space-y-1">
-            {program.map((ty, i) => (
-              <li
-                key={`${ty}-${i}`}
-                className="flex items-center justify-between rounded-lg bg-[var(--subtle)] px-3 py-1.5 text-sm"
-              >
-                <span>
-                  <span className="font-bold text-[var(--muted)] mr-2">{i + 1}.</span>
-                  {ty}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setProgram((p) => p.filter((_, j) => j !== i))}
-                  className="text-xs text-[var(--muted)] hover:text-rose-400"
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ol>
+          <ReorderList
+            items={program}
+            onReorder={setProgram}
+            renderItem={(ty) => ty}
+            onRemove={(i) => setProgram((p) => p.filter((_, j) => j !== i))}
+          />
         )}
         <p className="text-xs text-[var(--muted)] mb-4">
           {program.length === 0
             ? "No program yet — you can also add sessions one at a time from the match view as the day unfolds."
-            : `${program.length} session${program.length > 1 ? "s" : ""} of ${course.holes} holes each. Pairings are set per session in the match view (or randomized).`}
+            : `${program.length} session${program.length > 1 ? "s" : ""} of ${course.holes} holes each, played in this order — drag ⠿ (or use ↑↓) to rearrange. Pairings are set per session in the match view (or randomized).`}
         </p>
 
         <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5">
