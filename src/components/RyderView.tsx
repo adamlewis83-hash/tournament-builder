@@ -644,48 +644,6 @@ export function RyderView({ t }: { t: Tournament }) {
         </>
       )}
 
-      {/* Scoreboard */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 text-center">
-            <div className="text-sm font-semibold text-[var(--brand)] truncate flex items-center justify-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[var(--brand)]" />
-              {nameA}
-            </div>
-            <div className="text-4xl font-extrabold tabular-nums">{fmt(score.a)}</div>
-          </div>
-          <div className="text-[var(--muted)] text-sm font-bold">vs</div>
-          <div className="flex-1 text-center">
-            <div className="text-sm font-semibold text-rose-300 truncate flex items-center justify-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-rose-400" />
-              {nameB}
-            </div>
-            <div className="text-4xl font-extrabold tabular-nums">{fmt(score.b)}</div>
-          </div>
-        </div>
-        <div className="mt-3 h-2 rounded-full bg-rose-400/30 overflow-hidden">
-          <div className="h-full bg-[var(--brand)]" style={{ width: `${score.total ? (score.a / score.total) * 100 : 50}%` }} />
-        </div>
-        {inPlay > 0 && (
-          <p className="text-center text-sm mt-2.5 font-medium">
-            <span className="text-[var(--muted)]">On the course now:</span>{" "}
-            <span className="font-bold text-[var(--brand)] tabular-nums">{fmt(liveA)}</span>
-            <span className="text-[var(--muted)]"> – </span>
-            <span className="font-bold text-rose-300 tabular-nums">{fmt(liveB)}</span>{" "}
-            <span className="text-xs text-[var(--muted)]">
-              if the {inPlay} live match{inPlay > 1 ? "es hold" : " holds"}
-            </span>
-          </p>
-        )}
-        <p className="text-center text-xs text-[var(--muted)] mt-2">
-          {score.status === "in-progress"
-            ? `${fmt(score.clinch)} points wins the cup · ${fmt(score.a + score.b)}/${fmt(score.total)} points decided`
-            : "Final result"}
-        </p>
-        {/* How the cup counts is the host's call, not a granted scorekeeper's. */}
-        {!t.spectator && <CupScoringControl t={t} />}
-      </Card>
-
       {!noEdit && (
         <CollapsibleCard
           id="ryder-add-session"
@@ -751,6 +709,49 @@ export function RyderView({ t }: { t: Tournament }) {
           </p>
         </CollapsibleCard>
       )}
+
+      {/* Scoreboard */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 text-center">
+            <div className="text-sm font-semibold text-[var(--brand)] truncate flex items-center justify-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--brand)]" />
+              {nameA}
+            </div>
+            <div className="text-4xl font-extrabold tabular-nums">{fmt(score.a)}</div>
+          </div>
+          <div className="text-[var(--muted)] text-sm font-bold">vs</div>
+          <div className="flex-1 text-center">
+            <div className="text-sm font-semibold text-rose-300 truncate flex items-center justify-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-rose-400" />
+              {nameB}
+            </div>
+            <div className="text-4xl font-extrabold tabular-nums">{fmt(score.b)}</div>
+          </div>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-rose-400/30 overflow-hidden">
+          <div className="h-full bg-[var(--brand)]" style={{ width: `${score.total ? (score.a / score.total) * 100 : 50}%` }} />
+        </div>
+        {inPlay > 0 && (
+          <p className="text-center text-sm mt-2.5 font-medium">
+            <span className="text-[var(--muted)]">On the course now:</span>{" "}
+            <span className="font-bold text-[var(--brand)] tabular-nums">{fmt(liveA)}</span>
+            <span className="text-[var(--muted)]"> – </span>
+            <span className="font-bold text-rose-300 tabular-nums">{fmt(liveB)}</span>{" "}
+            <span className="text-xs text-[var(--muted)]">
+              if the {inPlay} live match{inPlay > 1 ? "es hold" : " holds"}
+            </span>
+          </p>
+        )}
+        <p className="text-center text-xs text-[var(--muted)] mt-2">
+          {score.status === "in-progress"
+            ? `${fmt(score.clinch)} points wins the cup · ${fmt(score.a + score.b)}/${fmt(score.total)} points decided`
+            : "Final result"}
+        </p>
+        {/* How the cup counts is the host's call, not a granted scorekeeper's. */}
+        {!t.spectator && <CupScoringControl t={t} />}
+      </Card>
+
 
       {!noEdit && rounds.length > 0 && (
         <div className="flex items-center justify-between">
