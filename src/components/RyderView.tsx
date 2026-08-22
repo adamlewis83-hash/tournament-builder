@@ -25,6 +25,7 @@ import {
   methodIsChoosable,
   sessionCard,
 } from "@/lib/ryderGolf";
+import { formatToPar } from "@/lib/golf";
 import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
@@ -58,6 +59,32 @@ function RyderMatchCard({
   const statusColor =
     st.a > st.b ? "text-[var(--brand)]" : st.b > st.a ? "text-rose-300" : "text-[var(--muted)]";
 
+  // Running total per ball: gross strokes and vs-par over the holes that ball has
+  // entered. Independent of the opponent, unlike the match status — which compares
+  // hole by hole and so shows nothing until BOTH sides have scores in.
+  const totals = (key: string) => {
+    const arr = sc[key] ?? [];
+    let gross = 0;
+    let par = 0;
+    let thru = 0;
+    for (let h = 0; h < card.holes; h++) {
+      const v = arr[h];
+      if (v == null) continue;
+      thru++;
+      gross += v;
+      par += card.pars[h];
+    }
+    return thru ? { gross, toPar: gross - par, thru } : null;
+  };
+  // Vegas types combined pair numbers, so "vs par" would be nonsense there.
+  const showToPar = m.label !== "Vegas";
+  const oneBall = ents.length === 2 && ents[0].key === "A";
+  const headTotal = (side: "A" | "B") => {
+    const tot = totals(side);
+    if (!tot) return "—";
+    return `${tot.gross}${showToPar ? ` (${formatToPar(tot.toPar)})` : ""}`;
+  };
+
   return (
     <Card className="p-0 overflow-hidden">
       <button
@@ -73,6 +100,16 @@ function RyderMatchCard({
             <span className="text-[var(--muted)]"> vs </span>
             <span className="text-rose-300">{sideNames(m.sideB)}</span>
           </div>
+          {oneBall && (totals("A") || totals("B")) && (
+            <div className="text-xs tabular-nums mt-0.5">
+              <span className="font-semibold text-[var(--brand)]">{headTotal("A")}</span>
+              <span className="text-[var(--muted)]"> · </span>
+              <span className="font-semibold text-rose-300">{headTotal("B")}</span>
+              <span className="text-[var(--muted)]">
+                {" "}thru {Math.max(totals("A")?.thru ?? 0, totals("B")?.thru ?? 0)}
+              </span>
+            </div>
+          )}
         </div>
         <div className="text-right shrink-0">
           <div className={`text-sm font-bold ${statusColor}`}>{st.text}</div>
@@ -96,6 +133,41 @@ function RyderMatchCard({
                   </th>
                 ))}
                 <th className="px-1 py-1"></th>
+              </tr>
+              {/* Running totals per ball — visible from the first score typed. */}
+              <tr className="text-xs tabular-nums">
+                <th className="px-2 py-0.5 text-left sticky left-0 bg-[var(--surface)] font-normal text-[var(--muted)]">
+                  Total
+                </th>
+                <th className="px-1 py-0.5"></th>
+                {ents.map((e) => {
+                  const tot = totals(e.key);
+                  return (
+                    <th key={e.key} className="px-1 py-0.5 text-center font-semibold">
+                      {tot ? (
+                        <>
+                          {tot.gross}
+                          {showToPar && (
+                            <span
+                              className={`ml-1 font-normal ${
+                                tot.toPar < 0
+                                  ? "text-[var(--win)]"
+                                  : tot.toPar > 0
+                                    ? "text-rose-300"
+                                    : "text-[var(--muted)]"
+                              }`}
+                            >
+                              {formatToPar(tot.toPar)}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="font-normal text-[var(--muted)]">—</span>
+                      )}
+                    </th>
+                  );
+                })}
+                <th className="px-1 py-0.5"></th>
               </tr>
             </thead>
             <tbody>
