@@ -1436,6 +1436,39 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
   });
 }
 
+// ---- Swapping a session's game ---------------------------------------------
+// A whole-team game and a 2v2 game don't put the same players against each other,
+// so changing one rebuilds the session's matchups rather than relabelling them.
+{
+  const eight = players(8, true);
+  check("session game — whole-team is one 4v4 match, pairs are 2v2 matches", () => {
+    const team = genRyderSession(eight, "Team Scramble", 1);
+    assert(team.length === 1, `Team Scramble made ${team.length} matches, want 1`);
+    assert(team[0].sideA.length === 4, `Team Scramble side of ${team[0].sideA.length}, want 4`);
+
+    const pairs = genRyderSession(eight, "Scramble", 1);
+    assert(pairs.length === 2, `Scramble made ${pairs.length} matches, want 2`);
+    assert(
+      pairs.every((m) => m.sideA.length === 2 && m.sideB.length === 2),
+      "Scramble was not 2v2",
+    );
+    // Everyone still plays, either way.
+    const played = (ms: Match[]) => new Set(ms.flatMap((m) => [...m.sideA, ...m.sideB])).size;
+    assert(played(team) === 8 && played(pairs) === 8, "someone was left out of a session");
+  });
+
+  check("session game — every pairs game fields the same 2v2 matchups", () => {
+    const shapes = ["Fourball", "Foursomes", "Alt Shot", "Best Ball", "Shamble", "Scramble", "Vegas"]
+      .map((ty) => {
+        const ms = genRyderSession(eight, ty as RyderSessionType, 1);
+        return `${ms.length}x${ms[0].sideA.length}v${ms[0].sideB.length}`;
+      });
+    assert(new Set(shapes).size === 1, `pairs games disagree on shape: ${shapes.join(" ")}`);
+    // Eight players is four a side, so two pairs per team meeting in two matches.
+    assert(shapes[0] === "2x2v2", `pairs shape is ${shapes[0]}, want 2x2v2 for eight players`);
+  });
+}
+
 // ---- Reordering a cup's sessions -------------------------------------------
 // Scorecards are keyed by match id so they ride along with their matches; the course
 // card and scoring method are keyed by ROUND and have to be remapped to follow.

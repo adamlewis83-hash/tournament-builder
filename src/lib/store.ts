@@ -149,6 +149,7 @@ interface State {
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   keepRyderRounds: (id: string, keep: number) => void;
   moveRyderRound: (id: string, from: number, to: number) => void;
+  setRyderSessionType: (id: string, round: number, type: RyderSessionType) => void;
   removeRyderRound: (id: string, round: number) => void;
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderPointsPerSession: (id: string, points: number | undefined) => void;
@@ -1029,6 +1030,45 @@ export const useStore = create<State>()(
             return {
               ...t,
               matches,
+              config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      /**
+       * Change which game a session plays — a whole-team Scramble into a 2v2 one, say.
+       *
+       * The sides themselves differ between games (one 4v4 match versus two 2v2 ones),
+       * so this rebuilds that session's matches rather than relabelling them, and the
+       * scorecards keyed to the old match ids go with them. Callers warn first when
+       * there is anything to lose. The session's course card and scoring method are
+       * keyed by round and stay put — both are independent of which game is played.
+       */
+      setRyderSessionType: (id, round, type) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id) return t;
+            const next = genRyderSession(t.participants, type, round, false);
+            if (!next.length) return t;
+            const dropped = new Set(
+              t.matches.filter((m) => m.phase === "ryder" && m.round === round).map((m) => m.id),
+            );
+            const matches = [
+              ...t.matches.filter((m) => !dropped.has(m.id)),
+              ...next,
+            ].sort((a, b) => a.round - b.round || a.order - b.order);
+            const g = t.ryderGolf;
+            const scores = g
+              ? Object.fromEntries(Object.entries(g.scores).filter(([mid]) => !dropped.has(mid)))
+              : undefined;
+            return {
+              ...t,
+              matches,
+              ...(g && scores ? { ryderGolf: { ...g, scores } } : {}),
               config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
               updatedAt: Date.now(),
             };

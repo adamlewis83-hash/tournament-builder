@@ -7,6 +7,7 @@ import {
   RYDER_SESSION_BLURBS,
   RyderScoring,
   RyderSessionType,
+  TEAM_SESSION_TYPES,
 } from "@/lib/ryder";
 import { Trophy } from "@/components/icons";
 import {
@@ -178,6 +179,75 @@ function RyderMatchCard({
 // save the day's courses in /courses (or via Course search in Edit setup) first.
 /** How this session is read off the scorecard. Interpretive only — switching it
  *  re-settles the session's matches without touching a single hole. */
+/** The 2v2 games, in the order they're offered. */
+const PAIR_SESSIONS: RyderSessionType[] = [
+  "Fourball",
+  "Foursomes",
+  "Alt Shot",
+  "Best Ball",
+  "Shamble",
+  "Scramble",
+  "Vegas",
+];
+
+/** Change which game a session plays. Sides differ between games — one 4v4 match
+ *  versus two 2v2 ones — so this rebuilds the session, taking its scorecards with it.
+ *  Anything already entered is spelled out before it goes. */
+function SessionGameControl({ t, round }: { t: Tournament; round: number }) {
+  const setType = useStore((s) => s.setRyderSessionType);
+  const ms = t.matches.filter((m) => m.phase === "ryder" && m.round === round);
+  if (!ms.length) return null;
+  const current = (ms[0].label ?? "Fourball") as RyderSessionType;
+
+  const change = (next: RyderSessionType) => {
+    if (next === current) return;
+    const entered = ms.reduce(
+      (n, m) =>
+        n +
+        Object.values(t.ryderGolf?.scores?.[m.id] ?? {}).reduce(
+          (k, card) => k + card.filter((v) => v != null).length,
+          0,
+        ),
+      0,
+    );
+    if (
+      entered > 0 &&
+      !confirm(
+        `Switching this session to ${next} rebuilds its matchups — ${current} and ${next} don't put the same players against each other — and clears the ${entered} score${entered === 1 ? "" : "s"} already on it. Continue?`,
+      )
+    )
+      return;
+    setType(t.id, round, next);
+  };
+
+  return (
+    <select
+      value={current}
+      onChange={(e) => change(e.target.value as RyderSessionType)}
+      title="The game this session plays"
+      className="max-w-[170px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs outline-none focus:border-[var(--brand)]"
+    >
+      <optgroup label="Pairs (2v2)">
+        {PAIR_SESSIONS.map((ty) => (
+          <option key={ty} value={ty}>
+            🏌️ {ty}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="Singles (1v1)">
+        <option value="Singles">🏌️ Singles</option>
+      </optgroup>
+      <optgroup label="Whole team">
+        {TEAM_SESSION_TYPES.map((ty) => (
+          <option key={ty} value={ty}>
+            👥 {ty}
+          </option>
+        ))}
+      </optgroup>
+    </select>
+  );
+}
+
 function SessionMethodControl({ t, round }: { t: Tournament; round: number }) {
   const setMethod = useStore((s) => s.setRyderSessionMethod);
   const ms = t.matches.filter((m) => m.phase === "ryder" && m.round === round);
@@ -584,15 +654,7 @@ export function RyderView({ t }: { t: Tournament }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {(
-                [
-                  "Fourball",
-                  "Foursomes",
-                  "Alt Shot",
-                  "Best Ball",
-                  "Shamble",
-                  "Scramble",
-                  "Vegas",
-                ] as RyderSessionType[]
+                PAIR_SESSIONS
               ).map((ty) => (
                 <Button
                   key={ty}
@@ -711,6 +773,7 @@ export function RyderView({ t }: { t: Tournament }) {
                     </button>
                   </span>
                 )}
+                {!noEdit && <SessionGameControl t={t} round={round} />}
                 {!noEdit && <SessionMethodControl t={t} round={round} />}
                 {!noEdit && <SessionCourseControl t={t} round={round} />}
               </div>
