@@ -1,4 +1,4 @@
-import { Match, Participant } from "./types";
+import { Match, Participant, Tournament } from "./types";
 import { isFinal } from "./score";
 import { uid } from "./id";
 
@@ -292,4 +292,67 @@ export function ryderScore(
   else if (total > EPS && played >= total - EPS)
     status = a > b + EPS ? "a-wins" : b > a + EPS ? "b-wins" : "tie";
   return { a, b, total, played, clinch, status };
+}
+
+
+/** The cup's session list (labels in playing order), derived from the matches. */
+export function ryderProgramOf(matches: Match[]): string[] {
+  const ryder = matches.filter((m) => m.phase === "ryder");
+  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
+  return rounds.map((r) => ryder.find((m) => m.round === r)?.label ?? "Fourball");
+}
+
+/**
+ * Move a session to a different place in the playing order. `from` and `to` are
+ * positions in that order, not round numbers.
+ *
+ * Scorecards are keyed by match id, so they ride along with their matches for free.
+ * The per-session course card and scoring method are keyed by ROUND, so they are
+ * remapped to follow their session — otherwise a re-ordered cup would quietly hand
+ * one session's course and scoring rules to another. Everything else about a session
+ * is derived from the round number its matches carry.
+ */
+export function reorderRyderRounds(t: Tournament, from: number, to: number): Tournament {
+  const rounds = Array.from(
+    new Set(t.matches.filter((m) => m.phase === "ryder").map((m) => m.round)),
+  ).sort((a, b) => a - b);
+  if (from === to || from < 0 || to < 0 || from >= rounds.length || to >= rounds.length) return t;
+
+  const order = [...rounds];
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  // order[i] is the round that should now be played i-th.
+  const renumber = new Map(order.map((old, i) => [old, i + 1]));
+
+  const matches = t.matches.map((m) =>
+    m.phase === "ryder" ? { ...m, round: renumber.get(m.round) ?? m.round } : m,
+  );
+  const remap = <V,>(rec: Record<number, V> | undefined) => {
+    if (!rec) return undefined;
+    const out: Record<number, V> = {};
+    for (const [k, v] of Object.entries(rec)) {
+      const next = renumber.get(Number(k));
+      if (next != null) out[next] = v;
+    }
+    return out;
+  };
+
+  const g = t.ryderGolf;
+  const courses = remap(g?.sessionCourses);
+  const methods = remap(g?.sessionMethods);
+  return {
+    ...t,
+    matches,
+    ...(g
+      ? {
+          ryderGolf: {
+            ...g,
+            ...(courses ? { sessionCourses: courses } : {}),
+            ...(methods ? { sessionMethods: methods } : {}),
+          },
+        }
+      : {}),
+    config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
+    updatedAt: Date.now(),
+  };
 }

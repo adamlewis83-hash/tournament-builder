@@ -16,7 +16,14 @@ import {
 import { uid } from "./id";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
-import { genRyder, genRyderSession, RyderScoring, RyderSessionType } from "./ryder";
+import {
+  genRyder,
+  genRyderSession,
+  reorderRyderRounds,
+  ryderProgramOf,
+  RyderScoring,
+  RyderSessionType,
+} from "./ryder";
 import { matchOutcome } from "./ryderGolf";
 import { defaultGolf } from "./golf";
 import {
@@ -30,14 +37,6 @@ import { applyProfilePhoto } from "./profile";
 import { canEditScores } from "./perms";
 import { scoreCount } from "./snapshot";
 import { publishLive as apiPublish, fetchLive, sendPatch, LivePatch } from "./live";
-
-// The cup's session list (labels in playing order), derived from the matches —
-// mirrored into config.ryderProgram so Edit setup can restore the program.
-const ryderProgramOf = (matches: Match[]): string[] => {
-  const ryder = matches.filter((m) => m.phase === "ryder");
-  const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
-  return rounds.map((r) => ryder.find((m) => m.round === r)?.label ?? "Fourball");
-};
 
 const DEFAULT_CONFIG: TournamentConfig = {
   rounds: 4,
@@ -149,6 +148,7 @@ interface State {
   ) => void;
   addRyderSession: (id: string, type: RyderSessionType, shuffle: boolean) => void;
   keepRyderRounds: (id: string, keep: number) => void;
+  moveRyderRound: (id: string, from: number, to: number) => void;
   removeRyderRound: (id: string, round: number) => void;
   setRyderScoring: (id: string, scoring: RyderScoring) => void;
   setRyderPointsPerSession: (id: string, points: number | undefined) => void;
@@ -984,6 +984,16 @@ export const useStore = create<State>()(
       // Trim the cup back to its first `keep` sessions, leaving those matches — and the
       // scorecards keyed to their ids — exactly as they are. Used when Edit setup changes
       // the program: rather than rebuilding the whole cup, only the changed tail is redone.
+      /** Reorder the cup's sessions — see `reorderRyderRounds` for what moves with them. */
+      moveRyderRound: (id, from, to) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id && !t.spectator ? reorderRyderRounds(t, from, to) : t,
+          ),
+        }));
+        pushReplace(id);
+      },
+
       keepRyderRounds: (id, keep) => {
         snapshot(id, "Cup program changed");
         set((s) => ({

@@ -8,6 +8,7 @@ import {
   genRyderSession,
   matchWeights,
   pointsOnTheLine,
+  reorderRyderRounds,
   ryderScore,
   RyderScoring,
   RyderSessionType,
@@ -1376,6 +1377,105 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
       ],
     }) as Tournament;
     assert(scoreCount(live) === 0, "a game still being scored counted as a saved result");
+  });
+}
+
+// ---- Reordering a cup's sessions -------------------------------------------
+// Scorecards are keyed by match id so they ride along with their matches; the course
+// card and scoring method are keyed by ROUND and have to be remapped to follow.
+{
+  const cupOf3 = () => {
+    const P = players(4, true);
+    const mk = (round: number, label: string): Match => ({
+      id: `s${round}`, phase: "ryder", round, order: 0, label,
+      sideA: [P[0].id, P[1].id], sideB: [P[2].id, P[3].id], scoreA: null, scoreB: null,
+    });
+    const t = tour({
+      format: "ryder", participants: P,
+      matches: [mk(1, "Fourball"), mk(2, "Foursomes"), mk(3, "Singles")],
+      config: cfg({ ryderProgram: ["Fourball", "Foursomes", "Singles"] }),
+    }) as Tournament;
+    t.ryderGolf = {
+      holes: 2, pars: [4, 4], strokeIndex: [1, 2],
+      scores: {
+        s1: { [P[0].id]: [4, 4] },
+        s2: { [P[0].id]: [5, 5] },
+        s3: { [P[0].id]: [6, 6] },
+      },
+      sessionMethods: { 1: "match", 2: "stroke", 3: "stableford" },
+      sessionCourses: {
+        2: { courseName: "Back nine", pars: [3, 3], strokeIndex: [1, 2] },
+      },
+    };
+    return t;
+  };
+
+  // The very function the store calls — no mirror to drift out of step with it.
+  const moveRound = (t: Tournament, from: number, to: number) => reorderRyderRounds(t, from, to);
+
+  const labelsInOrder = (t: Tournament) =>
+    t.matches
+      .filter((m) => m.phase === "ryder")
+      .sort((a, b) => a.round - b.round)
+      .map((m) => m.label)
+      .join(",");
+
+  check("cup reorder — the last session can be played first", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    assert(labelsInOrder(t) === "Singles,Fourball,Foursomes", labelsInOrder(t));
+  });
+
+  check("cup reorder — a session's scorecard follows it", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    // Singles is now round 1, and its card (match id s3) is untouched.
+    const singles = t.matches.find((m) => m.label === "Singles")!;
+    assert(singles.round === 1, `Singles landed on round ${singles.round}`);
+    const card = t.ryderGolf!.scores[singles.id];
+    assert(card && Object.values(card)[0][0] === 6, "the Singles card did not travel with it");
+    // And no card was lost or duplicated.
+    assert(Object.keys(t.ryderGolf!.scores).length === 3, "scorecards changed in number");
+  });
+
+  check("cup reorder — scoring method and course card follow their session", () => {
+    const t = moveRound(cupOf3(), 2, 0);
+    const g = t.ryderGolf!;
+    const roundOf = (label: string) => t.matches.find((m) => m.label === label)!.round;
+    assert(g.sessionMethods![roundOf("Foursomes")] === "stroke", "stroke method left behind");
+    assert(g.sessionMethods![roundOf("Singles")] === "stableford", "stableford method left behind");
+    assert(g.sessionMethods![roundOf("Fourball")] === "match", "match method left behind");
+    assert(
+      g.sessionCourses![roundOf("Foursomes")]?.courseName === "Back nine",
+      "the back-nine card did not follow Foursomes",
+    );
+    assert(Object.keys(g.sessionCourses!).length === 1, "a course card was duplicated");
+  });
+
+  check("cup reorder — rounds stay 1..n with no gaps or repeats", () => {
+    for (const [from, to] of [[0, 2], [2, 0], [1, 2], [0, 1]] as const) {
+      const t = moveRound(cupOf3(), from, to);
+      const rs = t.matches.filter((m) => m.phase === "ryder").map((m) => m.round).sort();
+      assert(rs.join(",") === "1,2,3", `move ${from}→${to} produced rounds ${rs.join(",")}`);
+    }
+  });
+
+  check("cup reorder — moving a session back where it was restores the cup", () => {
+    const before = cupOf3();
+    const there = moveRound(before, 0, 2);
+    const back = moveRound(there, 2, 0);
+    assert(labelsInOrder(back) === labelsInOrder(before), `${labelsInOrder(back)}`);
+    assert(
+      JSON.stringify(back.ryderGolf!.sessionMethods) ===
+        JSON.stringify(before.ryderGolf!.sessionMethods),
+      "methods did not come back",
+    );
+  });
+
+  check("cup reorder — the points on the board don't change with the order", () => {
+    const t = cupOf3();
+    t.matches = t.matches.map((m) => ({ ...m, scoreA: 1, scoreB: 0 }));
+    const before = ryderScore(t.matches, "match");
+    const after = ryderScore(moveRound(t, 2, 0).matches, "match");
+    assert(before.a === after.a && before.b === after.b, `${before.a}-${before.b} → ${after.a}-${after.b}`);
   });
 }
 

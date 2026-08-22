@@ -25,6 +25,7 @@ import { useStore } from "@/lib/store";
 import { canEditScores } from "@/lib/perms";
 import { Button, Card } from "./ui";
 import { Confetti } from "./Confetti";
+import { useReorder } from "@/hooks/useReorder";
 
 function RyderMatchCard({
   t,
@@ -465,6 +466,7 @@ export function RyderView({ t }: { t: Tournament }) {
   const [rulesFor, setRulesFor] = useState<number | null>(null);
   const addRyderSession = useStore((s) => s.addRyderSession);
   const removeRyderRound = useStore((s) => s.removeRyderRound);
+  const moveRyderRound = useStore((s) => s.moveRyderRound);
   const [nameA, nameB] = t.config.teamNames ?? ["Team A", "Team B"];
   const score = cupScore(t);
   const weights = cupWeights(t);
@@ -472,6 +474,13 @@ export function RyderView({ t }: { t: Tournament }) {
   const rounds = Array.from(new Set(ryder.map((m) => m.round))).sort((a, b) => a - b);
   const teamA = t.participants.filter((p) => p.team === 0);
   const teamB = t.participants.filter((p) => p.team === 1);
+
+  // Sessions can be re-ordered by the host once there's more than one. Scorecards are
+  // keyed by match id, so they move with their session rather than staying behind.
+  const canReorder = !noEdit && rounds.length > 1;
+  const { held, ref: sessionRef, grip: sessionGrip } = useReorder(rounds.length, (from, to) =>
+    moveRyderRound(t.id, from, to),
+  );
 
   const winnerName = score.status === "a-wins" ? nameA : score.status === "b-wins" ? nameB : null;
   const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(3).replace(/\.?0+$/, ""));
@@ -638,15 +647,28 @@ export function RyderView({ t }: { t: Tournament }) {
 
       {!t.spectator && ryder.some((m) => m.label === "Vegas") && <CupVegasRules t={t} />}
 
-      {rounds.map((round) => {
+      {rounds.map((round, idx) => {
         const ms = ryder.filter((m) => m.round === round).sort((a, b) => a.order - b.order);
         if (!ms.length) return null;
         const label = ms[0].label ?? `Round ${round}`;
         const rules = RYDER_SESSION_BLURBS[label as RyderSessionType];
         return (
-          <div key={round}>
+          <div
+            key={round}
+            ref={sessionRef(idx)}
+            className={held === idx ? "rounded-xl ring-1 ring-[var(--brand)] shadow-lg" : ""}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-1.5">
+                {canReorder && (
+                  <span
+                    {...sessionGrip(idx)}
+                    className={`${sessionGrip(idx).className} -ml-1 px-1 text-[var(--muted)] hover:text-[var(--foreground)]`}
+                    title="Drag to reorder the sessions"
+                  >
+                    ⠿
+                  </span>
+                )}
                 <h3 className="font-semibold">{label}</h3>
                 {rules && (
                   <button
@@ -661,6 +683,26 @@ export function RyderView({ t }: { t: Tournament }) {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
+                {canReorder && (
+                  <span className="flex items-center">
+                    <button
+                      aria-label="Play this session earlier"
+                      disabled={idx === 0}
+                      onClick={() => moveRyderRound(t.id, idx, idx - 1)}
+                      className="px-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-25"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      aria-label="Play this session later"
+                      disabled={idx === rounds.length - 1}
+                      onClick={() => moveRyderRound(t.id, idx, idx + 1)}
+                      className="px-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-25"
+                    >
+                      ↓
+                    </button>
+                  </span>
+                )}
                 {!noEdit && <SessionMethodControl t={t} round={round} />}
                 {!noEdit && <SessionCourseControl t={t} round={round} />}
               </div>
