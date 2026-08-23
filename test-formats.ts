@@ -1773,6 +1773,24 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
   });
 }
 
+// ---- A sport is only offered formats that suit it ---------------------------
+check("formats by sport — golf gets golf formats, and not Score Challenge", () => {
+  for (const sport of ["Golf", "Disc Golf"]) {
+    const list = formatsForSport(sport);
+    for (const f of ["golf", "ryder", "custom"] as Format[])
+      assert(list.includes(f), `${sport} is missing ${f}`);
+    // Score Challenge is "post one bare number per round" — for golf that is a worse
+    // copy of the Traditional scorecard (no holes, pars, or handicaps), so the
+    // golf-family sports don't offer it.
+    assert(!list.includes("score-challenge"), `${sport} offered Score Challenge again`);
+    for (const f of ["round-robin", "swiss", "single-elim"] as Format[])
+      assert(!list.includes(f), `${sport} offered the court format ${f}`);
+  }
+  // The sports it was built for keep it.
+  for (const sport of ["Bowling", "Darts", "Pop-A-Shot"])
+    assert(formatsForSport(sport).includes("score-challenge"), `${sport} lost Score Challenge`);
+});
+
 // ---- Removing a session ----------------------------------------------------
 // Everything a session owns has to go with it. The scorecards are keyed by match id
 // and the course card and scoring method by round, so leaving either behind meant
