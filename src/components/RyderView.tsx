@@ -675,6 +675,35 @@ function CupScoringControl({ t }: { t: Tournament }) {
   );
 }
 
+/** The team's name on the scoreboard — and, for the host, the place to change it.
+ *  Names were set once at setup with no way back short of Edit setup; now they edit
+ *  in place like the tournament title. Committed on blur/Enter rather than per
+ *  keystroke, since a name change is a settings push to everyone watching. */
+function TeamName({ t, side, name }: { t: Tournament; side: 0 | 1; name: string }) {
+  const patch = useStore((s) => s.patchTournament);
+  const [draft, setDraft] = useState(name);
+  const commit = () => {
+    const v = draft.trim();
+    if (!v || v === name) {
+      setDraft(name);
+      return;
+    }
+    const names: [string, string] = side === 0 ? [v, t.config.teamNames?.[1] ?? "Team B"] : [t.config.teamNames?.[0] ?? "Team A", v];
+    patch(t.id, { config: { ...t.config, teamNames: names } });
+  };
+  if (t.spectator) return <>{name}</>;
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      aria-label={`Team ${side === 0 ? "A" : "B"} name`}
+      className="w-full min-w-0 bg-transparent text-center font-semibold outline-none border-b border-transparent hover:border-[var(--border)] focus:border-[var(--brand)]"
+    />
+  );
+}
+
 export function RyderView({ t }: { t: Tournament }) {
   const noEdit = !canEditScores(t); // spectator without scorekeeper rights
   // Default into captain's-picks mode until scoring has started — but never for a
@@ -814,17 +843,17 @@ export function RyderView({ t }: { t: Tournament }) {
       <Card className="p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-center">
-            <div className="text-sm font-semibold text-[var(--brand)] truncate flex items-center justify-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[var(--brand)]" />
-              {nameA}
+            <div className="text-sm font-semibold text-[var(--brand)] flex items-center justify-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--brand)] shrink-0" />
+              <TeamName key={nameA} t={t} side={0} name={nameA} />
             </div>
             <div className="text-4xl font-extrabold tabular-nums">{fmt(score.a)}</div>
           </div>
           <div className="text-[var(--muted)] text-sm font-bold">vs</div>
           <div className="flex-1 text-center">
-            <div className="text-sm font-semibold text-rose-300 truncate flex items-center justify-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-rose-400" />
-              {nameB}
+            <div className="text-sm font-semibold text-rose-300 flex items-center justify-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-rose-400 shrink-0" />
+              <TeamName key={nameB} t={t} side={1} name={nameB} />
             </div>
             <div className="text-4xl font-extrabold tabular-nums">{fmt(score.b)}</div>
           </div>
