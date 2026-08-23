@@ -429,7 +429,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   americano: "Americano",
   mexicano: "Mexicano",
   ryder: "Ryder Cup Style (Team Golf)",
-  golf: "Golf",
+  golf: "Traditional",
   custom: "Custom (build your own)",
   "score-challenge": "Score Challenge",
   ladder: "Ladder",
