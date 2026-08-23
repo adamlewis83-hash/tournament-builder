@@ -456,7 +456,7 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   custom:
     "A blank slate — add players, then create each round's matchups yourself. The app tracks scores and the leaderboard. For events that don't fit a standard format.",
   "score-challenge":
-    "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, darts, or disc golf. Pick whether highest or lowest total wins.",
+    "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, or darts. Pick whether highest or lowest total wins.",
   ladder:
     "An ongoing challenge ladder — players are ranked, and you challenge someone above you. Win and you swap spots. Great for club/ongoing play (tennis, pickleball, racquetball, pool, foosball, chess).",
 };
@@ -550,7 +550,10 @@ const SCORE_CHALLENGE_SPORTS = new Set([
 // formats; everything else gets the universal bracket/round-robin base plus any
 // specialist formats that fit. "custom" (build-your-own) is offered everywhere.
 export function formatsForSport(sport: string): Format[] {
-  if (/golf/i.test(sport)) return ["golf", "ryder", "score-challenge", "custom"];
+  // Golf-family sports don't get Score Challenge: it is "post one bare number per
+  // round", which for golf is a worse copy of the Traditional scorecard — no holes,
+  // no pars, no handicaps. It stays for the sports where a round IS one number.
+  if (/golf/i.test(sport)) return ["golf", "ryder", "custom"];
   const out: Format[] = ["round-robin", "swiss"];
   if (KOTC_SPORTS.has(sport)) out.push("kotc");
   out.push("single-elim", "double-elim", "pool-bracket");
