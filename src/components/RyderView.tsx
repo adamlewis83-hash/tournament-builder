@@ -315,7 +315,7 @@ function SessionPointsControl({ t, round }: { t: Tournament; round: number }) {
           own != null ? "border-[var(--brand)] font-semibold" : "border-[var(--border)]"
         }`}
       />
-      <span className="text-[10px] text-[var(--muted)]">pts</span>
+      <span className="text-[10px] text-[var(--muted)] whitespace-nowrap">pts / session</span>
     </span>
   );
 }
@@ -906,6 +906,15 @@ export function RyderView({ t }: { t: Tournament }) {
         if (!ms.length) return null;
         const label = ms[0].label ?? `Round ${round}`;
         const rules = RYDER_SESSION_BLURBS[label as RyderSessionType];
+        const stake = pointsOnTheLine(
+          t.matches,
+          round,
+          t.config.ryderScoring,
+          t.ryderGolf?.holes,
+          roundHoles(t),
+          t.config.ryderPointsPerSession,
+          roundPoints(t),
+        );
         return (
           <div
             key={round}
@@ -1000,6 +1009,12 @@ export function RyderView({ t }: { t: Tournament }) {
                 )}
               </div>
             </div>
+            {ms.length > 1 && !noEdit && (
+              <p className="mb-2 -mt-1 text-[10px] text-[var(--muted)]">
+                {fmt(stake)} pt{stake === 1 ? "" : "s"} on the line this session · {ms.length}{" "}
+                matches → {fmt(stake / ms.length)} each
+              </p>
+            )}
             {rulesFor === round && rules && (
               <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs">
                 <span className="font-semibold">{label}:</span>{" "}
