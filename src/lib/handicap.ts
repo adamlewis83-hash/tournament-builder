@@ -100,3 +100,72 @@ export function sporosIndex(rounds: RoundScore[]): IndexResult {
     pendingNine: waiting !== null,
   };
 }
+
+// ---- Rounds from real Sporos data -------------------------------------------
+
+import type { Tournament } from "./types";
+
+// Modes where each participant's card is their own ball, hole by hole — the
+// only cards an individual handicap can be read from. Team-row games (a pair
+// or team per row) and combined-number Vegas cards are excluded; per-player
+// Vegas counts because everyone records their own strokes.
+const INDIVIDUAL_MODES = new Set([
+  "stroke",
+  "stableford",
+  "skins",
+  "nassau",
+  "bingo",
+  "wolf",
+]);
+
+/**
+ * Every finished golf round this player holds a complete card for, ready for
+ * the index. Rating/slope come from the tee they played; a course with no tee
+ * data counts at par/113 (an 18-hole-equivalent rating, so nines pair right).
+ */
+export function roundsForPlayer(tournaments: Tournament[], playerName: string): RoundScore[] {
+  const who = playerName.trim().toLowerCase();
+  if (!who) return [];
+  const out: RoundScore[] = [];
+
+  for (const t of tournaments) {
+    if (t.format !== "golf" || !t.golf) continue;
+    const mode = t.config.golfMode;
+    const perPlayerVegas = mode === "vegas" && t.config.vegasPerPlayer === true;
+    const soloMixed = mode === "mixed" && !t.golf.teams;
+    if (!INDIVIDUAL_MODES.has(mode) && !perPlayerVegas && !soloMixed) continue;
+
+    const p = t.participants.find((x) => x.name.trim().toLowerCase() === who);
+    if (!p) continue;
+    const g = t.golf;
+    const card = g.scores[p.id] ?? [];
+    const holes = g.holes;
+    let gross = 0;
+    let filled = 0;
+    for (let h = 0; h < holes; h++) {
+      const s = card[h];
+      if (s == null) break;
+      gross += s;
+      filled++;
+    }
+    if (filled !== holes) continue; // an unfinished card is not a round
+
+    const par = g.pars.slice(0, holes).reduce((a, b) => a + b, 0);
+    const tee = g.tees?.find((x) => x.name === p.tee) ?? g.tees?.[0];
+    out.push({
+      at: t.updatedAt ?? t.createdAt ?? 0,
+      holes,
+      gross,
+      // Tee ratings are 18-hole figures; a bare course counts at par (doubled
+      // for a nine so the pairing math stays in 18-hole units).
+      rating: tee?.rating ?? (holes <= 9 ? par * 2 : par),
+      slope: tee?.slope ?? 113,
+    });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/** The player's Seed Index straight from their tournament history. */
+export function seedIndexForPlayer(tournaments: Tournament[], playerName: string): IndexResult {
+  return sporosIndex(roundsForPlayer(tournaments, playerName));
+}

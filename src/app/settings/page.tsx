@@ -8,6 +8,8 @@ import { HydrationGate } from "@/components/HydrationGate";
 import { SyncPanel } from "@/components/SyncPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
 import { getProfile, setProfile, type Profile } from "@/lib/profile";
+import { seedIndexForPlayer } from "@/lib/handicap";
+import { useStore } from "@/lib/store";
 import { colorForName } from "@/lib/colors";
 import { Avatar } from "@/components/Avatar";
 import { PhotoCropper } from "@/components/PhotoCropper";
@@ -122,6 +124,7 @@ function ProfileSetting() {
           />
           <span className="text-[10px] text-[var(--muted)]">auto-fills golf events</span>
         </div>
+        <SeedIndexAdopt prof={prof} save={save} />
         <p className="mt-1 text-xs text-[var(--muted)]">
           Tap the circle to pick your color or add a photo. Everything here auto-loads onto you
           (matched by this name) in tournaments you start, and pre-fills when you join by code.
@@ -241,5 +244,40 @@ export default function SettingsPage() {
         <HomeLayoutSetting />
       </Card>
     </HydrationGate>
+  );
+}
+
+// The Seed Index, offered right where the handicap lives: one tap adopts the
+// number grown from your finished Sporos rounds into your profile (which then
+// auto-fills every golf event). Renders nothing until an index exists.
+function SeedIndexAdopt({ prof, save }: { prof: Profile; save: (p: Profile) => void }) {
+  const tournaments = useStore((s) => s.tournaments);
+  const name = prof.name.trim();
+  if (!name) return null;
+  const r = seedIndexForPlayer(tournaments, name);
+  if (r.index == null) return null;
+  const current = prof.golfHandicap;
+  const same = current != null && Math.abs(current - r.index) < 0.05;
+  return (
+    <p className="mt-1.5 text-xs text-[var(--muted)]">
+      ⛳ Seed Index from your {r.rounds} Sporos round{r.rounds === 1 ? "" : "s"}:{" "}
+      <span className="font-semibold text-[var(--foreground)] tabular-nums">
+        {r.index.toFixed(1)}
+      </span>
+      {same ? (
+        <span> — in use ✓</span>
+      ) : (
+        <>
+          {" "}
+          <button
+            type="button"
+            onClick={() => save({ ...prof, golfHandicap: r.index })}
+            className="font-semibold text-[var(--brand)] hover:underline"
+          >
+            Use it
+          </button>
+        </>
+      )}
+    </p>
   );
 }

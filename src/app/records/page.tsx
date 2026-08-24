@@ -13,6 +13,7 @@ import { colorForName } from "@/lib/colors";
 import { Card } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { HydrationGate } from "@/components/HydrationGate";
+import { SeedIndexCard } from "@/components/SeedIndexCard";
 
 export default function RecordsPage() {
   return (
@@ -96,6 +97,8 @@ function RecordBook() {
           Hall of fame across {completed.length} completed {completed.length === 1 ? "event" : "events"}.
         </p>
       </div>
+
+      <SeedIndexCard />
 
       {completed.length === 0 ? (
         <Card className="p-10 text-center">
