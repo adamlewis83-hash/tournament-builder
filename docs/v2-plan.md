@@ -114,15 +114,19 @@ Friends today are name cards. This makes them connections.
 
 Waves 1–3 are all instant-deploy web work. Nothing waits on Apple until the end.
 
-## Open questions for Adam
+## Decisions (answered 2026-08-30)
 
-1. **Handicap details**: count 9-hole rounds toward the index (WHS combines
-   two 9s)? v2.0 could keep it simple: 18s count, 9s stored but not indexed.
-2. **Feed privacy default for solo rounds**: visible to friends by default
-   (Grint-style) or opt-in per round?
-3. **App icon**: evolve the sprout or redesign outright?
-4. **Naming**: "Sporos Handicap" or something crew-flavored?
-5. Send the **messy scoring screenshot** so P4 targets the right screen.
+1. **9-hole rounds count** toward the index — consecutive nines pair up into a
+   combined 18-hole differential (an unpaired nine waits for its partner).
+2. **Feed privacy**: solo rounds visible to friends by default, global opt-out
+   in Settings (plus per-event private switch).
+3. **App icon: the sprout stays.** The overhaul targets the IN-APP icon set
+   (sport icons and UI glyphs) — bolder redesign there; sprout refinements
+   welcome but the identity holds.
+4. **Handicap naming**: leading candidate **Seed Index** (Sporos is Greek for
+   seed, and it literally seeds your events) — final call Adam's.
+5. **P4 target confirmed**: the Traditional golf setup screen (11-chip game
+   grid + long course card) is the messy one to redesign first.
 
 ## Parked (post-v2 candidates)
 

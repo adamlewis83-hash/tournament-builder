@@ -68,6 +68,7 @@ import {
   VEGAS_BASIC,
   VEGAS_DEFAULTS,
 } from "./src/lib/types";
+import { differential, RoundScore, sporosIndex } from "./src/lib/handicap";
 import { sportEmoji } from "./src/lib/sportEmoji";
 
 let pass = 0;
@@ -2306,6 +2307,58 @@ check("shuffled keeps everyone exactly once", () => {
 });
 
 // ---- Summary ----
+
+// ---- The Sporos handicap (Seed Index) ---------------------------------------
+{
+  const R = (at: number, holes: number, gross: number, rating = 72, slope = 113): RoundScore =>
+    ({ at, holes, gross, rating, slope });
+
+  check("handicap — a differential is (gross − rating) × 113 / slope", () => {
+    assert(Math.abs(differential(85, 72, 113) - 13) < 0.001, "plain 113-slope differential");
+    // Steeper slope shrinks the differential: (85−72)×113÷130 ≈ 11.3
+    assert(Math.abs(differential(85, 72, 130) - 11.3) < 0.05, "slope-adjusted differential");
+  });
+
+  check("handicap — no index until three differentials exist", () => {
+    const r = sporosIndex([R(1, 18, 85), R(2, 18, 90)]);
+    assert(r.index === null && r.rounds === 2, "two rounds should not produce an index");
+  });
+
+  check("handicap — three rounds: lowest differential minus 2", () => {
+    // Differentials 13, 18, 8 → lowest 8 → index 6.0
+    const r = sporosIndex([R(1, 18, 85), R(2, 18, 90), R(3, 18, 80)]);
+    assert(r.index === 6, `want 6.0, got ${r.index}`);
+    assert(r.used === 1 && r.adjustment === -2, "three-round rule is lowest 1, −2");
+  });
+
+  check("handicap — twenty rounds: average of the best eight", () => {
+    // 12 rounds at gross 92 (diff 20) then 8 at gross 80 (diff 8):
+    // best 8 of the last 20 are the eight 8s → index 8.0
+    const rounds = [
+      ...Array.from({ length: 12 }, (_, i) => R(i + 1, 18, 92)),
+      ...Array.from({ length: 8 }, (_, i) => R(100 + i, 18, 80)),
+    ];
+    const r = sporosIndex(rounds);
+    assert(r.index === 8, `want 8.0, got ${r.index}`);
+    assert(r.used === 8 && r.adjustment === 0, "twenty-round rule is best 8, no adjustment");
+  });
+
+  check("handicap — nines pair chronologically into one differential", () => {
+    // Two nines: 42 + 44 = 86 gross vs half-ratings 36+36 = 72 → diff 14, plus
+    // two 18s (diffs 13 and 18) → 3 differentials → lowest (13) − 2 = 11.0
+    const r = sporosIndex([R(1, 9, 42), R(2, 9, 44), R(3, 18, 85), R(4, 18, 90)]);
+    assert(r.rounds === 3, `nine-pairing should yield 3 differentials, got ${r.rounds}`);
+    assert(r.index === 11, `want 11.0, got ${r.index}`);
+    assert(!r.pendingNine, "no nine should be left waiting");
+  });
+
+  check("handicap — an odd nine waits and is reported", () => {
+    const r = sporosIndex([R(1, 9, 42), R(2, 18, 85), R(3, 18, 90), R(4, 18, 88)]);
+    assert(r.pendingNine, "the unpaired nine should be flagged");
+    assert(r.rounds === 3, "the waiting nine must not count yet");
+  });
+}
+
 console.log(`\n${"=".repeat(50)}`);
 console.log(`PASS: ${pass}   FAIL: ${failures.length}`);
 if (failures.length) {
@@ -2314,4 +2367,4 @@ if (failures.length) {
   process.exit(1);
 } else {
   console.log("✅ All format/sport scenarios passed.");
-}
+}
