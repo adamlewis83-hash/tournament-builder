@@ -77,25 +77,39 @@ export async function fetchLibrary(
   }
 }
 
-export async function fetchFriends(owner: string): Promise<Friend[]> {
+export interface FriendTombstone {
+  name: string; // normalized (lowercased) friend name
+  at: number;
+}
+
+export async function fetchFriends(
+  owner: string,
+): Promise<{ friends: Friend[]; tombstones: FriendTombstone[] }> {
   try {
     const res = await fetch(`/api/friends?owner=${encodeURIComponent(owner)}`, { cache: "no-store" });
-    if (!res.ok) return [];
+    if (!res.ok) return { friends: [], tombstones: [] };
     const json = await res.json();
-    return (json.friends ?? []) as Friend[];
+    return {
+      friends: (json.friends ?? []) as Friend[],
+      tombstones: (json.tombstones ?? []) as FriendTombstone[],
+    };
   } catch {
-    return [];
+    return { friends: [], tombstones: [] };
   }
 }
 
-export async function putFriends(owner: string, friends: Friend[]): Promise<void> {
+export async function putFriends(
+  owner: string,
+  friends: Friend[],
+  tombstones: FriendTombstone[] = [],
+): Promise<void> {
   try {
     // keepalive so the backup completes even if the page reloads right after
     // (e.g. editing a friend then signing out).
     await fetch("/api/friends", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ owner, friends }),
+      body: JSON.stringify({ owner, friends, tombstones }),
       keepalive: true,
     });
   } catch {

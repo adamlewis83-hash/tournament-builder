@@ -54,11 +54,12 @@ export function CloudSync() {
 
       // Friends & saved courses: pull cloud into local (restores after a
       // reinstall), then push the merged list back so both sides converge.
-      const remoteFriends = await fetchFriends(owner.current);
-      if (remoteFriends.length) mergeFriends(remoteFriends);
-      const friends = useStore.getState().friends;
-      lastFriendsSig.current = JSON.stringify(friends);
-      putFriends(owner.current, friends);
+      const remoteF = await fetchFriends(owner.current);
+      if (remoteF.friends.length || remoteF.tombstones.length)
+        mergeFriends(remoteF.friends, remoteF.tombstones);
+      const st = useStore.getState();
+      lastFriendsSig.current = JSON.stringify([st.friends, st.friendTombstones]);
+      putFriends(owner.current, st.friends, st.friendTombstones);
 
       const remoteCourses = await fetchCourses(owner.current);
       if (remoteCourses.length) mergeCourses(remoteCourses);
@@ -91,10 +92,10 @@ export function CloudSync() {
       prevIds.current = ids;
 
       // Friends & saved courses: push the whole list whenever it changes.
-      const friendsSig = JSON.stringify(state.friends);
+      const friendsSig = JSON.stringify([state.friends, state.friendTombstones]);
       if (friendsSig !== lastFriendsSig.current) {
         lastFriendsSig.current = friendsSig;
-        putFriends(owner.current, state.friends);
+        putFriends(owner.current, state.friends, state.friendTombstones);
       }
       const coursesSig = JSON.stringify(state.courses);
       if (coursesSig !== lastCoursesSig.current) {

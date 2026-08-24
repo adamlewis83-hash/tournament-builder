@@ -78,6 +78,9 @@ interface State {
   tournaments: Tournament[];
   courses: Course[];
   friends: Friend[];
+  /** Friends deleted anywhere, by normalized name — synced so a removal beats
+   *  every stale device copy. Re-saving the name clears its tombstone. */
+  friendTombstones: { name: string; at: number }[];
   /** The single most recent undo point, taken just before a setup save that would
    *  otherwise destroy entered scores. Persisted, so it survives a reload.
    *
@@ -93,7 +96,7 @@ interface State {
   mergeCourses: (list: Course[]) => void;
   saveFriend: (input: Omit<Friend, "id"> & { id?: string }) => string;
   removeFriend: (id: string) => void;
-  mergeFriends: (list: Friend[]) => void;
+  mergeFriends: (list: Friend[], remoteTombstones?: { name: string; at: number }[]) => void;
   createTournament: (input: CreateInput) => string;
   importTournament: (t: Tournament) => string;
   removeTournament: (id: string) => void;
@@ -489,6 +492,7 @@ export const useStore = create<State>()(
       tournaments: [],
       courses: [],
       friends: [],
+      friendTombstones: [],
       snapshot: null,
       hydrated: false,
 
@@ -509,27 +513,55 @@ export const useStore = create<State>()(
             ...(input.color ? { color: input.color } : {}),
           };
           id = friend.id;
+          // Saving a name again is the deliberate re-add — clear its tombstone.
+          const key = friend.name.trim().toLowerCase();
+          const friendTombstones = s.friendTombstones.filter((t) => t.name !== key);
           return match
-            ? { friends: s.friends.map((f) => (f.id === match.id ? friend : f)) }
-            : { friends: [...s.friends, friend] };
+            ? { friends: s.friends.map((f) => (f.id === match.id ? friend : f)), friendTombstones }
+            : { friends: [...s.friends, friend], friendTombstones };
         });
         return id;
       },
 
-      removeFriend: (id) => set((s) => ({ friends: s.friends.filter((f) => f.id !== id) })),
+      removeFriend: (id) =>
+        set((s) => {
+          const gone = s.friends.find((f) => f.id === id);
+          const key = gone?.name.trim().toLowerCase();
+          return {
+            friends: s.friends.filter((f) => f.id !== id),
+            // Tombstone by name (ids differ across devices for the same person)
+            // so the deletion out-syncs every stale copy.
+            friendTombstones:
+              key && !s.friendTombstones.some((t) => t.name === key)
+                ? [...s.friendTombstones, { name: key, at: Date.now() }]
+                : s.friendTombstones,
+          };
+        }),
 
       // Union cloud friends into local without ever dropping a local one. Local
       // wins on id or name collisions (avoids duplicating the same person); any
       // cloud friend not seen locally is added — this restores friends after a
       // reinstall/sign-in on a device whose local list was empty.
-      mergeFriends: (list) =>
+      mergeFriends: (list, remoteTombstones = []) =>
         set((s) => {
-          const byId = new Set(s.friends.map((f) => f.id));
-          const byName = new Set(s.friends.map((f) => f.name.trim().toLowerCase()));
-          const add = list.filter(
-            (f) => !byId.has(f.id) && !byName.has(f.name.trim().toLowerCase()),
-          );
-          return add.length ? { friends: [...s.friends, ...add] } : {};
+          // Deletions win over stale copies: union the tombstones, drop any
+          // local friend a remote tombstone names, and never re-add a
+          // tombstoned name from the cloud. Re-saving a name (saveFriend)
+          // clears its tombstone — that's the intentional re-add path.
+          const tombs = [...s.friendTombstones];
+          for (const rt of remoteTombstones) {
+            const key = rt.name.trim().toLowerCase();
+            if (!tombs.some((t) => t.name === key)) tombs.push({ name: key, at: rt.at });
+          }
+          const dead = new Set(tombs.map((t) => t.name));
+          const kept = s.friends.filter((f) => !dead.has(f.name.trim().toLowerCase()));
+          const byId = new Set(kept.map((f) => f.id));
+          const byName = new Set(kept.map((f) => f.name.trim().toLowerCase()));
+          const add = list.filter((f) => {
+            const key = f.name.trim().toLowerCase();
+            return !byId.has(f.id) && !byName.has(key) && !dead.has(key);
+          });
+          return { friends: [...kept, ...add], friendTombstones: tombs };
         }),
 
       saveCourse: (input) => {
@@ -1702,6 +1734,7 @@ export const useStore = create<State>()(
         tournaments: s.tournaments,
         courses: s.courses,
         friends: s.friends,
+        friendTombstones: s.friendTombstones,
         snapshot: s.snapshot,
       }),
       onRehydrateStorage: () => (state) => {
