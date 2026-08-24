@@ -20,7 +20,7 @@ import { SportIcon } from "./SportIcon";
 import { sportAccent } from "@/lib/colors";
 import {
   Trophy,
-  Crown,
+  IconKotc,
   IconRoundRobin,
   IconSwiss,
   IconSingleElim,
@@ -49,7 +49,7 @@ const PRIMARY_SPORTS = SPORTS.slice(0, 8);
 const FORMAT_ICON: Record<Format, typeof Trophy> = {
   "round-robin": IconRoundRobin,
   swiss: IconSwiss,
-  kotc: Crown,
+  kotc: IconKotc,
   "single-elim": IconSingleElim,
   "double-elim": IconDoubleElim,
   "pool-bracket": IconPools,
