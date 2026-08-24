@@ -8,6 +8,7 @@ import {
   formatsForSport,
   PLAYSTYLE_LABELS,
   playStylesForFormat,
+  SPORTS,
   Tiebreaker,
   TIEBREAKER_LABELS,
   Tournament,
@@ -20,6 +21,7 @@ import { getProfile } from "@/lib/profile";
 import { scoreSummary } from "@/lib/snapshot";
 import { Button, Card } from "./ui";
 import { RyderSetup } from "./RyderSetup";
+import { SportIcon } from "./SportIcon";
 import { GolfSetup } from "./GolfSetup";
 import { RegistrationPanel } from "./RegistrationPanel";
 import { FriendPicker } from "./FriendPicker";
@@ -831,9 +833,11 @@ export function SetupPanel({ t }: { t: Tournament }) {
   );
 }
 
-// Pre-generation format/play-style switcher: picking the wrong tile on the
-// create form used to mean starting the whole tournament over. Golf and Ryder
-// have dedicated setup flows, so they're neither offered nor reachable here.
+// Sport/format/play-style switcher: picking the wrong tile on the create form
+// used to mean starting the whole tournament over. The sport can change too —
+// freely when the current format exists for the new sport (Pickleball → Tennis
+// keeps everything, schedule and scores included); crossing into or out of the
+// golf family forces a format change, so that path confirms and resets.
 // Formats offered for a switch — the same sport-appropriate list the create
 // form uses, so a golf event offers golf formats, not pickleball ones.
 
@@ -844,8 +848,39 @@ function FormatSwitcher({
   t: Tournament;
   onChange: (p: Partial<Tournament>) => void;
 }) {
+  const resetToSetup = useStore((s) => s.resetToSetup);
+  const [moreSports, setMoreSports] = useState(false);
   const styles = playStylesForFormat(t.format);
   const options = formatsForSport(t.sport);
+
+  // Same primary-8-plus-More shape as the create form; a custom-typed sport
+  // gets its own chip up front so the current pick is always visible.
+  const primary = SPORTS.slice(0, 8);
+  const base = moreSports || (SPORTS.includes(t.sport) && !primary.includes(t.sport)) ? SPORTS : primary;
+  const sportChips = base.includes(t.sport) ? base : [t.sport, ...base];
+
+  function setSport(s: string) {
+    if (s === t.sport) return;
+    if (formatsForSport(s).includes(t.format)) {
+      // The format carries over — nothing else has to move.
+      onChange({ sport: s });
+      return;
+    }
+    // Cross-family switch: the current format doesn't exist for the new sport.
+    const f = formatsForSport(s)[0];
+    const summary = scoreSummary(t);
+    const msg = t.generated
+      ? `${s} doesn't play ${FORMAT_LABELS[t.format]}, so this event moves to ${FORMAT_LABELS[f]} and the schedule is cleared${summary ? ` (${summary})` : ""}. Players and teams stay. Continue?`
+      : `${s} doesn't play ${FORMAT_LABELS[t.format]} — switching changes the format to ${FORMAT_LABELS[f]}. Continue?`;
+    if (!confirm(msg)) return;
+    const valid = playStylesForFormat(f);
+    onChange(
+      valid.length === 0 || valid.includes(t.playStyle)
+        ? { sport: s, format: f }
+        : { sport: s, format: f, playStyle: valid[0] },
+    );
+    if (t.generated) resetToSetup(t.id);
+  }
 
   function setFormat(f: Format) {
     if (f === t.format) return;
@@ -861,10 +896,37 @@ function FormatSwitcher({
   return (
     <Card className="p-5 space-y-3">
       <div>
-        <h2 className="font-semibold">Format &amp; play style</h2>
+        <h2 className="font-semibold">Sport, format &amp; play style</h2>
         <p className="text-sm text-[var(--muted)]">
-          Picked the wrong one? Change it here — anything goes until you generate.
+          Picked the wrong one? Change it here. A sport switch keeps everything as long as
+          the format still fits — you&apos;ll be asked first when it doesn&apos;t.
         </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {sportChips.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSport(s)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition ${
+              t.sport === s
+                ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                : "border-[var(--border)] hover:bg-[var(--hover)]"
+            }`}
+          >
+            <SportIcon sport={s} className="h-4 w-4 shrink-0" />
+            {s}
+          </button>
+        ))}
+        {!moreSports && sportChips.length < SPORTS.length && (
+          <button
+            type="button"
+            onClick={() => setMoreSports(true)}
+            className="rounded-lg border border-dashed border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:bg-[var(--hover)]"
+          >
+            More…
+          </button>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((f) => (
