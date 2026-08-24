@@ -41,3 +41,38 @@ export function colorForName(name: string): string {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return colorForIndex(h % PALETTE.length);
 }
+
+// One deliberate accent per built-in sport — the color language a sport keeps
+// everywhere it appears (home-card rail and chip, picker icons, record rows).
+// Chosen from the sport's own world (basketball leather, tennis ball, red solo
+// cup), not hashed from its name; custom sports fall back to the stable hash.
+const SPORT_ACCENTS: [RegExp, string][] = [
+  [/disc|frisbee/i, "#0284c7"], // sky — a disc in flight (before generic "golf")
+  [/golf/i, "#16a34a"], // fairway green
+  [/pickle/i, "#65a30d"], // lime wiffle ball
+  [/ping|table tennis/i, "#f43f5e"], // paddle-rubber red
+  [/badmin/i, "#c026d3"], // fuchsia — feathered and fast
+  [/racquet|squash/i, "#3b82f6"], // blue racquetball
+  [/tennis/i, "#ca8a04"], // optic-ball gold
+  [/pop-?a-?shot/i, "#c2410c"], // deep arcade orange
+  [/basket|hoop/i, "#ea580c"], // leather orange
+  [/soccer|futbol/i, "#059669"], // pitch emerald
+  [/football/i, "#5b21b6"], // deep violet flags
+  [/foos/i, "#0891b2"], // table cyan
+  [/corn/i, "#92400e"], // board wood
+  [/spike/i, "#eab308"], // yellow rim & ball
+  [/volley/i, "#2563eb"], // court blue
+  [/dart/i, "#0d9488"], // board teal
+  [/pool|billiard|snooker/i, "#4338ca"], // hall indigo
+  [/bowl/i, "#db2777"], // alley neon pink
+  [/cup ?pong|beer/i, "#dc2626"], // red solo cup
+  [/chess/i, "#64748b"], // slate
+  [/video|esport|arcade/i, "#a855f7"], // RGB purple
+  [/board/i, "#0369a1"], // steel blue
+];
+
+/** The sport's signature accent — curated for built-ins, hash fallback for customs. */
+export function sportAccent(sport: string): string {
+  for (const [re, hex] of SPORT_ACCENTS) if (re.test(sport)) return hex;
+  return colorForName(sport);
+}

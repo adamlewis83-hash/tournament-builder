@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS, Tournament } from "@/lib/types";
 import { getResult } from "@/lib/result";
 import { isFinal } from "@/lib/score";
-import { colorForName } from "@/lib/colors";
+import { sportAccent } from "@/lib/colors";
 import { Badge, Card, StatusPill } from "@/components/ui";
 import { tournamentStatus } from "@/lib/status";
 import { getLibraryKey, deleteTournamentRemote } from "@/lib/library";
@@ -164,7 +164,7 @@ export function TournamentList() {
           {shown.map(({ t, res }) => {
             const status = tournamentStatus(t);
             const prog = cardProgress(t);
-            const accent = colorForName(t.sport);
+            const accent = sportAccent(t.sport);
             const primary = !t.generated ? "Finish setup" : res.complete ? "View results" : "Open";
             const pct = prog && prog.total ? Math.round((prog.done / prog.total) * 100) : 0;
             return (

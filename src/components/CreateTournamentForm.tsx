@@ -17,6 +17,7 @@ import {
 } from "@/lib/types";
 import { Button } from "./ui";
 import { SportIcon } from "./SportIcon";
+import { sportAccent } from "@/lib/colors";
 import {
   Trophy,
   Crown,
@@ -155,7 +156,9 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
                     : "border-[var(--border)] hover:bg-[var(--hover)]"
                 }`}
               >
-                <SportIcon sport={s} className="h-4 w-4 shrink-0" />
+                {/* Icon carries the sport's signature accent; the chip stays neutral so
+                    the selected state keeps sole claim on the surface color. */}
+                <SportIcon sport={s} className="h-5 w-5 shrink-0" style={{ color: sportAccent(s) }} />
                 {s}
               </button>
             );
@@ -178,7 +181,7 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
                 : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--hover)]"
             }`}
           >
-            <SportIcon sport="custom" className="h-4 w-4 shrink-0" />
+            <SportIcon sport="custom" className="h-5 w-5 shrink-0 text-[var(--brand)]" />
             Other…
           </button>
         </div>

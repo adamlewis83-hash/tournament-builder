@@ -16,7 +16,7 @@ import {
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { winMargin } from "@/lib/score";
-import { colorForIndex } from "@/lib/colors";
+import { colorForIndex, sportAccent } from "@/lib/colors";
 import { getProfile } from "@/lib/profile";
 import { scoreSummary } from "@/lib/snapshot";
 import { Button, Card } from "./ui";
@@ -931,7 +931,7 @@ function FormatSwitcher({
                 : "border-[var(--border)] hover:bg-[var(--hover)]"
             }`}
           >
-            <SportIcon sport={s} className="h-4 w-4 shrink-0" />
+            <SportIcon sport={s} className="h-5 w-5 shrink-0" style={{ color: sportAccent(s) }} />
             {s}
           </button>
         ))}

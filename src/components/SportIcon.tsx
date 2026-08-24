@@ -32,8 +32,9 @@ type Key =
   | "custom";
 
 // The two duotone layers: SOFT is the tinted wash behind the linework, SOLID
-// the fully-inked accents (balls, bags, buttons).
-const SOFT = { fill: "currentColor", opacity: 0.18, stroke: "none" } as const;
+// the fully-inked accents (balls, bags, buttons). 26% wash — 18% disappeared
+// at the 16-20px sizes the app actually draws chips at.
+const SOFT = { fill: "currentColor", opacity: 0.26, stroke: "none" } as const;
 const SOLID = { fill: "currentColor", stroke: "none" } as const;
 
 const ICONS: Record<Key, ReactNode> = {

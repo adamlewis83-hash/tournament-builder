@@ -51,6 +51,7 @@ import { isFinal, isWon, winMargin } from "./src/lib/score";
 import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
 import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
+import { sportAccent } from "./src/lib/colors";
 import {
   formatsForSport,
   SPORTS,
@@ -496,6 +497,20 @@ for (const [sport, { has, lacks }] of Object.entries(SPECIALIST_FIT))
     for (const f of has) assert(fmts.includes(f), `${sport} should offer ${f}`);
     for (const f of lacks) assert(!fmts.includes(f), `${sport} should NOT offer ${f}`);
   });
+
+// ---- Sport accents: every built-in gets its curated color, customs stay stable ----
+check("sport accents — curated for built-ins, stable hash for customs", () => {
+  for (const sport of SPORTS)
+    assert(/^#[0-9a-f]{6}$/i.test(sportAccent(sport)), `${sport} accent isn't a hex color`);
+  // The signature pairings the UI leans on.
+  assert(sportAccent("Basketball") === "#ea580c", "basketball lost its leather orange");
+  assert(sportAccent("Golf") === "#16a34a", "golf lost its fairway green");
+  assert(sportAccent("Cup Pong") === "#dc2626", "cup pong lost its red solo cup");
+  assert(sportAccent("Beer Pong") === sportAccent("Cup Pong"), "legacy Beer Pong drifted from Cup Pong");
+  assert(sportAccent("Disc Golf") !== sportAccent("Golf"), "disc golf fell through to golf's accent");
+  // Customs: no curated entry, but the same name always gets the same color.
+  assert(sportAccent("Mario Kart") === sportAccent("Mario Kart"), "custom accent unstable");
+});
 
 // ---- Semantic checks (would have caught past regressions) ----
 // bracketChampion once matched matches with no FEEDERS (first-round games) instead of

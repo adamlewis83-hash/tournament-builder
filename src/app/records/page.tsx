@@ -9,7 +9,7 @@ import { getResult } from "@/lib/result";
 import { Crown, Trophy } from "@/components/icons";
 import { Emoji } from "@/components/Emoji";
 import { SportIcon } from "@/components/SportIcon";
-import { colorForName } from "@/lib/colors";
+import { colorForName, sportAccent } from "@/lib/colors";
 import { Card } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -197,7 +197,7 @@ function EventRow({ t }: { t: Tournament }) {
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between gap-3 text-left">
         <span className="min-w-0">
           <Link href={`/t/${t.id}`} className="font-semibold hover:text-[var(--brand)] flex items-center gap-2">
-            <SportIcon sport={t.sport} className="h-4 w-4 text-[var(--brand)]" />
+            <SportIcon sport={t.sport} className="h-4 w-4" style={{ color: sportAccent(t.sport) }} />
             <span className="truncate">{t.name}</span>
           </Link>
           <span className="text-sm text-amber-500 font-medium flex items-center gap-1.5 mt-0.5">
