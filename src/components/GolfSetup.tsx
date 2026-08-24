@@ -24,19 +24,28 @@ import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
 import { FriendPicker } from "./FriendPicker";
 
-const MODES: GolfMode[] = [
-  "stroke",
-  "stableford",
-  "skins",
-  "nassau",
-  "bingo",
-  "wolf",
-  "scramble",
-  "bestball",
-  "shamble",
-  "vegas",
-  "mixed",
+// The game picker, grouped by how you play rather than one 11-chip wall:
+// solo-ball games, partner/team games, and the build-your-own mixer. Group
+// headers carry the "(teams)/(pairs)" context, so chips show the bare name.
+const MODE_GROUPS: { label: string; hint: string; modes: GolfMode[] }[] = [
+  {
+    label: "Play your own ball",
+    hint: "Everyone posts their own score",
+    modes: ["stroke", "stableford", "skins", "nassau", "bingo", "wolf"],
+  },
+  {
+    label: "Partners & teams",
+    hint: "Sides share the scoring",
+    modes: ["scramble", "bestball", "shamble", "vegas"],
+  },
+  {
+    label: "Mix it up",
+    hint: "A different game every few holes",
+    modes: ["mixed"],
+  },
 ];
+const MODES: GolfMode[] = MODE_GROUPS.flatMap((g) => g.modes);
+const shortLabel = (m: GolfMode) => GOLF_MODE_LABELS[m].replace(/\s*\(.*\)$/, "");
 
 // Modes where each entered "player" is a team/pair with one score per hole.
 // One row per team: the card holds a single score for the side. Vegas is no longer
@@ -393,7 +402,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </Link>
         )}
 
-        <div className="mb-3">
+        <div className="mb-3 grid sm:grid-cols-2 gap-x-4 gap-y-3 items-start">
+        <div>
           <span className="text-xs font-medium text-[var(--muted)]">Search real courses</span>
           <div className="mt-1 flex gap-2">
             <input
@@ -440,7 +450,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         </div>
 
         {courses.length > 0 && (
-          <label className="block mb-3">
+          <label className="block">
             <span className="text-xs font-medium text-[var(--muted)]">Load a saved course</span>
             <select
               value=""
@@ -459,6 +469,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
             </select>
           </label>
         )}
+        </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="block">
@@ -876,20 +887,34 @@ export function GolfSetup({ t }: { t: Tournament }) {
       {/* Scoring mode */}
       <Card className="p-5 order-1">
         <h2 className="font-semibold mb-3">Scoring — pick your game</h2>
-        <div className="flex flex-wrap gap-2">
-          {MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                mode === m
-                  ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
-                  : "border-[var(--border)] hover:bg-[var(--hover)]"
-              }`}
-            >
-              {GOLF_MODE_LABELS[m]}
-            </button>
+        <div className="space-y-3">
+          {MODE_GROUPS.map((g) => (
+            <div key={g.label}>
+              <div className="mb-1.5 flex items-baseline gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  {g.label}
+                </span>
+                <span className="text-[11px] text-[var(--faint,var(--muted))] opacity-70">
+                  {g.hint}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {g.modes.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                      mode === m
+                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                        : "border-[var(--border)] hover:bg-[var(--hover)]"
+                    }`}
+                  >
+                    {shortLabel(m)}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
