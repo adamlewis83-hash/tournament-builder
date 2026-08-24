@@ -475,11 +475,20 @@ for (const sport of [...SPORTS, "Mario Kart", "Chili Cook-off", "Quidditch"]) {
 
 // ---- Specialist formats are only offered where they fit ----
 const SPECIALIST_FIT: Record<string, { has: Format[]; lacks: Format[] }> = {
-  Pickleball: { has: ["americano", "mexicano", "kotc"], lacks: ["score-challenge"] },
-  "Pop-A-Shot": { has: ["score-challenge"], lacks: ["americano", "mexicano", "kotc"] },
-  Bowling: { has: ["score-challenge"], lacks: ["americano", "kotc"] },
-  Basketball: { has: ["kotc"], lacks: ["americano", "mexicano"] },
-  Chess: { has: [], lacks: ["americano", "mexicano", "kotc", "score-challenge"] },
+  Pickleball: { has: ["americano", "mexicano", "kotc", "swiss", "ladder"], lacks: ["score-challenge"] },
+  // Solo-score sports: brackets and round robins yes, but no record-pairing or
+  // challenge ladders — one player just posts one number.
+  "Pop-A-Shot": { has: ["score-challenge"], lacks: ["americano", "mexicano", "kotc", "swiss", "ladder"] },
+  Bowling: { has: ["score-challenge"], lacks: ["americano", "kotc", "swiss", "ladder"] },
+  // Team field sports: whole-roster sides (2v2/3v3/5v5) — swiss rounds and
+  // standing ladders aren't a thing for these.
+  Basketball: { has: ["kotc"], lacks: ["americano", "mexicano", "swiss", "ladder"] },
+  Volleyball: { has: ["kotc"], lacks: ["swiss", "ladder"] },
+  Soccer: { has: ["kotc"], lacks: ["swiss", "ladder"] },
+  "Flag Football": { has: [], lacks: ["kotc", "swiss", "ladder"] },
+  // Darts holds a board like a bar game — winner stays on.
+  Darts: { has: ["kotc", "score-challenge", "swiss", "ladder"], lacks: ["americano"] },
+  Chess: { has: ["swiss", "ladder"], lacks: ["americano", "mexicano", "kotc", "score-challenge"] },
 };
 for (const [sport, { has, lacks }] of Object.entries(SPECIALIST_FIT))
   check(`format fit for "${sport}"`, () => {

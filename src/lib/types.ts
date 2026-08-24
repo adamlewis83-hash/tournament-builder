@@ -506,9 +506,13 @@ export const ALL_FORMATS: Format[] = [
 
 // Specialist formats only fit certain kinds of sport, so they're layered onto a
 // universal base instead of shown everywhere:
-//  - kotc (winner-stays-on): fast games you "hold" a court/table/screen at.
+//  - kotc (winner-stays-on): fast games you "hold" a court/table/board at.
 //  - americano/mexicano (rotating-partner 2v2): doubles-capable point games only.
 //  - score-challenge (post a number, high/low wins): solo-score games, not head-to-head.
+//  - swiss (pair by record over fixed rounds): head-to-head sports that actually run
+//    swiss events — nobody swiss-pairs a basketball day or a bowling night.
+//  - ladder (standing challenge ladder): club/ongoing 1v1-ish sports; a 5v5 field
+//    sport can't realistically hold a challenge ladder.
 const KOTC_SPORTS = new Set([
   "Pickleball",
   "Tennis",
@@ -523,7 +527,7 @@ const KOTC_SPORTS = new Set([
   "Basketball",
   "Volleyball",
   "Soccer",
-  "Flag Football",
+  "Darts",
   "Pool / Billiards",
   "Video Games / Esports",
 ]);
@@ -545,20 +549,29 @@ const SCORE_CHALLENGE_SPORTS = new Set([
   "Darts",
   "Video Games / Esports",
 ]);
+// Sides are whole rosters (2v2/3v3/5v5) and every game needs a full crew — record-paired
+// swiss rounds and standing challenge ladders don't happen for these.
+const TEAM_FIELD_SPORTS = new Set(["Basketball", "Volleyball", "Soccer", "Flag Football"]);
+// One player posts one number — there's no clever pairing to do, so swiss and
+// ladders make no sense even though brackets and round robins are fine.
+const SOLO_SCORE_SPORTS = new Set(["Bowling", "Pop-A-Shot"]);
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
 // formats; everything else gets the universal bracket/round-robin base plus any
-// specialist formats that fit. "custom" (build-your-own) is offered everywhere.
+// specialist formats that fit. "custom" (build-your-own) is offered everywhere,
+// and unknown/custom-typed sports keep the full head-to-head menu.
 export function formatsForSport(sport: string): Format[] {
   // Golf-family sports don't get Score Challenge: it is "post one bare number per
   // round", which for golf is a worse copy of the Traditional scorecard — no holes,
   // no pars, no handicaps. It stays for the sports where a round IS one number.
   if (/golf/i.test(sport)) return ["golf", "ryder", "custom"];
-  const out: Format[] = ["round-robin", "swiss"];
+  const noSwissLadder = TEAM_FIELD_SPORTS.has(sport) || SOLO_SCORE_SPORTS.has(sport);
+  const out: Format[] = ["round-robin"];
+  if (!noSwissLadder) out.push("swiss");
   if (KOTC_SPORTS.has(sport)) out.push("kotc");
   out.push("single-elim", "double-elim", "pool-bracket");
   if (AMERICANO_SPORTS.has(sport)) out.push("americano", "mexicano");
-  out.push("ladder");
+  if (!noSwissLadder) out.push("ladder");
   if (SCORE_CHALLENGE_SPORTS.has(sport)) out.push("score-challenge");
   out.push("custom");
   return out;

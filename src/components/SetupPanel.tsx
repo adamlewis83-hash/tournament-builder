@@ -389,6 +389,23 @@ export function SetupPanel({ t }: { t: Tournament }) {
                   className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
                 />
               </label>
+              {/* One-tap side sizes — "where's 3v3?" answered right where teams take shape. */}
+              <span className="flex items-center gap-1.5">
+                {[2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => applyShape(shapeTeams, n)}
+                    className={`rounded-md border px-2 py-1 text-xs font-medium transition ${
+                      shapePerTeam === n
+                        ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                        : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--hover)]"
+                    }`}
+                  >
+                    {n}v{n}
+                  </button>
+                ))}
+              </span>
               <span className="text-xs text-[var(--muted)]">
                 Shrinking never removes anyone you&apos;ve typed.
               </span>
