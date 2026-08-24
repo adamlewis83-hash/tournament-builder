@@ -172,9 +172,18 @@ export type RyderScoring = "match" | "session" | "round18";
 /** How each scoring mode reads to a host — shared so setup and the cup scoreboard
  *  describe the modes in the same words. */
 export const CUP_SCORING_LABELS: Record<RyderScoring, { label: string; hint: string }> = {
-  match: { label: "1 point per match", hint: "classic Ryder Cup — every match is its own point" },
-  session: { label: "1 point per session", hint: "the session's matches split one point (2 matches → ½ each)" },
-  round18: { label: "1 point per 18 holes", hint: "sessions on the same 18 share one point between them" },
+  match: {
+    label: "1 point per match",
+    hint: "every match won = 1 full point, however long it is (two 9-hole matches → 2 points)",
+  },
+  session: {
+    label: "1 point per session",
+    hint: "each session is worth 1, split across its matches (2 matches → ½ each)",
+  },
+  round18: {
+    label: "1 point per 18 holes",
+    hint: "a full 18 is worth 1 — two 9-hole sessions on the same 18 earn ½ each",
+  },
 };
 
 // Points can be fractional once a session's point is split across its matches,

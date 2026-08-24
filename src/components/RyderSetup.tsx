@@ -619,7 +619,7 @@ export function RyderSetup({ t }: { t: Tournament }) {
         </p>
 
         <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5">
-          Cup scoring
+          Cup points — what a win is worth
         </div>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(CUP_SCORING_LABELS) as RyderScoring[]).map((val) => (

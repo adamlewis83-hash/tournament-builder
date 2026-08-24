@@ -106,6 +106,50 @@ function NumberField({
   );
 }
 
+// Compact inline number box for the team-shape row. Like NumberField, it keeps
+// a local draft so the value can be cleared and retyped — committing only real
+// numbers and clamping on blur — instead of snapping back on every keystroke.
+function ShapeBox({
+  value,
+  min,
+  max,
+  onCommit,
+  ariaLabel,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (n: number) => void;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={draft}
+      onChange={(e) => {
+        const v = e.target.value;
+        setDraft(v);
+        if (v === "") return; // allow empty while typing
+        const n = Math.round(Number(v));
+        if (!Number.isNaN(n) && n >= min && n <= max) onCommit(n);
+      }}
+      onBlur={() => {
+        let n = Math.round(Number(draft));
+        if (draft === "" || Number.isNaN(n)) n = min;
+        n = Math.max(min, Math.min(max, n));
+        setDraft(String(n));
+        onCommit(n);
+      }}
+      aria-label={ariaLabel}
+      className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+    />
+  );
+}
+
 export function SetupPanel({ t }: { t: Tournament }) {
   const setParticipants = useStore((s) => s.setParticipants);
   const setTeamsStore = useStore((s) => s.setTeams);
@@ -165,6 +209,11 @@ export function SetupPanel({ t }: { t: Tournament }) {
   const isDoubles = t.playStyle === "doubles";
   const isFixed = t.playStyle === "doubles-fixed";
   const isTeams = t.playStyle === "teams";
+  // A golf-family sport in the generic path can only be the Custom format (golf
+  // and Ryder have their own setup flows). Golf matches don't race to a points
+  // target, so the rally-scoring settings (games to / win by / clock) hide and
+  // the host ends each match themselves.
+  const golfSport = /golf/i.test(t.sport);
   const isSocial = t.format === "americano" || t.format === "mexicano";
   const teamMode = (isFixed || isTeams) && !isSocial; // social formats are always individuals
 
@@ -253,14 +302,25 @@ export function SetupPanel({ t }: { t: Tournament }) {
     );
   };
   const shapeTeams = teams.length;
-  const shapePerTeam = Math.max(1, ...teams.map((tm) => tm.members.length));
+  const shapePerTeam = teams.length ? Math.max(1, ...teams.map((tm) => tm.members.length)) : 1;
+  // Sample teams follow the shape controls (or 4×2 from a blank slate) — the
+  // teams card no longer has its own sample-count box duplicating "Teams".
   const fillSampleTeams = () => {
-    const next = Array.from({ length: sampleCount }, (_, i) => ({
+    const n = shapeTeams >= 2 ? shapeTeams : 4;
+    const per = isFixed ? 2 : Math.max(2, shapePerTeam);
+    const next = Array.from({ length: n }, (_, i) => ({
       name: isFixed ? "" : `Team ${i + 1}`,
-      members: [`Player ${i * 2 + 1}`, `Player ${i * 2 + 2}`],
+      members: Array.from({ length: per }, (_, j) => `Player ${i * per + j + 1}`),
     }));
     update(next);
   };
+
+  // Switching into a team play style after mount used to leave zero team rows
+  // (the local list only seeds at first render) — give it the two starter rows.
+  useEffect(() => {
+    if (teamMode && teams.length === 0) setLocalTeams([emptyTeam(), emptyTeam()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamMode]);
 
   const minNeeded =
     t.format === "double-elim"
@@ -297,6 +357,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
       return;
     if (teamMode) setTeamsStore(t.id, build(teams));
     else setParticipants(t.id, names);
+    // Golf customs hide the rally settings, so neutralize the lingering defaults —
+    // otherwise live scoring would silently end a match at "11 strokes".
+    if (golfSport && cfg.pointsTo) setCfg({ pointsTo: 0, timeLimitMin: 0 });
     generate(t.id);
     // The generate button sits at the bottom of a long form; the schedule that
     // replaces it inherits that scroll offset and opens mid-page (~Round 2).
@@ -332,25 +395,15 @@ export function SetupPanel({ t }: { t: Tournament }) {
         <Card className="p-5">
           <div className="flex items-center justify-between mb-1">
             <h2 className="font-semibold">{isFixed ? "Pairs" : "Teams"}</h2>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={2}
-                max={64}
-                value={sampleN}
-                onChange={(e) => setSampleN(e.target.value)}
-                onBlur={() => setSampleN(String(sampleCount))}
-                aria-label={isFixed ? "Number of sample pairs" : "Number of sample teams"}
-                className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
-              />
-              <button
-                type="button"
-                onClick={fillSampleTeams}
-                className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
-              >
-                Fill sample
-              </button>
-            </div>
+            {/* Sample teams follow the shape row below — no second number box
+                sitting next to the header pretending to be the team count. */}
+            <button
+              type="button"
+              onClick={fillSampleTeams}
+              className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Fill sample
+            </button>
           </div>
           <p className="text-sm text-[var(--muted)] mb-3">
             {isFixed
@@ -361,32 +414,22 @@ export function SetupPanel({ t }: { t: Tournament }) {
             <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-[var(--subtle)] px-3 py-2 text-sm">
               <label className="flex items-center gap-2">
                 <span className="text-[var(--muted)]">Teams</span>
-                <input
-                  type="number"
+                <ShapeBox
+                  value={shapeTeams}
                   min={2}
                   max={32}
-                  value={shapeTeams}
-                  onChange={(e) => {
-                    const n = Math.max(2, Math.min(32, Math.round(Number(e.target.value) || 0)));
-                    if (n) applyShape(n, shapePerTeam);
-                  }}
-                  aria-label="Number of teams"
-                  className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                  onCommit={(n) => applyShape(n, shapePerTeam)}
+                  ariaLabel="Number of teams"
                 />
               </label>
               <label className="flex items-center gap-2">
                 <span className="text-[var(--muted)]">Players per team</span>
-                <input
-                  type="number"
+                <ShapeBox
+                  value={shapePerTeam}
                   min={1}
                   max={12}
-                  value={shapePerTeam}
-                  onChange={(e) => {
-                    const n = Math.max(1, Math.min(12, Math.round(Number(e.target.value) || 0)));
-                    if (n) applyShape(shapeTeams, n);
-                  }}
-                  aria-label="Players per team"
-                  className="w-14 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-center tabular-nums outline-none focus:border-[var(--brand)]"
+                  onCommit={(n) => applyShape(shapeTeams, n)}
+                  ariaLabel="Players per team"
                 />
               </label>
               {/* One-tap side sizes — "where's 3v3?" answered right where teams take shape. */}
@@ -596,7 +639,13 @@ export function SetupPanel({ t }: { t: Tournament }) {
       )}
 
       <Card className="p-5 flex flex-col">
-        <h2 className="font-semibold mb-3">Settings</h2>
+        <h2 className="font-semibold mb-3">{golfSport ? "Ready to play" : "Settings"}</h2>
+        {golfSport && (
+          <p className="text-sm text-[var(--muted)] mb-3">
+            Golf matches don&apos;t race to a points target — enter each match&apos;s result and
+            end it when the round&apos;s done.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-4">
           {((t.format === "round-robin" && isDoubles) ||
             t.format === "swiss" ||
@@ -713,34 +762,38 @@ export function SetupPanel({ t }: { t: Tournament }) {
               hint="First to this many wins"
             />
           )}
-          <NumberField
-            label="Games to"
-            value={cfg.pointsTo}
-            min={1}
-            max={99}
-            onChange={(v) => setCfg({ pointsTo: v })}
-            hint="Scoring target — live scoring ends the game here"
-          />
-          <NumberField
-            label="Win by"
-            value={winMargin(cfg)}
-            min={1}
-            max={10}
-            onChange={(v) => setCfg({ winBy: v, winByTwo: undefined })}
-            hint={
-              winMargin(cfg) > 1
-                ? `Keeps playing at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by ${winMargin(cfg)}. 1 = first to ${cfg.pointsTo} wins.`
-                : `First side to ${cfg.pointsTo} wins, even by one point. Set 2 for pickleball or tennis.`
-            }
-          />
-          <NumberField
-            label="Time limit (min)"
-            value={cfg.timeLimitMin ?? 0}
-            min={0}
-            max={180}
-            onChange={(v) => setCfg({ timeLimitMin: v })}
-            hint="0 = no clock. Points or time — whichever first"
-          />
+          {!golfSport && (
+            <>
+              <NumberField
+                label="Games to"
+                value={cfg.pointsTo}
+                min={1}
+                max={99}
+                onChange={(v) => setCfg({ pointsTo: v })}
+                hint="Scoring target — live scoring ends the game here"
+              />
+              <NumberField
+                label="Win by"
+                value={winMargin(cfg)}
+                min={1}
+                max={10}
+                onChange={(v) => setCfg({ winBy: v, winByTwo: undefined })}
+                hint={
+                  winMargin(cfg) > 1
+                    ? `Keeps playing at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by ${winMargin(cfg)}. 1 = first to ${cfg.pointsTo} wins.`
+                    : `First side to ${cfg.pointsTo} wins, even by one point. Set 2 for pickleball or tennis.`
+                }
+              />
+              <NumberField
+                label="Time limit (min)"
+                value={cfg.timeLimitMin ?? 0}
+                min={0}
+                max={180}
+                onChange={(v) => setCfg({ timeLimitMin: v })}
+                hint="0 = no clock. Points or time — whichever first"
+              />
+            </>
+          )}
           {t.format === "pool-bracket" && (
             <label className="block">
               <span className="text-sm font-medium">Bracket type</span>
