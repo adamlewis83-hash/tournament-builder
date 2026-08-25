@@ -294,3 +294,90 @@ export function aggregateRecords(tournaments: Tournament[]): RecordRow[] {
       a.name.localeCompare(b.name),
   );
 }
+
+const completedByDate = (tournaments: Tournament[]): Tournament[] =>
+  tournaments.filter((t) => getResult(t).complete).sort((a, b) => a.updatedAt - b.updatedAt);
+
+export interface Rivalry {
+  rival: string;
+  wins: number; // events where `name` finished ahead of the rival
+  losses: number;
+  events: number; // shared completed events (ties in placement count here but not in W-L)
+}
+
+/**
+ * Head-to-head records for one player against everyone they've shared a
+ * completed event with — a "win" is finishing ahead of the rival in the final
+ * placements (same-place finishes, e.g. doubles partners, count for neither).
+ * Sorted by most-shared-events, then by biggest rivalry margin.
+ */
+export function headToHead(tournaments: Tournament[], name: string): Rivalry[] {
+  const me = name.trim().toLowerCase();
+  if (!me) return [];
+  const map = new Map<string, Rivalry>();
+  for (const t of completedByDate(tournaments)) {
+    const place = new Map<string, number>();
+    for (const pl of getPlacements(t)) for (const n of pl.names) place.set(n.toLowerCase(), pl.rank);
+    const mine = place.get(me);
+    if (mine == null) continue;
+    for (const [other, rank] of place) {
+      if (other === me) continue;
+      const display =
+        getPlacements(t)
+          .flatMap((pl) => pl.names)
+          .find((n) => n.toLowerCase() === other) ?? other;
+      let r = map.get(other);
+      if (!r) {
+        r = { rival: display, wins: 0, losses: 0, events: 0 };
+        map.set(other, r);
+      }
+      r.events++;
+      if (mine < rank) r.wins++;
+      else if (mine > rank) r.losses++;
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) => b.events - a.events || b.wins - b.losses - (a.wins - a.losses) || a.rival.localeCompare(b.rival),
+  );
+}
+
+export interface Streak {
+  name: string;
+  current: number; // consecutive most-recent events played AND won
+  best: number; // longest such run ever
+}
+
+/**
+ * Championship streaks: for each player, runs of consecutive completed events
+ * (that they played in) finished as champion. Only players with a best run of
+ * 2+ make the list — a single title is a medal, not a streak.
+ */
+export function titleStreaks(tournaments: Tournament[]): Streak[] {
+  const state = new Map<string, { name: string; current: number; best: number }>();
+  for (const t of completedByDate(tournaments)) {
+    const golds = new Set(
+      getPlacements(t)
+        .filter((pl) => pl.medal === "gold")
+        .flatMap((pl) => pl.names.map((n) => n.toLowerCase())),
+    );
+    const players = new Map<string, string>();
+    for (const p of t.participants)
+      for (const n of p.members?.length ? p.members : [p.name]) players.set(n.toLowerCase(), n);
+    if (t.format === "ryder") {
+      const rt = ryderTeams(t);
+      for (const n of [...rt.winners, ...rt.losers]) players.set(n.toLowerCase(), n);
+    }
+    for (const [k, display] of players) {
+      let s = state.get(k);
+      if (!s) {
+        s = { name: display, current: 0, best: 0 };
+        state.set(k, s);
+      }
+      s.current = golds.has(k) ? s.current + 1 : 0;
+      if (s.current > s.best) s.best = s.current;
+    }
+  }
+  return [...state.values()]
+    .filter((s) => s.best >= 2)
+    .sort((a, b) => b.current - a.current || b.best - a.best || a.name.localeCompare(b.name));
+}

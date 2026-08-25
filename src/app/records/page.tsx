@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
-import { aggregateRecords, getPlacements } from "@/lib/records";
+import { aggregateRecords, getPlacements, headToHead, titleStreaks } from "@/lib/records";
+import { getProfile } from "@/lib/profile";
 import { getResult } from "@/lib/result";
 import { Crown, Trophy } from "@/components/icons";
 import { Emoji } from "@/components/Emoji";
@@ -68,8 +69,23 @@ function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 })
 
 function RecordBook() {
   const tournaments = useStore((s) => s.tournaments);
-  const completed = tournaments.filter((t) => getResult(t).complete);
-  const records = aggregateRecords(tournaments);
+  const allCompleted = tournaments.filter((t) => getResult(t).complete);
+  // Everything below the header narrows to one sport when a chip is picked.
+  const [sport, setSport] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState("");
+  useEffect(() => setProfileName(getProfile().name.trim()), []);
+
+  const sports = [...new Set(allCompleted.map((t) => t.sport))];
+  const completed = sport ? allCompleted.filter((t) => t.sport === sport) : allCompleted;
+  const scoped = sport ? tournaments.filter((t) => t.sport === sport) : tournaments;
+  const records = aggregateRecords(scoped);
+  const streaks = titleStreaks(scoped).slice(0, 5);
+  const rivalries = profileName
+    ? headToHead(scoped, profileName)
+        .filter((r) => r.wins + r.losses > 0)
+        .slice(0, 5)
+    : [];
+  const playerCount = new Set(records.map((r) => r.name.toLowerCase())).size;
   // Competition ranking: players with the same medal record share a number, and the
   // next distinct record skips ahead (so two co-champions are both #1, next is #3…).
   const sameRecord = (a: (typeof records)[number], b: (typeof records)[number]) =>
@@ -90,15 +106,69 @@ function RecordBook() {
         <Link href="/" className="text-sm text-[var(--muted)] hover:underline">
           ← All tournaments
         </Link>
-        <h1 className="text-2xl font-bold mt-2 flex items-center gap-2">
-          <Trophy className="h-6 w-6 text-amber-500" /> Record Book
-        </h1>
-        <p className="text-sm text-[var(--muted)]">
-          Hall of fame across {completed.length} completed {completed.length === 1 ? "event" : "events"}.
-        </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-amber-500" /> Trophy Room
+            </h1>
+            <p className="text-sm text-[var(--muted)]">
+              Every champion, streak, and rivalry you&apos;ve crowned.
+            </p>
+          </div>
+          {allCompleted.length > 0 && (
+            <div className="flex gap-4 text-center">
+              {(
+                [
+                  [completed.length, completed.length === 1 ? "event" : "events"],
+                  [playerCount, playerCount === 1 ? "player" : "players"],
+                  [sports.length, sports.length === 1 ? "sport" : "sports"],
+                ] as const
+              ).map(([n, label]) => (
+                <div key={label}>
+                  <div className="text-xl font-extrabold tabular-nums leading-none">{n}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted)]">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <SeedIndexCard />
+
+      {/* One trophy case per sport — the chips narrow everything below. */}
+      {sports.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSport(null)}
+            className={`rounded-full border px-3 py-1.5 text-sm transition ${
+              sport === null
+                ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] font-medium"
+                : "border-[var(--border)] hover:bg-[var(--hover)]"
+            }`}
+          >
+            All sports
+          </button>
+          {sports.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSport(sport === s ? null : s)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                sport === s
+                  ? "border-[var(--brand)] bg-[var(--brand-soft)] font-medium"
+                  : "border-[var(--border)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              <SportIcon sport={s} className="h-4 w-4 shrink-0" style={{ color: sportAccent(s) }} />
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {completed.length === 0 ? (
         <Card className="p-10 text-center">
@@ -118,6 +188,62 @@ function RecordBook() {
                 <PodiumTier players={golds} tier={1} />
                 <PodiumTier players={bronzes} tier={3} />
               </div>
+            </div>
+          )}
+
+          {/* Streaks & rivalries — the stories between the medals */}
+          {(streaks.length > 0 || rivalries.length > 0) && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {streaks.length > 0 && (
+                <Card className="p-4">
+                  <h2 className="font-bold text-sm mb-2">🔥 Title streaks</h2>
+                  <ul className="space-y-2">
+                    {streaks.map((s) => (
+                      <li key={s.name} className="flex items-center gap-2.5 text-sm">
+                        <Avatar name={s.name} color={colorForName(s.name)} className="h-6 w-6 text-[10px]" />
+                        <span className="font-medium flex-1 truncate">{s.name}</span>
+                        <span className="tabular-nums text-[var(--muted)]">
+                          {s.current >= 2 ? (
+                            <span className="font-semibold text-amber-500">{s.current} in a row</span>
+                          ) : (
+                            <>best {s.best}</>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+              {rivalries.length > 0 && (
+                <Card className="p-4">
+                  <h2 className="font-bold text-sm mb-2">⚔️ Your rivalries</h2>
+                  <ul className="space-y-2">
+                    {rivalries.map((r) => (
+                      <li key={r.rival} className="flex items-center gap-2.5 text-sm">
+                        <Avatar name={r.rival} color={colorForName(r.rival)} className="h-6 w-6 text-[10px]" />
+                        <span className="font-medium flex-1 truncate">{r.rival}</span>
+                        <span
+                          className={`tabular-nums font-semibold ${
+                            r.wins > r.losses
+                              ? "text-[var(--brand)]"
+                              : r.wins < r.losses
+                                ? "text-rose-400"
+                                : "text-[var(--muted)]"
+                          }`}
+                        >
+                          {r.wins}–{r.losses}
+                        </span>
+                        <span className="text-[10px] text-[var(--muted)] tabular-nums w-14 text-right">
+                          {r.events} shared
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10px] text-[var(--muted)]">
+                    Who finished ahead, event by event — as {profileName}.
+                  </p>
+                </Card>
+              )}
             </div>
           )}
 

@@ -48,7 +48,7 @@ import {
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
-import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
+import { getRanking, getFinalRows, getPlacements, headToHead, titleStreaks } from "./src/lib/records";
 import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
@@ -511,6 +511,47 @@ check("sport accents — curated for built-ins, stable hash for customs", () => 
   assert(sportAccent("Disc Golf") !== sportAccent("Golf"), "disc golf fell through to golf's accent");
   // Customs: no curated entry, but the same name always gets the same color.
   assert(sportAccent("Mario Kart") === sportAccent("Mario Kart"), "custom accent unstable");
+});
+
+// ---- Trophy Room: head-to-head and title streaks ---------------------------
+check("trophy room — head-to-head records and title streaks", () => {
+  const P = players(3); // P1, P2, P3
+  const rr = (id: string, at: number, order: number[]): Tournament =>
+    tour({
+      id,
+      updatedAt: at,
+      participants: P,
+      matches: (
+        [
+          [order[0], order[1]],
+          [order[0], order[2]],
+          [order[1], order[2]],
+        ] as [number, number][]
+      ).map(([w, l], i) => ({
+        id: `${id}m${i}`,
+        phase: "rr" as const,
+        round: 1,
+        order: i,
+        sideA: [`p${w}`],
+        sideB: [`p${l}`],
+        scoreA: 11,
+        scoreB: 5,
+      })),
+    }) as Tournament;
+  // P1 wins the first two events; P2 takes the third.
+  const ts = [rr("e1", 1, [0, 1, 2]), rr("e2", 2, [0, 1, 2]), rr("e3", 3, [1, 0, 2])];
+
+  const h2h = headToHead(ts, "P1");
+  const vs2 = h2h.find((r) => r.rival === "P2");
+  assert(!!vs2 && vs2.events === 3 && vs2.wins === 2 && vs2.losses === 1, `P1 vs P2 ${JSON.stringify(vs2)}`);
+  const vs3 = h2h.find((r) => r.rival === "P3");
+  assert(!!vs3 && vs3.wins === 3 && vs3.losses === 0, `P1 vs P3 ${JSON.stringify(vs3)}`);
+  assert(headToHead(ts, "Nobody").length === 0, "unknown player should have no rivalries");
+
+  const st = titleStreaks(ts);
+  const p1 = st.find((s) => s.name === "P1");
+  assert(!!p1 && p1.best === 2 && p1.current === 0, `P1 streak ${JSON.stringify(p1)}`);
+  assert(!st.find((s) => s.name === "P2"), "a single title is a medal, not a streak");
 });
 
 // ---- Green geometry: front/center/back from a green polygon ----------------

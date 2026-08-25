@@ -169,3 +169,18 @@ export function roundsForPlayer(tournaments: Tournament[], playerName: string): 
 export function seedIndexForPlayer(tournaments: Tournament[], playerName: string): IndexResult {
   return sporosIndex(roundsForPlayer(tournaments, playerName));
 }
+
+/**
+ * The index as it stood after each round, oldest → newest — the trend line.
+ * Points only exist once enough rounds have accumulated for an index at all,
+ * so the first entries of a young history are simply absent.
+ */
+export function indexHistory(tournaments: Tournament[], playerName: string): number[] {
+  const rounds = roundsForPlayer(tournaments, playerName);
+  const out: number[] = [];
+  for (let i = 1; i <= rounds.length; i++) {
+    const idx = sporosIndex(rounds.slice(0, i)).index;
+    if (idx != null) out.push(idx);
+  }
+  return out;
+}
