@@ -1,3 +1,5 @@
+import { centroidOf, metersBetween } from "./greens";
+
 // Auto-load hole pins from OpenStreetMap course data (free, no key).
 // Volunteers map courses with `golf=green` polygons (often ref-tagged with the
 // hole number) and `golf=hole` lines drawn tee → pin. We turn those into a
@@ -84,54 +86,89 @@ function dist2(a: LngLat, b: LngLat): number {
   return dx * dx + dy * dy;
 }
 
-export interface OsmPinsResult {
-  pins: (LngLat | null)[];
+export interface OsmCourseResult {
+  pins: (LngLat | null)[]; // per-hole pin guess (green centroid, else hole-line end)
+  greens: (LngLat[] | null)[]; // per-hole green polygon ring, for front/center/back
   found: number; // holes that got a pin
+  greensFound: number; // holes that got a full green outline
 }
 
-// Fetch greens + hole lines within ~1.5km of `center` and derive a pin per hole.
-// `startHole` handles back-nine rounds (hole index 0 = course hole `startHole`).
-export async function fetchOsmPins(
+// Fetch greens + hole lines within ~1.5km of `center`: the full green polygon
+// per hole (front/center/back needs the boundary, not just a point) plus a pin
+// guess. `startHole` handles back-nine rounds (hole index 0 = hole `startHole`).
+export async function fetchOsmCourse(
   center: LngLat,
   holes: number,
   startHole = 1,
-): Promise<OsmPinsResult> {
+): Promise<OsmCourseResult> {
   const [lng, lat] = center;
   const query = `[out:json][timeout:25];
-(way["golf"="green"](around:1500,${lat},${lng}););out tags center;
+(way["golf"="green"](around:1500,${lat},${lng}););out tags geom;
 (way["golf"="hole"](around:1500,${lat},${lng}););out tags geom;`;
 
   const data = await overpassJson(query);
 
-  const greens: { ref: number; center: LngLat }[] = [];
+  const greenRings: { ref: number; ring: LngLat[]; center: LngLat }[] = [];
   const holeEnds: { ref: number; end: LngLat }[] = [];
   for (const el of data.elements) {
     const t = el.tags;
-    if (!t) continue;
+    if (!t || !el.geometry?.length) continue;
     const ref = t.ref ? parseInt(t.ref, 10) : NaN;
-    if (t.golf === "green" && el.center && !Number.isNaN(ref)) {
-      greens.push({ ref, center: [el.center.lon, el.center.lat] });
-    } else if (t.golf === "hole" && el.geometry?.length && !Number.isNaN(ref)) {
+    if (t.golf === "green") {
+      // Keep ref-less greens too — many courses (St Andrews included) number
+      // only their hole lines, so greens get their number associated below.
+      const ring: LngLat[] = el.geometry.map((g) => [g.lon, g.lat]);
+      greenRings.push({ ref, ring, center: centroidOf(ring) });
+    } else if (t.golf === "hole" && !Number.isNaN(ref)) {
       const last = el.geometry[el.geometry.length - 1];
       holeEnds.push({ ref, end: [last.lon, last.lat] });
     }
   }
 
+
   const pins: (LngLat | null)[] = [];
+  const greens: (LngLat[] | null)[] = [];
   let found = 0;
+  let greensFound = 0;
   for (let i = 0; i < holes; i++) {
     const n = startHole + i;
-    // Prefer the ref-matched green centroid; if several courses overlap the
-    // radius and share hole numbers, take the candidate nearest to the player.
-    const g = greens
+    // Prefer the ref-matched green; if several courses overlap the radius and
+    // share hole numbers, take the candidate nearest to the player.
+    let g = greenRings
       .filter((x) => x.ref === n)
       .sort((a, b) => dist2(a.center, center) - dist2(b.center, center))[0];
     const h = holeEnds
       .filter((x) => x.ref === n)
       .sort((a, b) => dist2(a.end, center) - dist2(b.end, center))[0];
+    // Ref-less greens (St Andrews numbers only its hole lines) resolve through
+    // the hole line: golf=hole is drawn tee → pin and ends on its green, so the
+    // nearest green to the line's end is this hole's — resolved per hole, which
+    // also lets two holes share one double green.
+    if (!g && h) {
+      g = greenRings
+        .filter((x) => metersBetween(x.center, h.end) < 80)
+        .sort((a, b) => dist2(a.center, h.end) - dist2(b.center, h.end))[0];
+    }
     const pin = g?.center ?? h?.end ?? null;
     if (pin) found++;
+    if (g) greensFound++;
     pins.push(pin);
+    greens.push(g?.ring ?? null);
   }
+  return { pins, greens, found, greensFound };
+}
+
+export interface OsmPinsResult {
+  pins: (LngLat | null)[];
+  found: number;
+}
+
+/** Pin-only view of fetchOsmCourse, kept for callers that don't need outlines. */
+export async function fetchOsmPins(
+  center: LngLat,
+  holes: number,
+  startHole = 1,
+): Promise<OsmPinsResult> {
+  const { pins, found } = await fetchOsmCourse(center, holes, startHole);
   return { pins, found };
 }

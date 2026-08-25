@@ -305,6 +305,7 @@ export function GolfView({ t }: { t: Tournament }) {
   const setGolfScore = useStore((s) => s.setGolfScore);
   const setVegasPairing = useStore((s) => s.setVegasPairing);
   const setGolfPin = useStore((s) => s.setGolfPin);
+  const setGolfGreens = useStore((s) => s.setGolfGreens);
   const [hole, setHole] = useState(0);
   const [showCard, setShowCard] = useState(true);
   const [gpsOpen, setGpsOpen] = useState(false);
@@ -628,7 +629,7 @@ export function GolfView({ t }: { t: Tournament }) {
                 onClick={() => setGpsOpen((o) => !o)}
                 className="flex w-full items-center justify-between text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
               >
-                <span>📍 GPS · yards to pin</span>
+                <span>📍 GPS · yards to the green</span>
                 <span className="text-xs">{gpsOpen ? "Hide" : "Show"}</span>
               </button>
               {gpsOpen && (
@@ -640,6 +641,8 @@ export function GolfView({ t }: { t: Tournament }) {
                     holes={g.holes}
                     startHole={startHole}
                     onSetAllPins={(pins) => pins.forEach((c, i) => c && setGolfPin(t.id, i, c))}
+                    green={g.greens?.[h] ?? null}
+                    onSetAllGreens={(greens) => setGolfGreens(t.id, greens)}
                   />
                 </div>
               )}

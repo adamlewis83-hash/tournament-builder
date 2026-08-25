@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
+
+// mapbox-gl keeps its GeoJSON types internal — borrow setData's parameter type.
+type GreenData = Parameters<mapboxgl.GeoJSONSource["setData"]>[0];
 import "mapbox-gl/dist/mapbox-gl.css";
-import { fetchOsmPins } from "@/lib/osmGolf";
+import { fetchOsmCourse } from "@/lib/osmGolf";
+import { fcbYards, metersBetween, toYards } from "@/lib/greens";
 import { GeoFailure, GeoFix, getPosition, hasNativeGeo, watchPosition } from "@/lib/geo";
 
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -12,6 +16,21 @@ const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 // pick which course to load. A coarse Wi-Fi/cell fix (hundreds/thousands of m)
 // can sit at the wrong course entirely, so we hold off until GPS locks on.
 const GOOD_ACCURACY_M = 120;
+
+// The hole's green outline as GeoJSON for the map layer (empty when unknown).
+// OSM rings usually arrive closed; close them ourselves when they don't.
+function greenFeature(ring: [number, number][] | null | undefined): GreenData {
+  if (!ring || ring.length < 3) return { type: "FeatureCollection", features: [] };
+  const closed = [...ring];
+  const f = closed[0];
+  const l = closed[closed.length - 1];
+  if (f[0] !== l[0] || f[1] !== l[1]) closed.push(f);
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Polygon", coordinates: [closed] },
+  };
+}
 
 // iOS home-screen web apps ("standalone" display mode) have a long-standing bug
 // where geolocation calls can hang with no success/error callback ever firing.
@@ -26,21 +45,10 @@ function isStandaloneIOS(): boolean {
   return !!standalone && iOS;
 }
 
-// Haversine distance in meters between two [lng, lat] points.
-function metersBetween(a: [number, number], b: [number, number]): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b[1] - a[1]);
-  const dLng = toRad(b[0] - a[0]);
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
-const toYards = (m: number) => m * 1.09361;
-
 // Per-hole GPS panel: satellite aerial (with road/place labels), live location,
-// and a draggable pin on the green. Shows live yards-to-pin (haversine).
+// the hole's green outlined, and a draggable pin. With a green outline loaded
+// it shows live FRONT / CENTER / BACK yardages (front and back move with you —
+// they're relative to your angle into the green); otherwise yards-to-pin.
 //
 // Location is TWO-STAGE, started from our own button (a user gesture, which iOS
 // requires): first a coarse fix (enableHighAccuracy: false — Wi-Fi/cell, works
@@ -53,12 +61,18 @@ export function GolfGps({
   holes,
   startHole = 1,
   onSetAllPins,
+  green = null,
+  onSetAllGreens,
 }: {
   pin: [number, number] | null;
   onSetPin: (coords: [number, number] | null) => void;
   holes: number;
   startHole?: number;
   onSetAllPins: (pins: ([number, number] | null)[]) => void;
+  /** This hole's green outline ring, when known. */
+  green?: [number, number][] | null;
+  /** Store the auto-loaded green outlines for every hole. */
+  onSetAllGreens?: (greens: ([number, number][] | null)[]) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -72,6 +86,8 @@ export function GolfGps({
   onSetPinRef.current = onSetPin;
   const pinRef = useRef(pin);
   pinRef.current = pin;
+  const greenRef = useRef(green);
+  greenRef.current = green;
 
   const [you, setYou] = useState<[number, number] | null>(null);
   const youRef = useRef(you);
@@ -165,12 +181,17 @@ export function GolfGps({
     setLoadingCourse(true);
     setCourseMsg(null);
     try {
-      const { pins, found } = await fetchOsmPins(origin, holes, startHole);
+      const { pins, greens, found, greensFound } = await fetchOsmCourse(origin, holes, startHole);
       if (found === 0) {
         setCourseMsg("No course data here in OpenStreetMap — tap greens manually.");
       } else {
         onSetAllPins(pins);
-        setCourseMsg(`Loaded ${found} of ${holes} greens from OpenStreetMap.`);
+        if (greensFound > 0) onSetAllGreens?.(greens);
+        setCourseMsg(
+          greensFound > 0
+            ? `Loaded ${found} of ${holes} greens — ${greensFound} with outlines for front/center/back.`
+            : `Loaded ${found} of ${holes} greens from OpenStreetMap.`,
+        );
       }
     } catch {
       setCourseMsg("Couldn't reach OpenStreetMap — try again or tap manually.");
@@ -196,6 +217,23 @@ export function GolfGps({
 
     // Tap the aerial to set / move the pin.
     map.on("click", (e) => onSetPinRef.current([e.lngLat.lng, e.lngLat.lat]));
+
+    // The hole's green, outlined on the aerial (data synced by the green effect).
+    map.on("load", () => {
+      map.addSource("green", { type: "geojson", data: greenFeature(greenRef.current) });
+      map.addLayer({
+        id: "green-fill",
+        type: "fill",
+        source: "green",
+        paint: { "fill-color": "#22c55e", "fill-opacity": 0.16 },
+      });
+      map.addLayer({
+        id: "green-line",
+        type: "line",
+        source: "green",
+        paint: { "line-color": "#4ade80", "line-width": 2 },
+      });
+    });
 
     return () => {
       stopWatchRef.current?.();
@@ -247,7 +285,20 @@ export function GolfGps({
     if (map && pin && !you) map.flyTo({ center: pin, zoom: 17, duration: 600 });
   }, [pin, you]);
 
+  // Keep the outlined green in sync with the current hole.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const src = map.getSource("green") as mapboxgl.GeoJSONSource | undefined;
+      src?.setData(greenFeature(green));
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+  }, [green]);
+
   const yards = you && pin ? Math.round(toYards(metersBetween(you, pin))) : null;
+  const fcb = you ? fcbYards(you, green) : null;
 
   if (!TOKEN) {
     return (
@@ -262,7 +313,21 @@ export function GolfGps({
       <div className="relative overflow-hidden rounded-xl border border-[var(--border)]">
         <div ref={containerRef} className="h-64 w-full" />
         <div className="pointer-events-none absolute left-2 top-2 rounded-lg bg-black/60 px-3 py-1.5 text-white backdrop-blur">
-          {yards != null ? (
+          {fcb ? (
+            // The rangefinder stack: back over center over front, center leading.
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs tabular-nums">
+                <span className="opacity-60">B</span> {fcb.back}
+              </span>
+              <span className="text-3xl font-extrabold tabular-nums">{fcb.center}</span>
+              <span className="text-xs tabular-nums">
+                <span className="opacity-60">F</span> {fcb.front}
+              </span>
+              {yards != null && yards !== fcb.center && (
+                <span className="mt-0.5 text-[10px] opacity-70 tabular-nums">{yards} to pin</span>
+              )}
+            </div>
+          ) : yards != null ? (
             <>
               <span className="text-2xl font-extrabold tabular-nums">{yards}</span>{" "}
               <span className="text-xs">yds to pin</span>

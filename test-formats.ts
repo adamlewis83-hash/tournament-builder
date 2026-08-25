@@ -52,6 +52,7 @@ import { getRanking, getFinalRows, getPlacements } from "./src/lib/records";
 import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
+import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
 import {
   formatsForSport,
   SPORTS,
@@ -510,6 +511,46 @@ check("sport accents — curated for built-ins, stable hash for customs", () => 
   assert(sportAccent("Disc Golf") !== sportAccent("Golf"), "disc golf fell through to golf's accent");
   // Customs: no curated entry, but the same name always gets the same color.
   assert(sportAccent("Mario Kart") === sportAccent("Mario Kart"), "custom accent unstable");
+});
+
+// ---- Green geometry: front/center/back from a green polygon ----------------
+check("green geometry — front/center/back from a square green", () => {
+  // A 30m × 30m green centered 300m due north of the player, at a real latitude
+  // so the longitude scale (cos φ) is exercised.
+  const lat0 = 40.6;
+  const lng0 = -111.8;
+  const mPerLat = 111194.93;
+  const mPerLng = mPerLat * Math.cos((lat0 * Math.PI) / 180);
+  const at = (dxM: number, dyM: number): [number, number] => [
+    lng0 + dxM / mPerLng,
+    lat0 + dyM / mPerLat,
+  ];
+  const origin: [number, number] = [lng0, lat0];
+  const ring = [at(-15, 285), at(15, 285), at(15, 315), at(-15, 315)];
+
+  const c = centroidOf(ring);
+  assert(Math.abs(metersBetween(origin, c) - 300) < 1, "centroid should sit 300m out");
+
+  const y = (m: number) => Math.round(m * 1.09361);
+  const fcb = fcbYards(origin, ring);
+  assert(!!fcb, "square green should yield yardages");
+  assert(Math.abs(fcb!.front - y(285)) <= 1, `front ${fcb!.front}, want ~${y(285)}`);
+  assert(Math.abs(fcb!.center - y(300)) <= 1, `center ${fcb!.center}, want ~${y(300)}`);
+  // The back of the green from outside is always a corner: hypot(15, 315).
+  const backM = Math.hypot(15, 315);
+  assert(Math.abs(fcb!.back - y(backM)) <= 1, `back ${fcb!.back}, want ~${y(backM)}`);
+  assert(fcb!.front < fcb!.center && fcb!.center < fcb!.back, "front < center < back");
+
+  // Walk 100m toward the green — every number shrinks with you.
+  const fcb2 = fcbYards(at(0, 100), ring)!;
+  assert(
+    fcb2.front < fcb!.front && fcb2.center < fcb!.center && fcb2.back < fcb!.back,
+    "yardages should shrink walking in",
+  );
+
+  // Degenerate rings can't describe a green.
+  assert(fcbYards(origin, null) === null, "null ring should yield null");
+  assert(fcbYards(origin, [at(0, 0), at(1, 1)]) === null, "2-point ring should yield null");
 });
 
 // ---- Semantic checks (would have caught past regressions) ----

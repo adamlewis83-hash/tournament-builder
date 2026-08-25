@@ -198,6 +198,9 @@ interface State {
   setGolfWolf: (id: string, hole: number, partner: string | "lone" | null) => void;
   setVegasPairing: (id: string, hole: number, choice: 0 | 1 | 2 | null) => void;
   setGolfPin: (id: string, hole: number, coords: [number, number] | null) => void;
+  /** Store green outlines from an auto-load — incoming holes win where non-null,
+   *  existing outlines survive holes the fetch couldn't fill. */
+  setGolfGreens: (id: string, greens: ([number, number][] | null)[]) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -1388,6 +1391,20 @@ export const useStore = create<State>()(
             const pins = [...(t.golf.pins ?? Array(t.golf.holes).fill(null))];
             pins[hole] = coords;
             return { ...t, golf: { ...t.golf, pins }, updatedAt: Date.now() };
+          }),
+        }));
+      },
+
+      setGolfGreens: (id, greens) => {
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const prev = t.golf.greens ?? Array(t.golf.holes).fill(null);
+            const next = Array.from(
+              { length: t.golf.holes },
+              (_, i) => greens[i] ?? prev[i] ?? null,
+            );
+            return { ...t, golf: { ...t.golf, greens: next }, updatedAt: Date.now() };
           }),
         }));
       },
