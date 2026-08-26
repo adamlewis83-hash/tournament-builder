@@ -303,6 +303,221 @@ function VegasLedgerView({
   );
 }
 
+// 7c — the live group leaderboard: one board, four lenses. Net / Gross /
+// Stableford / Skins all already exist in the golf lib — this surfaces them
+// behind a segmented toggle without touching how the round is being played.
+// Rows lead with the to-par number (or points/skins), carry hcp + thru, and
+// show a movement caret when a position changed on the latest completed hole.
+function LiveLeaderboard({ t }: { t: Tournament }) {
+  const g = t.golf!;
+  const played = t.config.golfMode;
+  const [lens, setLens] = useState<"net" | "gross" | "stableford" | "skins">(
+    played === "stableford" ? "stableford" : played === "skins" ? "skins" : "net",
+  );
+  const modeFor = lens === "stableford" ? "stableford" : lens === "skins" ? "skins" : "stroke";
+  const grossSort = (list: ReturnType<typeof computeGolf>) =>
+    [...list].sort(
+      (a, b) =>
+        (b.thru > 0 ? 1 : 0) - (a.thru > 0 ? 1 : 0) ||
+        a.toPar - b.toPar ||
+        a.gross - b.gross ||
+        a.name.localeCompare(b.name),
+    );
+  let rows = computeGolf(t, modeFor);
+  if (lens === "gross") rows = grossSort(rows);
+
+  // Movement: rank now vs rank before the most recent completed hole.
+  let maxHole = 0;
+  for (const p of t.participants)
+    for (let h = 0; h < g.holes; h++) if (g.scores[p.id]?.[h] != null) maxHole = Math.max(maxHole, h + 1);
+  const prevRank = new Map<string, number>();
+  if (maxHole > 1) {
+    let prev = computeGolf(t, modeFor, { from: 1, to: maxHole - 1 });
+    if (lens === "gross") prev = grossSort(prev);
+    prev.forEach((r, i) => prevRank.set(r.participantId, i + 1));
+  }
+
+  // Per-hole skins outcomes (net, with carryover) for the strip.
+  const strip: { hole: number; state: "win" | "carry" | "open"; who?: string; pot?: number }[] = [];
+  {
+    let pot = 1;
+    let openFrom = g.holes;
+    for (let h = 0; h < g.holes; h++) {
+      const entries = t.participants.map((p) => {
+        const s = g.scores[p.id]?.[h];
+        return s == null
+          ? null
+          : s - holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes);
+      });
+      if (entries.some((v) => v == null)) {
+        openFrom = h;
+        break;
+      }
+      const min = Math.min(...(entries as number[]));
+      const winners = t.participants.filter((_, i) => entries[i] === min);
+      if (winners.length === 1) {
+        strip.push({ hole: h, state: "win", who: winners[0].name, pot });
+        pot = 1;
+      } else {
+        strip.push({ hole: h, state: "carry" });
+        pot += 1;
+      }
+    }
+    for (let h = openFrom; h < g.holes; h++) strip.push({ hole: h, state: "open" });
+  }
+  const startAt = g.startHole ?? 1;
+
+  const netToPar = (r: (typeof rows)[number]) => r.net - (r.gross - r.toPar);
+  const hero = (r: (typeof rows)[number]) =>
+    lens === "net"
+      ? formatToPar(netToPar(r))
+      : lens === "gross"
+        ? formatToPar(r.toPar)
+        : lens === "stableford"
+          ? `${r.stableford}`
+          : `${r.skins}`;
+  const heroGood = (r: (typeof rows)[number]) =>
+    lens === "net" ? netToPar(r) < 0 : lens === "gross" ? r.toPar < 0 : true;
+  const secondary = (r: (typeof rows)[number]) =>
+    lens === "net"
+      ? `net ${r.net}`
+      : lens === "gross"
+        ? `gross ${r.gross}`
+        : lens === "stableford"
+          ? `${formatToPar(netToPar(r))} net`
+          : `net ${r.net}`;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-2.5">
+        <span className="text-sm font-bold">Live leaderboard</span>
+        <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+          {(
+            [
+              ["net", "Net"],
+              ["gross", "Gross"],
+              ["stableford", "Stbl"],
+              ["skins", "Skins"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setLens(v)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                lens === v
+                  ? "bg-[var(--brand)] text-[var(--on-brand)]"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ul className="divide-y divide-[var(--border)]">
+        {rows.map((r, i) => {
+          const prev = prevRank.get(r.participantId);
+          const moved = r.thru > 0 && prev != null ? prev - (i + 1) : 0;
+          return (
+            <li
+              key={r.participantId}
+              className={`flex items-center gap-3 px-4 py-2.5 ${i === 0 && r.thru > 0 ? "bg-[var(--win-bg)]" : ""}`}
+            >
+              <span className="w-5 text-center text-sm font-bold text-[var(--muted)] tabular-nums">
+                {r.thru ? i + 1 : "–"}
+              </span>
+              <span className="w-3 text-center text-xs">
+                {moved > 0 ? (
+                  <span className="text-[var(--win)]">▲</span>
+                ) : moved < 0 ? (
+                  <span className="text-rose-400">▼</span>
+                ) : (
+                  ""
+                )}
+              </span>
+              <Avatar
+                name={r.name}
+                color={colorFor(t.participants, r.participantId)}
+                photo={photoFor(t.participants, r.participantId)}
+                className="h-7 w-7 text-[10px]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{r.name}</span>
+                <span className="block text-[10px] text-[var(--muted)] tabular-nums">
+                  {r.handicap > 0 ? `hcp ${r.handicap} · ` : ""}
+                  {r.thru ? `thru ${r.thru}` : "not started"}
+                </span>
+              </span>
+              {r.thru > 0 && (
+                <span className="text-right">
+                  <span
+                    className={`block text-xl font-extrabold tabular-nums leading-none ${
+                      heroGood(r) && (lens === "net" || lens === "gross")
+                        ? "text-[var(--win)]"
+                        : ""
+                    }`}
+                  >
+                    {hero(r)}
+                    {lens === "stableford" && (
+                      <span className="ml-0.5 text-[10px] font-semibold text-[var(--muted)]">pts</span>
+                    )}
+                    {lens === "skins" && (
+                      <span className="ml-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                        skin{r.skins === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-[10px] text-[var(--muted)] tabular-nums">
+                    {secondary(r)}
+                  </span>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {lens === "skins" && (
+        <div className="border-t border-[var(--border)] px-4 py-2.5">
+          <div className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-[var(--muted)]">
+            Skins by hole — net, carries roll forward
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {strip.map((s) => (
+              <span
+                key={s.hole}
+                title={
+                  s.state === "win"
+                    ? `Hole ${startAt + s.hole}: ${s.who}${(s.pot ?? 1) > 1 ? ` wins ${s.pot} skins` : ""}`
+                    : s.state === "carry"
+                      ? `Hole ${startAt + s.hole}: tied — carried`
+                      : `Hole ${startAt + s.hole}: not finished`
+                }
+                className={`grid h-8 w-8 place-items-center rounded-md border text-[10px] font-bold ${
+                  s.state === "win"
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : s.state === "carry"
+                      ? "border-amber-400/60 bg-amber-400/10 text-amber-500"
+                      : "border-[var(--border)] text-[var(--muted)] opacity-60"
+                }`}
+              >
+                <span className="leading-none">
+                  <span className="block text-[8px] font-medium opacity-70">{startAt + s.hole}</span>
+                  {s.state === "win"
+                    ? (s.who ?? "?").slice(0, 2)
+                    : s.state === "carry"
+                      ? "↻"
+                      : "·"}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 7b — the hole detail sheet: "YOU ENTER — 3 TAPS" against "SPOROS DERIVES —
 // 0 TAPS", with the explicitly-optional club/distance row collapsed behind a
 // dashed border. Top-level component (not inline) so its inputs keep focus.
@@ -981,10 +1196,13 @@ export function GolfView({ t }: { t: Tournament }) {
         );
       })()}
 
-      {/* Leaderboard */}
+      {/* Leaderboard — 7c live board (four lenses) for per-player rounds; team
+          and Vegas cards keep their own tables, and Nassau keeps its totals. */}
+      {!isVegas && !isScramble && <LiveLeaderboard t={t} />}
+      {(isVegas || isScramble || isNassau) && (
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
         <div className="px-4 py-2.5 border-b border-[var(--border)] font-bold text-sm">
-          {GOLF_MODE_LABELS[mode]} · Leaderboard
+          {isNassau && !isScramble ? "Nassau totals" : `${GOLF_MODE_LABELS[mode]} · Leaderboard`}
         </div>
         {isVegas ? (
           <table className="w-full text-sm">
@@ -1091,6 +1309,7 @@ export function GolfView({ t }: { t: Tournament }) {
         </table>
         )}
       </div>
+      )}
 
       {/* Full scorecard (toggle) */}
       <button
