@@ -3,43 +3,46 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
-import { indexHistory, seedIndexForPlayer } from "@/lib/handicap";
+import { cardsForPlayer, indexHistory, seedIndexForPlayer } from "@/lib/handicap";
+import { gameMetrics, gameTakeaway, roundStats, sumStats, type Light } from "@/lib/golfStats";
 import { Card } from "./ui";
 
-// Sparkline of the index after each round — flat histories still draw (the
-// vertical range is padded so a constant line sits mid-chart, not on the edge).
-function TrendLine({ points }: { points: number[] }) {
-  const W = 120;
-  const H = 30;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const pad = Math.max(0.5, (max - min) * 0.15);
+// 7e — the index bar trend: the Seed Index after each of the last ten rounds,
+// current round highlighted. Bars, not a line: each round is a discrete event.
+function TrendBars({ points }: { points: number[] }) {
+  const shown = points.slice(-10);
+  const min = Math.min(...shown);
+  const max = Math.max(...shown);
+  const pad = Math.max(0.5, (max - min) * 0.2);
   const lo = min - pad;
-  const hi = max + pad;
-  const x = (i: number) => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * (W - 6) + 3);
-  const y = (v: number) => H - 3 - ((v - lo) / (hi - lo)) * (H - 6);
-  const path = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const last = points[points.length - 1];
-  const falling = points.length > 1 && last < points[0];
+  const span = max + pad - lo;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-8 w-32" aria-hidden>
-      <polyline
-        points={path}
-        fill="none"
-        stroke="var(--brand)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity={falling ? 1 : 0.8}
-      />
-      <circle cx={x(points.length - 1)} cy={y(last)} r="2.5" fill="var(--brand)" />
-    </svg>
+    <div className="flex h-9 items-end gap-1" aria-hidden>
+      {shown.map((v, i) => (
+        <div
+          key={i}
+          title={v.toFixed(1)}
+          className={`w-2.5 rounded-t-sm ${
+            i === shown.length - 1 ? "bg-[var(--brand)]" : "bg-[var(--brand)]/35"
+          }`}
+          style={{ height: `${Math.max(12, ((v - lo) / span) * 100)}%` }}
+        />
+      ))}
+    </div>
   );
 }
 
+const LIGHT_COLOR: Record<Light, string> = {
+  good: "bg-[var(--win)]",
+  ok: "bg-amber-400",
+  poor: "bg-rose-400",
+};
+
 // The player's Seed Index — the estimated handicap grown from rounds actually
-// played in Sporos. Renders nothing until the profile has a name and at least
-// one finished individual golf round exists.
+// played in Sporos — plus the 7e trend panel: delta and best-ever, a 10-round
+// bar trend, traffic-light game metrics, and one actionable takeaway.
+// Renders nothing until the profile has a name and at least one finished
+// individual golf round exists.
 export function SeedIndexCard() {
   const tournaments = useStore((s) => s.tournaments);
   const [name, setName] = useState("");
@@ -49,6 +52,14 @@ export function SeedIndexCard() {
   const r = seedIndexForPlayer(tournaments, name);
   if (r.rounds === 0 && !r.pendingNine) return null;
   const trend = r.index != null ? indexHistory(tournaments, name) : [];
+  const bestEver = trend.length ? Math.min(...trend) : null;
+  const delta = trend.length >= 2 ? trend[trend.length - 1] - trend[trend.length - 2] : null;
+
+  // Career game metrics from every entered three-tap stat, across all rounds.
+  const cards = cardsForPlayer(tournaments, name);
+  const agg = sumStats(cards.map((c) => roundStats(c.pars, c.scores, c.entries)));
+  const metrics = gameMetrics(agg);
+  const takeaway = gameTakeaway(metrics);
 
   return (
     <Card className="p-5">
@@ -61,8 +72,8 @@ export function SeedIndexCard() {
             {r.pendingNine ? " · one 9-hole round is waiting for a partner nine" : ""}.
           </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {trend.length >= 2 && <TrendLine points={trend} />}
+        <div className="flex items-end gap-3 shrink-0">
+          {trend.length >= 2 && <TrendBars points={trend} />}
           <div className="text-right">
             <div className="text-4xl font-extrabold tabular-nums leading-none">
               {r.index != null ? r.index.toFixed(1) : "—"}
@@ -73,19 +84,20 @@ export function SeedIndexCard() {
                 {3 - r.differentials.length === 1 ? "" : "s"} to go
               </div>
             ) : (
-              trend.length >= 2 && (
-                <div className="text-[10px] text-[var(--muted)] tabular-nums">
-                  {trend[trend.length - 1] < trend[0]
-                    ? `▾ ${(trend[0] - trend[trend.length - 1]).toFixed(1)} since round 3`
-                    : trend[trend.length - 1] > trend[0]
-                      ? `▴ ${(trend[trend.length - 1] - trend[0]).toFixed(1)} since round 3`
-                      : "holding steady"}
-                </div>
-              )
+              <div className="text-[10px] text-[var(--muted)] tabular-nums">
+                {delta != null && delta !== 0 && (
+                  <span className={delta < 0 ? "text-[var(--win)]" : ""}>
+                    {delta < 0 ? "▾" : "▴"} {Math.abs(delta).toFixed(1)}
+                  </span>
+                )}
+                {delta != null && delta !== 0 && bestEver != null ? " · " : ""}
+                {bestEver != null ? `best ${bestEver.toFixed(1)}` : ""}
+              </div>
             )}
           </div>
         </div>
       </div>
+
       {r.differentials.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-semibold">
@@ -101,6 +113,35 @@ export function SeedIndexCard() {
           ))}
         </div>
       )}
+
+      {/* Game metrics — only the stats your three taps have actually earned */}
+      {metrics.length > 0 && (
+        <div className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+          {metrics.map((m) => (
+            <div key={m.key}>
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-[var(--muted)]">{m.label}</span>
+                <span className="font-semibold tabular-nums">{m.value}</span>
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
+                <div
+                  className={`h-full rounded-full ${LIGHT_COLOR[m.light]}`}
+                  style={{ width: `${Math.max(4, Math.min(100, m.barPct))}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {takeaway && (
+        <p className="mt-3 rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3 py-2 text-xs text-[var(--muted)]">
+          <span className="mr-1.5 rounded bg-[var(--brand-soft)] px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[var(--brand)]">
+            Work on
+          </span>
+          {takeaway}
+        </p>
+      )}
+
       <p className="mt-2 text-[10px] text-[var(--muted)]">
         WHS-style estimate — best {r.used || "—"} of your last {Math.min(20, r.differentials.length)}{" "}
         differentials{r.adjustment ? ` (${r.adjustment} adjustment)` : ""}. Not an official index.

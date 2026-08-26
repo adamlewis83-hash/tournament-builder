@@ -118,15 +118,28 @@ const INDIVIDUAL_MODES = new Set([
   "wolf",
 ]);
 
+/** One finished round's full card — the raw material for both the index and
+ *  the game-metric stats (7e). */
+export interface PlayerCard {
+  at: number;
+  holes: number;
+  pars: number[]; // sliced to the holes played
+  scores: number[]; // the complete card
+  entries: (import("./types").HoleEntry | null)[] | undefined; // three-tap stats, when entered
+  gross: number;
+  rating: number;
+  slope: number;
+}
+
 /**
- * Every finished golf round this player holds a complete card for, ready for
- * the index. Rating/slope come from the tee they played; a course with no tee
- * data counts at par/113 (an 18-hole-equivalent rating, so nines pair right).
+ * Every finished golf round this player holds a complete card for. Rating and
+ * slope come from the tee they played; a course with no tee data counts at
+ * par/113 (an 18-hole-equivalent rating, so nines pair right).
  */
-export function roundsForPlayer(tournaments: Tournament[], playerName: string): RoundScore[] {
+export function cardsForPlayer(tournaments: Tournament[], playerName: string): PlayerCard[] {
   const who = playerName.trim().toLowerCase();
   if (!who) return [];
-  const out: RoundScore[] = [];
+  const out: PlayerCard[] = [];
 
   for (const t of tournaments) {
     if (t.format !== "golf" || !t.golf) continue;
@@ -155,6 +168,9 @@ export function roundsForPlayer(tournaments: Tournament[], playerName: string): 
     out.push({
       at: t.updatedAt ?? t.createdAt ?? 0,
       holes,
+      pars: g.pars.slice(0, holes),
+      scores: card.slice(0, holes) as number[],
+      entries: g.stats?.[p.id],
       gross,
       // Tee ratings are 18-hole figures; a bare course counts at par (doubled
       // for a nine so the pairing math stays in 18-hole units).
@@ -163,6 +179,17 @@ export function roundsForPlayer(tournaments: Tournament[], playerName: string): 
     });
   }
   return out.sort((a, b) => a.at - b.at);
+}
+
+/** The index-facing view of cardsForPlayer. */
+export function roundsForPlayer(tournaments: Tournament[], playerName: string): RoundScore[] {
+  return cardsForPlayer(tournaments, playerName).map((c) => ({
+    at: c.at,
+    holes: c.holes,
+    gross: c.gross,
+    rating: c.rating,
+    slope: c.slope,
+  }));
 }
 
 /** The player's Seed Index straight from their tournament history. */

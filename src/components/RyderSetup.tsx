@@ -220,6 +220,11 @@ export function RyderSetup({ t }: { t: Tournament }) {
     // Keep the matching prefix of sessions intact; rebuild only from the first change.
     keepRyderRounds(t.id, keep);
     for (const ty of program.slice(keep)) addRyderSession(t.id, ty, false);
+    // The generate button sits at the bottom of a long form — open the match
+    // view at the top, not at the inherited scroll offset. (Same fix as
+    // SetupPanel/GolfSetup; not rAF, which stalls in backgrounded tabs.)
+    window.scrollTo(0, 0);
+    setTimeout(() => window.scrollTo(0, 0), 0);
   }
 
   return (

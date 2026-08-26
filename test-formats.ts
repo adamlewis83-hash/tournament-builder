@@ -53,7 +53,7 @@ import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
-import { autoSummary, deriveHole, roundInsights, roundStats } from "./src/lib/golfStats";
+import { autoSummary, deriveHole, gameMetrics, gameTakeaway, roundInsights, roundStats, sumStats } from "./src/lib/golfStats";
 import {
   formatsForSport,
   SPORTS,
@@ -554,6 +554,36 @@ check("golf stats — GIR, up & down, scrambling, sand saves derive from 3 taps"
   assert(autoSummary(4, 4, { putts: 2 }) === "GIR ✓ · 2-putt", autoSummary(4, 4, { putts: 2 }) ?? "null");
   assert(autoSummary(4, 4, { putts: 1 })!.includes("up & down ✓"), "auto missed up&down");
   assert(autoSummary(4, 4, null) === null, "auto invented from nothing");
+});
+
+// ---- 7e: traffic-light game metrics and the takeaway line ------------------
+check("golf game metrics — traffic lights and one actionable takeaway", () => {
+  const pars9 = Array(9).fill(4);
+  const scores = [5, 4, 6, 5, 4, 5, 6, 4, 5];
+  const entries = [
+    { putts: 3, tee: "L" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 3, tee: "L" as const },
+    { putts: 2, tee: "L" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 2, tee: "R" as const },
+    { putts: 3, tee: "F" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 3, tee: "F" as const },
+  ];
+  const agg = sumStats([roundStats(pars9, scores, entries)]);
+  const metrics = gameMetrics(agg);
+  const byKey = Object.fromEntries(metrics.map((m) => [m.key, m]));
+  assert(byKey.fairways?.value === "56%" && byKey.fairways.light === "good", `fairways ${JSON.stringify(byKey.fairways)}`);
+  assert(byKey.gir?.value === "56%" && byKey.gir.light === "good", `gir ${JSON.stringify(byKey.gir)}`);
+  assert(byKey.updown?.light === "poor", `updown ${JSON.stringify(byKey.updown)}`);
+  assert(byKey.putts?.value === "2.44" && byKey.putts.light === "poor", `putts ${JSON.stringify(byKey.putts)}`);
+  // Worst light wins the takeaway; putts outranks up&down in priority.
+  const line = gameTakeaway(metrics);
+  assert(!!line && line.includes("flat stick"), `takeaway: ${line}`);
+  // No entered stats → no metrics, no takeaway.
+  assert(gameMetrics(sumStats([roundStats(pars9, scores, undefined)])).length === 0, "metrics from nothing");
+  assert(gameTakeaway([]) === null, "takeaway from nothing");
 });
 
 // ---- Post-round insights: written cards from derived stats -----------------

@@ -372,6 +372,12 @@ export function GolfSetup({ t }: { t: Tournament }) {
       segments: mode === "mixed" ? segments : undefined,
       teams: mode === "mixed" && teamMode,
     });
+    // The Start button sits at the bottom of a long form; the scorecard that
+    // replaces it inherits that scroll offset and opens at the page bottom.
+    // Scroll now and once more after the re-render commits (not rAF — that
+    // stalls in backgrounded tabs). Same fix as SetupPanel.handleGenerate.
+    window.scrollTo(0, 0);
+    setTimeout(() => window.scrollTo(0, 0), 0);
   }
 
   // Editor columns map display position → full-array index (so Back 9 edits holes 10–18).

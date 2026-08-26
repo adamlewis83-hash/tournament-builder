@@ -99,6 +99,115 @@ export function roundStats(
   return out;
 }
 
+/** Fieldwise sum of several rounds' stats, for career/trend aggregates. */
+export function sumStats(list: RoundStats[]): RoundStats {
+  return list.reduce(
+    (a, b) => ({
+      holesEntered: a.holesEntered + b.holesEntered,
+      fairways: { hit: a.fairways.hit + b.fairways.hit, opps: a.fairways.opps + b.fairways.opps },
+      gir: { hit: a.gir.hit + b.gir.hit, opps: a.gir.opps + b.gir.opps },
+      putts: { total: a.putts.total + b.putts.total, holes: a.putts.holes + b.putts.holes },
+      upDown: { made: a.upDown.made + b.upDown.made, opps: a.upDown.opps + b.upDown.opps },
+      scramble: { made: a.scramble.made + b.scramble.made, opps: a.scramble.opps + b.scramble.opps },
+      sandSave: { made: a.sandSave.made + b.sandSave.made, opps: a.sandSave.opps + b.sandSave.opps },
+    }),
+    {
+      holesEntered: 0,
+      fairways: { hit: 0, opps: 0 },
+      gir: { hit: 0, opps: 0 },
+      putts: { total: 0, holes: 0 },
+      upDown: { made: 0, opps: 0 },
+      scramble: { made: 0, opps: 0 },
+      sandSave: { made: 0, opps: 0 },
+    },
+  );
+}
+
+// ---- 7e: game-metric bars with traffic-light coloring ----------------------
+
+export type Light = "good" | "ok" | "poor";
+
+export interface GameMetric {
+  key: "fairways" | "gir" | "updown" | "putts";
+  label: string;
+  value: string; // display value ("48%" or "1.92/hole")
+  barPct: number; // 0–100 bar fill
+  light: Light;
+}
+
+/**
+ * The four game metrics, thresholds calibrated to recreational golf (a
+ * mid-handicap hits ~45% fairways, ~30% GIR, saves ~25% of misses, and
+ * two-putts on pace). A metric only appears once it has enough opportunities
+ * to mean something.
+ */
+export function gameMetrics(s: RoundStats): GameMetric[] {
+  const out: GameMetric[] = [];
+  const pct = (hit: number, opps: number) => (100 * hit) / opps;
+  if (s.fairways.opps >= 5) {
+    const v = pct(s.fairways.hit, s.fairways.opps);
+    out.push({
+      key: "fairways",
+      label: "Fairways",
+      value: `${Math.round(v)}%`,
+      barPct: v,
+      light: v >= 55 ? "good" : v >= 35 ? "ok" : "poor",
+    });
+  }
+  if (s.gir.opps >= 5) {
+    const v = pct(s.gir.hit, s.gir.opps);
+    out.push({
+      key: "gir",
+      label: "GIR",
+      value: `${Math.round(v)}%`,
+      barPct: v,
+      light: v >= 40 ? "good" : v >= 22 ? "ok" : "poor",
+    });
+  }
+  if (s.upDown.opps >= 3) {
+    const v = pct(s.upDown.made, s.upDown.opps);
+    out.push({
+      key: "updown",
+      label: "Up & down",
+      value: `${Math.round(v)}%`,
+      barPct: v,
+      light: v >= 40 ? "good" : v >= 20 ? "ok" : "poor",
+    });
+  }
+  if (s.putts.holes >= 9) {
+    const v = s.putts.total / s.putts.holes;
+    out.push({
+      key: "putts",
+      label: "Putts/hole",
+      value: `${v.toFixed(2)}`,
+      // Lower is better — map 2.4/hole (rough) … 1.4/hole (tour-ish) onto the bar.
+      barPct: Math.max(0, Math.min(100, ((2.4 - v) / 1.0) * 100)),
+      light: v <= 1.8 ? "good" : v <= 2.05 ? "ok" : "poor",
+    });
+  }
+  return out;
+}
+
+const TAKEAWAYS: Record<GameMetric["key"], (m: GameMetric) => string> = {
+  gir: (m) => `Approach play is the lever — ${m.value} greens in regulation. Aim at centers, not pins.`,
+  putts: (m) => `The flat stick is the lever — ${m.value} putts per hole. Lag speed first, line second.`,
+  fairways: (m) => `Biggest gain is off the tee — ${m.value} fairways. The most controlled club you own is worth strokes.`,
+  updown: (m) => `Short game pays fastest — you save par ${m.value} of the time you miss a green.`,
+};
+
+/** One actionable line: the worst traffic light wins (ties break toward the
+ *  stats that move scores most). All green → say so. No metrics → null. */
+export function gameTakeaway(metrics: GameMetric[]): string | null {
+  if (!metrics.length) return null;
+  const rank: Record<Light, number> = { poor: 2, ok: 1, good: 0 };
+  const priority: GameMetric["key"][] = ["gir", "putts", "fairways", "updown"];
+  const worst = [...metrics].sort(
+    (a, b) => rank[b.light] - rank[a.light] || priority.indexOf(a.key) - priority.indexOf(b.key),
+  )[0];
+  if (rank[worst.light] === 0) return "No glaring leak — keep stacking rounds and let the index fall.";
+  return TAKEAWAYS[worst.key](worst);
+}
+
 /**
  * Written insight cards for the post-round summary (7d) — two to four plain
  * sentences generated from the round's derived stats, most actionable first.
