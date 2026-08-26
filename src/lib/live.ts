@@ -1,4 +1,4 @@
-import { Tournament } from "./types";
+import { HoleEntry, Tournament } from "./types";
 import { propagateBracket } from "./bracket";
 import { matchOutcome } from "./ryderGolf";
 
@@ -8,6 +8,9 @@ export type LivePatch =
   // spectators. Omitted keeps the legacy "both scores = result in" meaning.
   | { kind: "matchScore"; matchId: string; a: number | null; b: number | null; final?: boolean }
   | { kind: "golfScore"; participantId: string; hole: number; strokes: number | null }
+  // One hole's three-tap stat entry (putts / tee result / bunker). Carries the
+  // full merged entry so applying it is idempotent.
+  | { kind: "golfStat"; participantId: string; hole: number; entry: HoleEntry }
   // One hole of one cup match. `key` is a participant id, or "A"/"B" for the shared
   // ball of an alternate-shot or scramble session.
   | {
@@ -90,6 +93,14 @@ export function applyPatch(data: Tournament, patch: LivePatch): Tournament {
     const card = next.golf.scores[patch.participantId] ?? Array(next.golf.holes).fill(null);
     card[patch.hole] = patch.strokes;
     next.golf.scores[patch.participantId] = card;
+    return next;
+  }
+
+  if (patch.kind === "golfStat" && next.golf) {
+    const stats = next.golf.stats ?? (next.golf.stats = {});
+    const card = stats[patch.participantId] ?? Array(next.golf.holes).fill(null);
+    card[patch.hole] = { ...(card[patch.hole] ?? {}), ...patch.entry };
+    stats[patch.participantId] = card;
     return next;
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   GOLF_MODE_BLURBS,
@@ -25,8 +25,11 @@ import {
   holeStrokes,
 } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
+import { autoSummary } from "@/lib/golfStats";
+import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
+import { GpsBand } from "./GolfHoleBand";
 import { StrokeDots } from "./StrokeDots";
 import { BbbView } from "./BbbView";
 import { WolfView } from "./WolfView";
@@ -306,9 +309,14 @@ export function GolfView({ t }: { t: Tournament }) {
   const setVegasPairing = useStore((s) => s.setVegasPairing);
   const setGolfPin = useStore((s) => s.setGolfPin);
   const setGolfGreens = useStore((s) => s.setGolfGreens);
+  const setGolfHoleStat = useStore((s) => s.setGolfHoleStat);
   const [hole, setHole] = useState(0);
   const [showCard, setShowCard] = useState(true);
   const [gpsOpen, setGpsOpen] = useState(false);
+  // "You" on the hole screen — the profile owner's row gets the big stepper
+  // and the three-tap stat rows; everyone else stays compact.
+  const [profileName, setProfileName] = useState("");
+  useEffect(() => setProfileName(getProfile().name.trim()), []);
   const g = t.golf;
   if (!g) return null;
 
@@ -480,9 +488,45 @@ export function GolfView({ t }: { t: Tournament }) {
           const next = cur === null || cur === undefined ? start : Math.max(1, cur + delta);
           setGolfScore(t.id, pid, h, next);
         };
+        // Team-row cards (scramble/pairs/Vegas pair card) have no personal stats;
+        // per-player cards promote "you" to the hero block with the 3-tap rows.
+        const teamRows = isScramble && !vegasLedger;
+        const heroP = teamRows
+          ? null
+          : (t.participants.find(
+              (p) => p.name.trim().toLowerCase() === profileName.toLowerCase() && profileName,
+            ) ?? t.participants[0] ?? null);
+        const heroScore = heroP ? (g.scores[heroP.id]?.[h] ?? null) : null;
+        const heroEntry = heroP ? (g.stats?.[heroP.id]?.[h] ?? null) : null;
+        const auto = heroP ? autoSummary(g.pars[h], heroScore, heroEntry) : null;
+        const heroRel = heroScore != null && !isVegas ? heroScore - g.pars[h] : null;
+        // Sticky running line: holes entered and gross to par, for the hero.
+        let thru = 0;
+        let runPar = 0;
+        if (heroP) {
+          for (let i = 0; i < g.holes; i++) {
+            const s = g.scores[heroP.id]?.[i];
+            if (s != null) {
+              thru++;
+              runPar += s - g.pars[i];
+            }
+          }
+        }
+        const stat = (patchEntry: Partial<import("@/lib/types").HoleEntry>) =>
+          heroP && setGolfHoleStat(t.id, heroP.id, h, patchEntry);
         return (
+          <>
           <Card className="p-4">
-            <div className="flex items-center justify-between">
+            <GpsBand
+              holeNo={holeNo(h)}
+              par={g.pars[h]}
+              si={g.strokeIndex[h]}
+              green={g.greens?.[h] ?? null}
+              pin={g.pins?.[h] ?? null}
+              mapOpen={gpsOpen}
+              onToggleMap={() => setGpsOpen((o) => !o)}
+            />
+            <div className="mt-3 flex items-center justify-between">
               <Button
                 variant="outline"
                 className="px-3 py-1.5"
@@ -575,8 +619,121 @@ export function GolfView({ t }: { t: Tournament }) {
                 </div>
               </div>
             )}
+            {/* You — the 54px score, 56px steppers, and the three-tap rows */}
+            {heroP && (
+              <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--subtle)] p-3">
+                <div className="flex items-center justify-center gap-5">
+                  <button
+                    onClick={() => adj(heroP.id, -1)}
+                    aria-label={`Minus one for ${heroP.name}`}
+                    className="grid h-14 w-14 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-3xl font-bold text-[var(--muted)] transition hover:bg-[var(--hover)]"
+                  >
+                    −
+                  </button>
+                  <div className="w-24 text-center">
+                    <div className="text-[54px] font-extrabold tabular-nums leading-none">
+                      {heroScore ?? "–"}
+                    </div>
+                    <div
+                      className={`mt-1 text-xs font-semibold ${
+                        heroRel != null && heroRel < 0
+                          ? "text-[var(--win)]"
+                          : "text-[var(--muted)]"
+                      }`}
+                    >
+                      {heroRel == null
+                        ? `Par ${g.pars[h]}`
+                        : heroRel === 0
+                          ? "Even with par"
+                          : heroRel > 0
+                            ? `+${heroRel} on the hole`
+                            : `${heroRel} — nice`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => adj(heroP.id, 1)}
+                    aria-label={`Plus one for ${heroP.name}`}
+                    className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--brand)] text-3xl font-bold text-[var(--on-brand)] transition hover:opacity-90"
+                  >
+                    +
+                  </button>
+                </div>
+                {/* The other two taps — everything else derives from these */}
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                    Putts
+                  </span>
+                  <div className="flex flex-1 gap-1.5">
+                    {[0, 1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => stat({ putts: heroEntry?.putts === n ? null : n })}
+                        className={`h-9 flex-1 rounded-lg border text-sm font-semibold tabular-nums transition ${
+                          heroEntry?.putts === n
+                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
+                        }`}
+                      >
+                        {n === 4 ? "4+" : n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                    Tee
+                  </span>
+                  <div className="flex flex-1 gap-1.5">
+                    {(
+                      [
+                        ["L", "◀ L"],
+                        ["F", "Fairway"],
+                        ["R", "R ▶"],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => stat({ tee: heroEntry?.tee === v ? null : v })}
+                        className={`h-9 flex-1 rounded-lg border text-sm font-semibold transition ${
+                          heroEntry?.tee === v
+                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => stat({ bunker: !heroEntry?.bunker })}
+                      title="Greenside bunker on this hole"
+                      className={`h-9 w-14 shrink-0 rounded-lg border text-sm transition ${
+                        heroEntry?.bunker
+                          ? "border-amber-400 bg-amber-400/15 text-amber-500"
+                          : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
+                      }`}
+                    >
+                      ⛱ Sand
+                    </button>
+                  </div>
+                </div>
+                {auto && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-[var(--surface)] px-2.5 py-1.5">
+                    <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                      Auto
+                    </span>
+                    <span className="text-xs text-[var(--muted)]">{auto}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-3 space-y-2">
-              {t.participants.map((p) => {
+              {t.participants
+                .filter((p) => p.id !== heroP?.id)
+                .map((p) => {
                 const v = g.scores[p.id]?.[h];
                 const rel = v != null && !isVegas ? v - g.pars[h] : null;
                 return (
@@ -622,32 +779,42 @@ export function GolfView({ t }: { t: Tournament }) {
               })}
             </div>
 
-            {/* GPS / yardage — aerial of the hole with live distance to the pin */}
-            <div className="mt-3 border-t border-[var(--border)] pt-3">
-              <button
-                type="button"
-                onClick={() => setGpsOpen((o) => !o)}
-                className="flex w-full items-center justify-between text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                <span>📍 GPS · yards to the green</span>
-                <span className="text-xs">{gpsOpen ? "Hide" : "Show"}</span>
-              </button>
-              {gpsOpen && (
-                <div className="mt-3">
-                  <GolfGps
-                    key={h}
-                    pin={g.pins?.[h] ?? null}
-                    onSetPin={(c) => setGolfPin(t.id, h, c)}
-                    holes={g.holes}
-                    startHole={startHole}
-                    onSetAllPins={(pins) => pins.forEach((c, i) => c && setGolfPin(t.id, i, c))}
-                    green={g.greens?.[h] ?? null}
-                    onSetAllGreens={(greens) => setGolfGreens(t.id, greens)}
-                  />
-                </div>
-              )}
-            </div>
+            {/* Full aerial — expanded from the band's Map button */}
+            {gpsOpen && (
+              <div className="mt-3 border-t border-[var(--border)] pt-3">
+                <GolfGps
+                  key={h}
+                  pin={g.pins?.[h] ?? null}
+                  onSetPin={(c) => setGolfPin(t.id, h, c)}
+                  holes={g.holes}
+                  startHole={startHole}
+                  onSetAllPins={(pins) => pins.forEach((c, i) => c && setGolfPin(t.id, i, c))}
+                  green={g.greens?.[h] ?? null}
+                  onSetAllGreens={(greens) => setGolfGreens(t.id, greens)}
+                />
+              </div>
+            )}
           </Card>
+
+          {/* Sticky running total + next hole, floating above the bottom nav */}
+          {heroP && (
+            <div className="no-print sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-2.5 shadow-lg backdrop-blur">
+              <span className="text-sm font-semibold tabular-nums">
+                {thru === 0 ? "Round not started" : `Thru ${thru} · ${formatToPar(runPar)}`}
+              </span>
+              <Button
+                className="px-4 py-2"
+                disabled={h >= g.holes - 1}
+                onClick={() => {
+                  setHole(h + 1);
+                  window.scrollTo(0, 0);
+                }}
+              >
+                Next hole →
+              </Button>
+            </div>
+          )}
+          </>
         );
       })()}
 

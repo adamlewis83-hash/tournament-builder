@@ -241,6 +241,15 @@ export interface Friend {
   color?: string;
 }
 
+// The three-tap stat entry ("derive, don't ask"): score lives on the card; a
+// hole's putts and tee-shot result are the only other things a player enters.
+// GIR, scrambling, up-and-downs, and sand saves are all computed from these.
+export interface HoleEntry {
+  putts?: number | null; // 0–4, where 4 means "4+"
+  tee?: "L" | "F" | "R" | null; // tee-shot result: miss left, fairway, miss right
+  bunker?: boolean; // visited a greenside bunker (optional flag for sand saves)
+}
+
 export interface GolfData {
   holes: number; // 9 or 18
   startHole?: number; // first hole number played (1 for front/18-hole, 10 for back 9) — display only
@@ -251,6 +260,7 @@ export interface GolfData {
   scores: Record<string, (number | null)[]>; // participantId -> strokes per hole
   pins?: ([number, number] | null)[]; // per-hole green/pin location [lng, lat] for GPS distance
   greens?: ([number, number][] | null)[]; // per-hole green outline ring — front/center/back yardages
+  stats?: Record<string, (HoleEntry | null)[]>; // participantId -> per-hole entered stats (putts/tee/bunker)
   bbb?: BbbData; // Bingo Bango Bongo awards
   wolf?: WolfData; // Wolf partner choices
   segments?: GolfSegment[]; // "Build Your Own": format per hole range

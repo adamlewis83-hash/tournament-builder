@@ -53,6 +53,7 @@ import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
+import { autoSummary, deriveHole, roundStats } from "./src/lib/golfStats";
 import {
   formatsForSport,
   SPORTS,
@@ -511,6 +512,48 @@ check("sport accents — curated for built-ins, stable hash for customs", () => 
   assert(sportAccent("Disc Golf") !== sportAccent("Golf"), "disc golf fell through to golf's accent");
   // Customs: no curated entry, but the same name always gets the same color.
   assert(sportAccent("Mario Kart") === sportAccent("Mario Kart"), "custom accent unstable");
+});
+
+// ---- Derive, don't ask: the three-tap golf stat engine ---------------------
+check("golf stats — GIR, up & down, scrambling, sand saves derive from 3 taps", () => {
+  // Par 4, 4 strokes, 2 putts: reached in 2 → GIR, no scramble in play.
+  let d = deriveHole(4, 4, { putts: 2, tee: "F" });
+  assert(d.gir === true && d.approach === 2 && d.upAndDown === null && d.scramble === null, `GIR par ${JSON.stringify(d)}`);
+  // Par 4, 4 strokes, 1 putt: reached in 3 → missed GIR, up & down ✓, scrambled ✓.
+  d = deriveHole(4, 4, { putts: 1 });
+  assert(d.gir === false && d.upAndDown === true && d.scramble === true, `up&down ${JSON.stringify(d)}`);
+  // Par 4, 5 strokes, 2 putts: missed GIR, no up & down, no scramble.
+  d = deriveHole(4, 5, { putts: 2 });
+  assert(d.gir === false && d.upAndDown === false && d.scramble === false, `bogey ${JSON.stringify(d)}`);
+  // Bunker flag + par = sand save; bunker + bogey = no save.
+  assert(deriveHole(4, 4, { putts: 1, bunker: true }).sandSave === true, "sand save missed");
+  assert(deriveHole(4, 5, { putts: 2, bunker: true }).sandSave === false, "false sand save");
+  // Par 3, 3 strokes, 2 putts: on in 1 → GIR (par-3 regulation is par−2 = 1).
+  assert(deriveHole(3, 3, { putts: 2 }).gir === true, "par-3 GIR");
+  // No putts entered → nothing derived, nothing counted.
+  d = deriveHole(4, 4, { tee: "F" });
+  assert(d.gir === null && d.approach === null, "derived stats invented without putts");
+
+  // Aggregation: two par 4s + a par 3, tee entered everywhere — the par 3
+  // must not create a fairway opportunity.
+  const stats = roundStats(
+    [4, 4, 3],
+    [4, 5, 3],
+    [
+      { putts: 2, tee: "F" },
+      { putts: 2, tee: "L" },
+      { putts: 2, tee: "F" },
+    ],
+  );
+  assert(stats.fairways.opps === 2 && stats.fairways.hit === 1, `fairways ${JSON.stringify(stats.fairways)}`);
+  assert(stats.gir.opps === 3 && stats.gir.hit === 2, `gir ${JSON.stringify(stats.gir)}`);
+  assert(stats.putts.total === 6 && stats.putts.holes === 3, `putts ${JSON.stringify(stats.putts)}`);
+  assert(stats.upDown.opps === 1 && stats.upDown.made === 0, `upDown ${JSON.stringify(stats.upDown)}`);
+
+  // The AUTO strip names what the taps earned.
+  assert(autoSummary(4, 4, { putts: 2 }) === "GIR ✓ · 2-putt", autoSummary(4, 4, { putts: 2 }) ?? "null");
+  assert(autoSummary(4, 4, { putts: 1 })!.includes("up & down ✓"), "auto missed up&down");
+  assert(autoSummary(4, 4, null) === null, "auto invented from nothing");
 });
 
 // ---- Trophy Room: head-to-head and title streaks ---------------------------

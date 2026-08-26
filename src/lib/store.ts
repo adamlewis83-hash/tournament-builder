@@ -6,6 +6,7 @@ import {
   Course,
   Format,
   Friend,
+  HoleEntry,
   Match,
   Participant,
   PlayStyle,
@@ -189,6 +190,13 @@ interface State {
   setGolfTee: (id: string, participantId: string, tee: string) => void;
   setGolfTees: (id: string, tees: import("./types").TeeSet[]) => void;
   setGolfScore: (id: string, participantId: string, hole: number, strokes: number | null) => void;
+  /** Merge a three-tap stat entry (putts / tee result / bunker) into one hole. */
+  setGolfHoleStat: (
+    id: string,
+    participantId: string,
+    hole: number,
+    patch: Partial<HoleEntry>,
+  ) => void;
   setGolfAward: (
     id: string,
     kind: "bingo" | "bango" | "bongo",
@@ -1380,6 +1388,23 @@ export const useStore = create<State>()(
           }),
         }));
         pushPatch(id, { kind: "golfScore", participantId, hole, strokes });
+      },
+
+      setGolfHoleStat: (id, participantId, hole, patch) => {
+        if (blocked(id)) return;
+        let merged: HoleEntry | null = null;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const stats = { ...(t.golf.stats ?? {}) };
+            const card = [...(stats[participantId] ?? Array(t.golf.holes).fill(null))];
+            merged = { ...(card[hole] ?? {}), ...patch };
+            card[hole] = merged;
+            stats[participantId] = card;
+            return { ...t, golf: { ...t.golf, stats }, updatedAt: Date.now() };
+          }),
+        }));
+        if (merged) pushPatch(id, { kind: "golfStat", participantId, hole, entry: merged });
       },
 
       // Local-only: the green/pin location for GPS distance. It's course geometry,
