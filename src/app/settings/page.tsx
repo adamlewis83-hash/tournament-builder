@@ -6,6 +6,7 @@ import { Sun, Moon, Settings as SettingsIcon } from "@/components/icons";
 import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
 import { SyncPanel } from "@/components/SyncPanel";
+import { FriendLinkPanel } from "@/components/FriendLinkPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
 import { getProfile, setProfile, type Profile } from "@/lib/profile";
 import { seedIndexForPlayer } from "@/lib/handicap";
@@ -231,6 +232,8 @@ export default function SettingsPage() {
         </div>
         <ThemeSetting />
       </Card>
+
+      <FriendLinkPanel />
 
       <div className="mt-4">
         <SyncPanel />

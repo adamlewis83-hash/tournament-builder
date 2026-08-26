@@ -13,6 +13,7 @@ import { DeviceShowcase } from "@/components/DeviceShowcase";
 import { SignInCTA } from "@/components/SignInCTA";
 import { GetTheApp } from "@/components/GetTheApp";
 import { TournamentList } from "@/components/TournamentList";
+import { FriendFeed } from "@/components/FriendFeed";
 import { getAccountEmail } from "@/lib/library";
 import { getHomePrefs } from "@/lib/homePrefs";
 
@@ -118,6 +119,7 @@ function SignedInHome() {
         <div className="pt-2">{heading}</div>
       )}
       {prefs.join && <JoinByCode />}
+      <FriendFeed />
       <TournamentList />
     </div>
   );

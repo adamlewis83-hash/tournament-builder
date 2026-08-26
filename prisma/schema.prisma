@@ -111,3 +111,38 @@ model LoginCode {
 
   @@map("login_codes")
 }
+
+// A shareable friend code — hand it to a friend, they enter it, you're linked.
+// Possession is consent (the same trust model as a tournament join code).
+// `name` is the display name shown in linked friends' feeds, refreshed from
+// the owner's profile whenever they view their code.
+model FriendCode {
+  ownerId   String   @id // library key
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("friend_codes")
+}
+
+// A mutual link between two accounts, stored as a sorted pair (a < b).
+model FriendPair {
+  a         String
+  b         String
+  createdAt DateTime @default(now())
+
+  @@id([a, b])
+  @@index([b])
+  @@map("friend_pairs")
+}
+
+// Per-account activity-feed privacy. Absent row = default: visible to linked
+// friends (Adam's call — default on, opt-out lives in Settings).
+model FeedPrefs {
+  ownerId       String   @id // library key
+  shareActivity Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+
+  @@map("feed_prefs")
+}
