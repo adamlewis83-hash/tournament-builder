@@ -99,6 +99,100 @@ export function roundStats(
   return out;
 }
 
+/**
+ * Written insight cards for the post-round summary (7d) — two to four plain
+ * sentences generated from the round's derived stats, most actionable first.
+ * Every insight names its evidence; nothing is asserted that the taps can't
+ * back up, so a score-only round simply gets fewer (or zero) cards.
+ */
+export function roundInsights(
+  pars: number[],
+  scores: (number | null)[],
+  entries: (HoleEntry | null)[] | undefined,
+): string[] {
+  const s = roundStats(pars, scores, entries);
+  const out: string[] = [];
+  const plural = (n: number) => (n === 1 ? "" : "s");
+
+  // Putting — measured against two-putt pace.
+  if (s.putts.holes >= 6) {
+    const excess = s.putts.total - 2 * s.putts.holes;
+    let threePutts = 0;
+    for (let h = 0; h < pars.length; h++) {
+      const p = entries?.[h]?.putts;
+      if (p != null && p >= 3 && scores[h] != null) threePutts++;
+    }
+    if (excess > 0) {
+      out.push(
+        `Putting cost you ${excess} shot${plural(excess)} — ${s.putts.total} putts over ${s.putts.holes} holes` +
+          (threePutts > 0 ? `, including ${threePutts} three-putt${plural(threePutts)}.` : "."),
+      );
+    } else {
+      out.push(
+        `The flat stick showed up — ${s.putts.total} putts (${(s.putts.total / s.putts.holes).toFixed(1)} per hole)` +
+          (threePutts === 0 ? " and not a single three-putt." : "."),
+      );
+    }
+  }
+
+  // Tee shots — a directional lean is the most fixable miss there is.
+  {
+    let L = 0;
+    let R = 0;
+    for (let h = 0; h < pars.length; h++) {
+      const e = entries?.[h];
+      if (!e?.tee || pars[h] < 4) continue;
+      if (e.tee === "L") L++;
+      if (e.tee === "R") R++;
+    }
+    const miss = L + R;
+    if (miss >= 3 && Math.max(L, R) / miss >= 0.7) {
+      const side = L > R ? "left" : "right";
+      out.push(
+        `Your tee misses lean ${side} — ${Math.max(L, R)} of ${miss} missed fairways went ${side}. One swing thought fixes a pattern.`,
+      );
+    }
+  }
+
+  // Greens decide scores — average vs par split by GIR.
+  {
+    let girN = 0;
+    let girSum = 0;
+    let missN = 0;
+    let missSum = 0;
+    for (let h = 0; h < pars.length; h++) {
+      const d = deriveHole(pars[h], scores[h] ?? null, entries?.[h] ?? null);
+      if (d.gir == null) continue;
+      const rel = (scores[h] as number) - pars[h];
+      if (d.gir) {
+        girN++;
+        girSum += rel;
+      } else {
+        missN++;
+        missSum += rel;
+      }
+    }
+    if (girN >= 2 && missN >= 2) {
+      const fmt = (v: number) => (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1));
+      out.push(
+        `Greens decide your score — you averaged ${fmt(girSum / girN)} on the ${girN} holes you hit in regulation vs ${fmt(missSum / missN)} on the ${missN} you missed.`,
+      );
+    }
+  }
+
+  // Scrambling — the short-game save rate.
+  if (s.scramble.opps >= 3) {
+    out.push(
+      `You saved par ${s.scramble.made} of ${s.scramble.opps} times after missing a green` +
+        (s.sandSave.opps > 0
+          ? ` — ${s.sandSave.made} of ${s.sandSave.opps} from the sand.`
+          : "."),
+    );
+  }
+
+  return out.slice(0, 4);
+}
+
 /** The "AUTO" strip under the tap rows — one line naming what the taps just
  *  derived, so the player sees the payoff of entering them. Null until the
  *  hole has enough entered to derive anything. */

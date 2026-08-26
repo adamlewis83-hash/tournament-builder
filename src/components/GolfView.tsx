@@ -25,7 +25,8 @@ import {
   holeStrokes,
 } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
-import { autoSummary, deriveHole } from "@/lib/golfStats";
+import { autoSummary, deriveHole, roundInsights, roundStats } from "@/lib/golfStats";
+import { seedIndexForPlayer } from "@/lib/handicap";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -300,6 +301,154 @@ function VegasLedgerView({
         </div>
       )}
     </Card>
+  );
+}
+
+// 7d — the post-round summary: a dark score header (gross / to par / net /
+// placing), three headline stat tiles, written insight cards generated from
+// the round's derived stats, a hole-by-hole color strip, and the Seed Index
+// movement this round just caused. Appears once your card is complete.
+function RoundSummary({ t, player }: { t: Tournament; player: Tournament["participants"][number] }) {
+  const tournaments = useStore((s) => s.tournaments);
+  const g = t.golf!;
+  const scores = g.scores[player.id] ?? [];
+  const entries = g.stats?.[player.id];
+  const stats = roundStats(g.pars, scores, entries);
+  const insights = roundInsights(g.pars, scores, entries);
+  const rows = computeGolf(t, "stroke");
+  const idx = rows.findIndex((r) => r.participantId === player.id);
+  const me = rows[idx];
+  if (!me) return null;
+  const startAt = g.startHole ?? 1;
+
+  // The handicap moving before your eyes: the Seed Index with and without
+  // this round. (Rounds auto-save — nothing to press, just the receipt.)
+  const after = seedIndexForPlayer(tournaments, player.name);
+  const before = seedIndexForPlayer(
+    tournaments.filter((x) => x.id !== t.id),
+    player.name,
+  );
+
+  const pct = (hit: number, opps: number) => (opps > 0 ? `${Math.round((100 * hit) / opps)}%` : "—");
+  const relColor = (rel: number) =>
+    rel <= -2
+      ? "border-[var(--win)] bg-[var(--win)] text-white"
+      : rel === -1
+        ? "border-[var(--win)] bg-[var(--win-bg)] text-[var(--win)]"
+        : rel === 0
+          ? "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]"
+          : rel === 1
+            ? "border-amber-400/60 bg-amber-400/15 text-amber-600"
+            : "border-rose-400/60 bg-rose-400/15 text-rose-500";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+      <div className="bg-gradient-to-br from-[var(--brand-strong)] to-[var(--brand)] px-4 py-3 text-[var(--on-brand)]">
+        <div className="text-[10px] font-semibold uppercase tracking-wide opacity-75">
+          Round complete{g.courseName ? ` — ${g.courseName}` : ""}
+        </div>
+        <div className="mt-1 flex items-end gap-5">
+          <div>
+            <div className="text-4xl font-extrabold tabular-nums leading-none">{me.gross}</div>
+            <div className="text-[10px] uppercase tracking-wide opacity-75">gross</div>
+          </div>
+          <div>
+            <div className="text-2xl font-extrabold tabular-nums leading-none">
+              {formatToPar(me.toPar)}
+            </div>
+            <div className="text-[10px] uppercase tracking-wide opacity-75">to par</div>
+          </div>
+          <div>
+            <div className="text-2xl font-extrabold tabular-nums leading-none">{me.net}</div>
+            <div className="text-[10px] uppercase tracking-wide opacity-75">net</div>
+          </div>
+          {rows.length > 1 && (
+            <div className="ml-auto text-right">
+              <div className="text-2xl font-extrabold tabular-nums leading-none">
+                {idx + 1}
+                <span className="text-sm font-semibold opacity-80">/{rows.length}</span>
+              </div>
+              <div className="text-[10px] uppercase tracking-wide opacity-75">placing</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 divide-x divide-[var(--border)] border-b border-[var(--border)] bg-[var(--surface)]/60 text-center">
+        {(
+          [
+            ["Fairways", pct(stats.fairways.hit, stats.fairways.opps), stats.fairways.opps ? `${stats.fairways.hit}/${stats.fairways.opps}` : "no tee taps"],
+            ["GIR", pct(stats.gir.hit, stats.gir.opps), stats.gir.opps ? `${stats.gir.hit}/${stats.gir.opps}` : "no putt taps"],
+            [
+              "Putts",
+              stats.putts.holes ? `${stats.putts.total}` : "—",
+              stats.putts.holes ? `${(stats.putts.total / stats.putts.holes).toFixed(1)}/hole` : "no putt taps",
+            ],
+          ] as const
+        ).map(([label, big, sub]) => (
+          <div key={label} className="px-2 py-2.5">
+            <div className="text-lg font-extrabold tabular-nums leading-none">{big}</div>
+            <div className="text-[9px] uppercase tracking-wide text-[var(--muted)]">{label}</div>
+            <div className="text-[10px] text-[var(--muted)] tabular-nums">{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {insights.length > 0 && (
+        <div className="space-y-1.5 border-b border-[var(--border)] bg-[var(--surface)]/60 px-4 py-3">
+          {insights.map((line, i) => (
+            <p key={i} className="text-xs leading-relaxed text-[var(--muted)]">
+              <span className="mr-1.5 rounded bg-[var(--brand-soft)] px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                Insight
+              </span>
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-[var(--surface)]/60 px-4 py-3">
+        <div className="flex flex-wrap gap-1">
+          {Array.from({ length: g.holes }, (_, h) => {
+            const s = scores[h];
+            if (s == null) return null;
+            const rel = s - g.pars[h];
+            return (
+              <span
+                key={h}
+                title={`Hole ${startAt + h}: ${s} (par ${g.pars[h]})`}
+                className={`grid h-8 w-8 place-items-center rounded-md border text-xs font-bold tabular-nums ${relColor(rel)}`}
+              >
+                <span className="leading-none">
+                  <span className="block text-[8px] font-medium opacity-70">{startAt + h}</span>
+                  {s}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+        <p className="mt-2.5 text-xs text-[var(--muted)]">
+          ⛳ Saved to your rounds —{" "}
+          {after.index != null ? (
+            <>
+              Seed Index{" "}
+              <span className="font-semibold text-[var(--foreground)] tabular-nums">
+                {before.index != null ? before.index.toFixed(1) : "—"} → {after.index.toFixed(1)}
+              </span>
+              {before.index != null && after.index < before.index && (
+                <span className="text-[var(--win)]"> ▾ trending down</span>
+              )}
+            </>
+          ) : after.pendingNine ? (
+            <>this nine is banked — it pairs with your next nine for your Seed Index.</>
+          ) : (
+            <>
+              counting toward your Seed Index ({after.differentials.length} of 3 rounds needed).
+            </>
+          )}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -882,8 +1031,11 @@ export function GolfView({ t }: { t: Tournament }) {
         }
         const stat = (patchEntry: Partial<import("@/lib/types").HoleEntry>) =>
           heroP && setGolfHoleStat(t.id, heroP.id, h, patchEntry);
+        const myCardComplete =
+          !!heroP && holes.every((i) => g.scores[heroP.id]?.[i] != null);
         return (
           <>
+          {heroP && myCardComplete && <RoundSummary t={t} player={heroP} />}
           <Card className="p-4">
             <GpsBand
               holeNo={holeNo(h)}

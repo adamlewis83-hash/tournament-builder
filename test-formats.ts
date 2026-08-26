@@ -53,7 +53,7 @@ import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
-import { autoSummary, deriveHole, roundStats } from "./src/lib/golfStats";
+import { autoSummary, deriveHole, roundInsights, roundStats } from "./src/lib/golfStats";
 import {
   formatsForSport,
   SPORTS,
@@ -554,6 +554,37 @@ check("golf stats — GIR, up & down, scrambling, sand saves derive from 3 taps"
   assert(autoSummary(4, 4, { putts: 2 }) === "GIR ✓ · 2-putt", autoSummary(4, 4, { putts: 2 }) ?? "null");
   assert(autoSummary(4, 4, { putts: 1 })!.includes("up & down ✓"), "auto missed up&down");
   assert(autoSummary(4, 4, null) === null, "auto invented from nothing");
+});
+
+// ---- Post-round insights: written cards from derived stats -----------------
+check("golf insights — evidence-backed sentences, nothing invented", () => {
+  const pars9 = Array(9).fill(4);
+  // A rough putting day: 22 putts over 9 holes with two three-putts,
+  // tee misses leaning left (3 of 4 misses), greens split available.
+  const scores = [5, 4, 6, 5, 4, 5, 6, 4, 5];
+  const entries = [
+    { putts: 3, tee: "L" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 3, tee: "L" as const },
+    { putts: 2, tee: "L" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 2, tee: "R" as const },
+    { putts: 3, tee: "F" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 3, tee: "F" as const },
+  ];
+  const lines = roundInsights(pars9, scores, entries);
+  assert(lines.length >= 2 && lines.length <= 4, `insight count ${lines.length}`);
+  assert(
+    lines.some((l) => l.includes("Putting cost you 4 shots") && l.includes("three-putt")),
+    `putting insight missing: ${JSON.stringify(lines)}`,
+  );
+  assert(
+    lines.some((l) => l.includes("lean left") && l.includes("3 of 4")),
+    `tee-lean insight missing: ${JSON.stringify(lines)}`,
+  );
+  // A score-only round (no taps) asserts nothing.
+  assert(roundInsights(pars9, scores, undefined).length === 0, "insights invented from score alone");
 });
 
 // ---- Trophy Room: head-to-head and title streaks ---------------------------
@@ -2516,4 +2547,4 @@ if (failures.length) {
   process.exit(1);
 } else {
   console.log("✅ All format/sport scenarios passed.");
-}
+}
