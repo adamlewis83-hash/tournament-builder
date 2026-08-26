@@ -25,7 +25,7 @@ import {
   holeStrokes,
 } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
-import { autoSummary } from "@/lib/golfStats";
+import { autoSummary, deriveHole } from "@/lib/golfStats";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -300,6 +300,159 @@ function VegasLedgerView({
         </div>
       )}
     </Card>
+  );
+}
+
+// 7b — the hole detail sheet: "YOU ENTER — 3 TAPS" against "SPOROS DERIVES —
+// 0 TAPS", with the explicitly-optional club/distance row collapsed behind a
+// dashed border. Top-level component (not inline) so its inputs keep focus.
+function HoleDetail({
+  par,
+  si,
+  holesCount,
+  handicap,
+  score,
+  entry,
+  onStat,
+}: {
+  par: number;
+  si: number;
+  holesCount: number;
+  handicap: number;
+  score: number | null;
+  entry: import("@/lib/types").HoleEntry | null;
+  onStat: (p: Partial<import("@/lib/types").HoleEntry>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [extras, setExtras] = useState(false);
+  const [clubDraft, setClubDraft] = useState(entry?.club ?? "");
+  const [driveDraft, setDriveDraft] = useState(entry?.driveYds != null ? String(entry.driveYds) : "");
+  const d = deriveHole(par, score, entry);
+  const received = holeStrokes(handicap, si, holesCount);
+  const net = score != null ? score - received : null;
+  const stbl = net != null ? Math.max(0, 2 + (par - net)) : null;
+
+  const yesNo = (v: boolean | null, na: string) =>
+    v == null ? (
+      <span className="text-[var(--muted)]">— {na}</span>
+    ) : v ? (
+      <span className="font-semibold text-[var(--win)]">✓ yes</span>
+    ) : (
+      <span className="text-[var(--muted)]">✕ no</span>
+    );
+  const teeLabel =
+    entry?.tee === "F"
+      ? "Fairway"
+      : entry?.tee === "L"
+        ? "Missed left"
+        : entry?.tee === "R"
+          ? "Missed right"
+          : "—";
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+      >
+        {open ? "▾ Hide hole detail" : "▸ Hole detail"}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3">
+          <div>
+            <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--muted)]">
+              You enter — 3 taps
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 text-center text-sm">
+              {(
+                [
+                  ["Score", score != null ? String(score) : "—"],
+                  ["Putts", entry?.putts != null ? (entry.putts === 4 ? "4+" : String(entry.putts)) : "—"],
+                  ["Tee", teeLabel],
+                ] as const
+              ).map(([label, v]) => (
+                <div key={label} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5">
+                  <div className="text-[9px] uppercase tracking-wide text-[var(--muted)]">{label}</div>
+                  <div className="font-semibold tabular-nums">{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--brand)]">
+              Sporos derives — 0 taps
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3 py-2 text-xs">
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">GIR</span>
+                {yesNo(d.gir, "enter putts")}
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Shots to green</span>
+                <span className="font-semibold tabular-nums">{d.approach ?? "—"}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Up &amp; down</span>
+                {yesNo(d.upAndDown, d.gir ? "green hit" : "enter putts")}
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Scrambling</span>
+                {yesNo(d.scramble, d.gir ? "green hit" : "enter putts")}
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Sand save</span>
+                {yesNo(d.sandSave, "no bunker")}
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Net · Stbl</span>
+                <span className="font-semibold tabular-nums">
+                  {net != null ? `${net} · ${stbl} pt${stbl === 1 ? "" : "s"}` : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Optional extras — never part of the 3-tap floor */}
+          {!extras ? (
+            <button
+              type="button"
+              onClick={() => setExtras(true)}
+              className="w-full rounded-lg border border-dashed border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] hover:bg-[var(--hover)]"
+            >
+              + Club &amp; tee-shot distance (optional)
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs">
+              <label className="flex items-center gap-1.5">
+                <span className="text-[var(--muted)]">Club</span>
+                <input
+                  value={clubDraft}
+                  onChange={(e) => setClubDraft(e.target.value)}
+                  onBlur={() => onStat({ club: clubDraft.trim() || null })}
+                  placeholder="Driver"
+                  className="w-20 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1"
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span className="text-[var(--muted)]">Drive</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={driveDraft}
+                  onChange={(e) => setDriveDraft(e.target.value)}
+                  onBlur={() =>
+                    onStat({ driveYds: driveDraft === "" ? null : Math.max(0, Number(driveDraft) || 0) })
+                  }
+                  placeholder="—"
+                  className="w-16 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-center tabular-nums"
+                />
+                <span className="text-[var(--muted)]">yds</span>
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -727,6 +880,16 @@ export function GolfView({ t }: { t: Tournament }) {
                     <span className="text-xs text-[var(--muted)]">{auto}</span>
                   </div>
                 )}
+                <HoleDetail
+                  key={`${heroP.id}-${h}`}
+                  par={g.pars[h]}
+                  si={g.strokeIndex[h]}
+                  holesCount={g.holes}
+                  handicap={effectiveHandicap(g, heroP)}
+                  score={heroScore}
+                  entry={heroEntry}
+                  onStat={stat}
+                />
               </div>
             )}
 

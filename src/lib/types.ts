@@ -248,6 +248,9 @@ export interface HoleEntry {
   putts?: number | null; // 0–4, where 4 means "4+"
   tee?: "L" | "F" | "R" | null; // tee-shot result: miss left, fairway, miss right
   bunker?: boolean; // visited a greenside bunker (optional flag for sand saves)
+  // Explicitly-optional extras (7b's dashed row) — never required, never derived from.
+  club?: string | null; // club off the tee, e.g. "Driver", "7i"
+  driveYds?: number | null; // measured/estimated tee-shot distance
 }
 
 export interface GolfData {
