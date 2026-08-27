@@ -295,6 +295,33 @@ export function aggregateRecords(tournaments: Tournament[]): RecordRow[] {
   );
 }
 
+/**
+ * Competition ranking over hall-of-fame rows: identical records share a rank,
+ * and the next distinct record skips ahead (two co-#1s, then #3). Extracted so
+ * the Trophy Room page and the per-player trophy case can never disagree.
+ */
+export function competitionRanks(records: RecordRow[]): number[] {
+  const same = (a: RecordRow, b: RecordRow) =>
+    a.firsts === b.firsts && a.seconds === b.seconds && a.thirds === b.thirds && a.events === b.events;
+  const out = records.map((r, i) => (i > 0 && same(records[i - 1], r) ? -1 : i + 1));
+  out.forEach((v, i) => {
+    if (v === -1) out[i] = out[i - 1];
+  });
+  return out;
+}
+
+/** The people (rostered) who played a completed tournament — doubles partners both count. */
+export function playersOf(t: Tournament): string[] {
+  const out = new Set<string>();
+  for (const p of t.participants)
+    for (const n of p.members?.length ? p.members : [p.name]) out.add(n);
+  if (t.format === "ryder") {
+    const rt = ryderTeams(t);
+    for (const n of [...rt.winners, ...rt.losers]) out.add(n);
+  }
+  return [...out];
+}
+
 const completedByDate = (tournaments: Tournament[]): Tournament[] =>
   tournaments.filter((t) => getResult(t).complete).sort((a, b) => a.updatedAt - b.updatedAt);
 
