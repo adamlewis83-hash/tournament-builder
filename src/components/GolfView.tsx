@@ -464,6 +464,7 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
     played === "stableford" ? "stableford" : played === "skins" ? "skins" : "net",
   );
   const modeFor = lens === "stableford" ? "stableford" : lens === "skins" ? "skins" : "stroke";
+  const netToPar = (r: ReturnType<typeof computeGolf>[number]) => r.net - (r.gross - r.toPar);
   const grossSort = (list: ReturnType<typeof computeGolf>) =>
     [...list].sort(
       (a, b) =>
@@ -472,8 +473,21 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
         a.gross - b.gross ||
         a.name.localeCompare(b.name),
     );
+  // Mid-round, players sit on different hole counts — raw stroke TOTALS rank
+  // whoever has played fewer holes ahead of someone playing better (a −1 thru 7
+  // sorted below three +2s thru 6). The live board ranks by TO PAR instead,
+  // which is also the number the row leads with.
+  const netSort = (list: ReturnType<typeof computeGolf>) =>
+    [...list].sort(
+      (a, b) =>
+        (b.thru > 0 ? 1 : 0) - (a.thru > 0 ? 1 : 0) ||
+        netToPar(a) - netToPar(b) ||
+        b.thru - a.thru ||
+        a.name.localeCompare(b.name),
+    );
   let rows = computeGolf(t, modeFor);
   if (lens === "gross") rows = grossSort(rows);
+  if (lens === "net") rows = netSort(rows);
 
   // Movement: rank now vs rank before the most recent completed hole.
   let maxHole = 0;
@@ -483,6 +497,7 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
   if (maxHole > 1) {
     let prev = computeGolf(t, modeFor, { from: 1, to: maxHole - 1 });
     if (lens === "gross") prev = grossSort(prev);
+    if (lens === "net") prev = netSort(prev);
     prev.forEach((r, i) => prevRank.set(r.participantId, i + 1));
   }
 
@@ -516,7 +531,6 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
   }
   const startAt = g.startHole ?? 1;
 
-  const netToPar = (r: (typeof rows)[number]) => r.net - (r.gross - r.toPar);
   const hero = (r: (typeof rows)[number]) =>
     lens === "net"
       ? formatToPar(netToPar(r))
