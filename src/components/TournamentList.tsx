@@ -20,6 +20,11 @@ function cardProgress(t: Tournament): { done: number; total: number } | null {
     const done = t.matches.filter(isFinal).length;
     return { done, total: t.matches.length };
   }
+  if (t.format === "race" && t.race) {
+    const heats = t.race.heats;
+    if (!heats.length) return null;
+    return { done: heats.filter((h) => h.order.length > 0).length, total: heats.length };
+  }
   if (t.format === "golf" && t.golf) {
     const total = t.golf.holes * t.participants.length;
     if (!total) return null;

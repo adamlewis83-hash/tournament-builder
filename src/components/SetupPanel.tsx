@@ -650,9 +650,16 @@ export function SetupPanel({ t }: { t: Tournament }) {
           {((t.format === "round-robin" && isDoubles) ||
             t.format === "swiss" ||
             isSocial ||
-            t.format === "score-challenge") && (
+            t.format === "score-challenge" ||
+            t.format === "race") && (
             <NumberField
-              label={t.format === "score-challenge" ? "Rounds / games" : "Rounds"}
+              label={
+                t.format === "score-challenge"
+                  ? "Rounds / games"
+                  : t.format === "race"
+                    ? "Heats per pool"
+                    : "Rounds"
+              }
               value={cfg.rounds}
               min={1}
               max={20}
@@ -662,9 +669,45 @@ export function SetupPanel({ t }: { t: Tournament }) {
                   ? "Swiss rounds"
                   : t.format === "score-challenge"
                     ? "How many scores each player posts"
-                    : "Rounds everyone plays"
+                    : t.format === "race"
+                      ? "Everyone in the pool races each heat — add more anytime mid-event"
+                      : "Rounds everyone plays"
               }
             />
+          )}
+          {t.format === "race" && (
+            <>
+              <NumberField
+                label="Pools"
+                value={cfg.poolCount}
+                min={1}
+                max={8}
+                onChange={(v) => setCfg({ poolCount: v })}
+                hint="1 = no pools, straight to heats. Racers deal in snake order; move anyone later."
+              />
+              <NumberField
+                label="Advance per pool"
+                value={cfg.advanceCount}
+                min={1}
+                max={16}
+                onChange={(v) => setCfg({ advanceCount: v })}
+                hint="Top finishers from each pool who reach the finals"
+              />
+              <label className="block">
+                <span className="text-sm font-medium">Finals</span>
+                <select
+                  value={cfg.raceFinal ?? "race"}
+                  onChange={(e) => setCfg({ raceFinal: e.target.value as "race" | "bracket" })}
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
+                >
+                  <option value="race">Final race — everyone at once</option>
+                  <option value="bracket">Knockout bracket — head-to-head</option>
+                </select>
+                <span className="text-xs text-[var(--muted)]">
+                  Changeable until you seed the finals
+                </span>
+              </label>
+            </>
           )}
           {drawOrderMatters && (
             <label className="col-span-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2">
@@ -882,7 +925,9 @@ export function SetupPanel({ t }: { t: Tournament }) {
             </p>
           )}
           <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full">
-            {t.format === "custom"
+            {t.format === "race"
+              ? "Start the heats →"
+              : t.format === "custom"
               ? "Start — build matches →"
               : t.format === "ladder"
                 ? "Start the ladder →"

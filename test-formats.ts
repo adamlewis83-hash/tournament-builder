@@ -48,7 +48,8 @@ import {
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
-import { getRanking, getFinalRows, getPlacements, headToHead, titleStreaks } from "./src/lib/records";
+import { aggregateRecords, getRanking, getFinalRows, getPlacements, headToHead, titleStreaks } from "./src/lib/records";
+import { dealPools, raceAdvancers, raceStandings } from "./src/lib/race";
 import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
@@ -615,6 +616,64 @@ check("golf insights — evidence-backed sentences, nothing invented", () => {
   );
   // A score-only round (no taps) asserts nothing.
   assert(roundInsights(pars9, scores, undefined).length === 0, "insights invented from score alone");
+});
+
+// ---- Race Day: the pinewood derby that demanded the format -----------------
+check("race day — pools, heats, advancement, final race, crown", () => {
+  const P = players(8); // p0..p7 named P1..P8
+  const pools = dealPools(P.map((p) => p.id), 2);
+  // Snake deal: 0,1 then 1,0 — so p0/p3/p4/p7 in pool 0, p1/p2/p5/p6 in pool 1.
+  assert(pools.p0 === 0 && pools.p3 === 0 && pools.p4 === 0 && pools.p7 === 0, "pool 0 deal");
+  assert(pools.p1 === 1 && pools.p2 === 1 && pools.p5 === 1 && pools.p6 === 1, "pool 1 deal");
+
+  const heat = (id: string, pool: number | null, order: string[]) => ({
+    id,
+    stage: (pool == null ? "final" : "pool") as "pool" | "final",
+    ...(pool == null ? {} : { pool }),
+    order,
+  });
+  const t = tour({
+    format: "race",
+    participants: P,
+    race: {
+      poolCount: 2,
+      pools,
+      finalStyle: "race" as const,
+      heats: [
+        heat("h1", 0, ["p0", "p3", "p4", "p7"]),
+        heat("h2", 0, ["p3", "p0", "p7", "p4"]),
+        heat("h3", 1, ["p1", "p2", "p5", "p6"]),
+        heat("h4", 1, ["p1", "p5", "p2", "p6"]),
+      ],
+    },
+  }) as Tournament;
+
+  // Pool standings: placement points, lower is better.
+  const pool0 = raceStandings(t, "pool", 0);
+  assert(pool0[0].points === 3 && pool0[1].points === 3, "pool 0 co-leaders at 3");
+  assert(!getResult(t).complete, "no finals yet — not complete");
+
+  // Top 3 per pool advance — exactly the derby's 2×4 → 6 finalists.
+  const finalists = raceAdvancers(t, 3);
+  assert(finalists.length === 6, `6 finalists, got ${finalists.length}`);
+  assert(!finalists.includes("p6"), "last place in pool 1 stays home");
+
+  // All six race at once; P3 (p2) takes the final.
+  t.race!.finalists = finalists;
+  t.race!.heats.push(heat("hf", null, ["p2", "p0", "p1", "p3", "p5", "p4"]));
+  const res = getResult(t);
+  assert(res.complete && res.winner === "P3", `champion ${res.winner}, want P3`);
+
+  // Placements feed the Trophy Room: gold to the final's winner, everyone placed.
+  const pl = getPlacements(t);
+  assert(pl[0].medal === "gold" && pl[0].names[0] === "P3", "gold misplaced");
+  assert(pl.length > 0 && getRanking(t).length === 8, "everyone gets a place");
+  const rec = aggregateRecords([t]);
+  assert(rec[0].name === "P3" && rec[0].firsts === 1, "derby title missing from records");
+
+  // An unscored final heat reopens the race.
+  t.race!.heats.push(heat("hf2", null, []));
+  assert(!getResult(t).complete, "unscored final heat should hold the crown");
 });
 
 // ---- Trophy Room: head-to-head and title streaks ---------------------------

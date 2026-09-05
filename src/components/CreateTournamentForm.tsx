@@ -33,6 +33,7 @@ import {
   IconCustom,
   IconScore,
   IconLadder,
+  IconRace,
 } from "./icons";
 
 const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
@@ -60,6 +61,7 @@ const FORMAT_ICON: Record<Format, typeof Trophy> = {
   custom: IconCustom,
   "score-challenge": IconScore,
   ladder: IconLadder,
+  race: IconRace,
 };
 
 function StepHeader({ n, title }: { n: number; title: string }) {

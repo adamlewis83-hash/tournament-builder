@@ -11,6 +11,8 @@ export type LivePatch =
   // One hole's three-tap stat entry (putts / tee result / bunker). Carries the
   // full merged entry so applying it is idempotent.
   | { kind: "golfStat"; participantId: string; hole: number; entry: HoleEntry }
+  // One heat's finish order (Race Day). Idempotent full-order replace.
+  | { kind: "raceOrder"; heatId: string; order: string[] }
   // One hole of one cup match. `key` is a participant id, or "A"/"B" for the shared
   // ball of an alternate-shot or scramble session.
   | {
@@ -93,6 +95,13 @@ export function applyPatch(data: Tournament, patch: LivePatch): Tournament {
     const card = next.golf.scores[patch.participantId] ?? Array(next.golf.holes).fill(null);
     card[patch.hole] = patch.strokes;
     next.golf.scores[patch.participantId] = card;
+    return next;
+  }
+
+  if (patch.kind === "raceOrder" && next.race) {
+    next.race.heats = next.race.heats.map((h) =>
+      h.id === patch.heatId ? { ...h, order: patch.order } : h,
+    );
     return next;
   }
 

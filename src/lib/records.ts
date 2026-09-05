@@ -5,6 +5,7 @@ import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
 import { isFinal } from "./score";
+import { raceStandings } from "./race";
 
 const decided = (m: Match) => isFinal(m) && m.scoreA !== m.scoreB;
 const winSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.sideA : m.sideB);
@@ -142,6 +143,53 @@ function toPlacements(t: Tournament, rankByPid: Map<string, number>, hasThird: b
  * contested.
  */
 export function getPlacements(t: Tournament): Placement[] {
+  if (t.format === "race") {
+    // Finalists place by the final (race standings, or the bracket when the
+    // finals are a knockout); everyone else places below by pool points.
+    const r = t.race;
+    if (!r) return [];
+    const rank = new Map<string, number>();
+    let place = 1;
+    if (r.finalStyle === "bracket" && r.finalists?.length && bracketChampion(t.matches)) {
+      // Let the generic bracket path place the finalists, then append the rest.
+      const bracketPlaced = getPlacements({ ...t, format: "single-elim" });
+      for (const pl of bracketPlaced) {
+        for (const n of pl.names) {
+          const p = t.participants.find((x) => x.name === n);
+          if (p && r.finalists.includes(p.id) && !rank.has(p.id)) rank.set(p.id, pl.rank);
+        }
+        place = Math.max(place, pl.rank + 1);
+      }
+    } else {
+      const rows = raceStandings(t, "final").filter((x) => x.heats > 0);
+      rows.forEach((row, i) => {
+        const prev = rows[i - 1];
+        const tied =
+          prev &&
+          prev.points === row.points &&
+          prev.wins === row.wins &&
+          prev.best === row.best;
+        if (tied) {
+          rank.set(row.participantId, rank.get(prev.participantId)!);
+        } else {
+          rank.set(row.participantId, place);
+        }
+        place = Math.max(place, (rank.get(row.participantId) ?? place) + 1);
+      });
+    }
+    // Non-finalists: ordered by their pool standing points across all pools.
+    const rest = t.participants
+      .filter((p) => !rank.has(p.id))
+      .map((p) => {
+        const row = raceStandings(t, "pool", r.pools[p.id] ?? 0).find(
+          (x) => x.participantId === p.id,
+        );
+        return { id: p.id, points: row?.heats ? row.points / row.heats : Infinity };
+      })
+      .sort((a, b) => a.points - b.points);
+    for (const x of rest) rank.set(x.id, place++);
+    return toPlacements(t, rank, true);
+  }
   if (t.format === "golf") {
     return golfNames(t).map((n, i) => ({ names: [n], rank: i + 1, medal: medalFor(i + 1, true) }));
   }

@@ -4,6 +4,7 @@ import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { cupScore } from "./ryderGolf";
 import { computeBbb, computeGolf, computeMixedOverall, computeVegas, mixedComplete } from "./golf";
+import { raceResult } from "./race";
 
 export interface TournamentResult {
   complete: boolean;
@@ -82,6 +83,16 @@ export function getResult(t: Tournament): TournamentResult {
     if (sc.status === "b-wins") return { complete: true, winner: t.config.teamNames?.[1] ?? "Team B" };
     if (sc.status === "tie") return { complete: true, winner: "Tie" };
     return none;
+  }
+
+  if (t.format === "race") {
+    // Bracket finals resolve like any bracket; race finals through the heats.
+    if (t.race?.finalStyle === "bracket" && t.race.finalists?.length) {
+      const c = bracketChampion(t.matches);
+      return { complete: !!c, winner: c ? nm(c) : null };
+    }
+    const r = raceResult(t);
+    return r.complete ? { complete: true, winner: r.winners.join(" & ") } : none;
   }
 
   if (t.format === "golf") {

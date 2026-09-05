@@ -236,6 +236,22 @@ export const IconScore = glyph(
   </>,
 );
 
+// Race Day — the checkered flag: heats, finish order, finals.
+export const IconRace = glyph(
+  "IconRace",
+  <>
+    <path d="M6.5 3.5 L6.5 20.5" />
+    <path d="M6.5 4.5 L18.8 4.5 L17.4 8 L18.8 11.5 L6.5 11.5 Z" {...SOFT} />
+    <path d="M6.5 4.5 L18.8 4.5 L17.4 8 L18.8 11.5 L6.5 11.5 Z" />
+    <rect x="8.1" y="5.4" width="1.8" height="1.8" {...SOLID} />
+    <rect x="11.7" y="5.4" width="1.8" height="1.8" {...SOLID} />
+    <rect x="9.9" y="7.2" width="1.8" height="1.8" {...SOLID} />
+    <rect x="13.5" y="7.2" width="1.8" height="1.8" {...SOLID} />
+    <rect x="8.1" y="9" width="1.8" height="1.8" {...SOLID} />
+    <path d="M4.5 20.8 L12 20.8" opacity="0.4" />
+  </>,
+);
+
 // Ladder — climb a rung by beating whoever holds it.
 export const IconLadder = glyph(
   "IconLadder",

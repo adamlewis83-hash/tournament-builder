@@ -13,7 +13,8 @@ export type Format =
   | "golf"
   | "custom"
   | "score-challenge"
-  | "ladder";
+  | "ladder"
+  | "race";
 
 // singles: each participant is one person, matches are 1v1
 // doubles: individuals enter; round-robin/pool rotate partners; standings are per-person
@@ -253,6 +254,23 @@ export interface HoleEntry {
   driveYds?: number | null; // measured/estimated tee-shot distance
 }
 
+// Race Day — pools of finish-order heats (born from Adam's pinewood derby).
+// Everything is fluid: any pool count, any pool sizes, heats added at will.
+export interface RaceHeat {
+  id: string;
+  stage: "pool" | "final";
+  pool?: number; // pool index when stage is "pool"
+  order: string[]; // participant ids in finishing order; empty until scored
+}
+
+export interface RaceData {
+  poolCount: number;
+  pools: Record<string, number>; // participantId -> pool index
+  heats: RaceHeat[];
+  finalStyle: "race" | "bracket";
+  finalists?: string[]; // set when the finals are seeded
+}
+
 export interface GolfData {
   holes: number; // 9 or 18
   startHole?: number; // first hole number played (1 for front/18-hole, 10 for back 9) — display only
@@ -388,6 +406,7 @@ export interface TournamentConfig {
   // evenly across the session's matches. Takes precedence over `ryderScoring`, which
   // stays as the preset form of the same idea for cups that never set a number.
   ryderPointsPerSession?: number;
+  raceFinal?: "race" | "bracket"; // Race Day finals: all-together race(s) or a knockout bracket
   // The cup's session program (labels in playing order), mirrored from the
   // generated sessions so Edit setup can restore the list instead of wiping it.
   ryderProgram?: string[];
@@ -414,6 +433,7 @@ export interface Tournament {
   participants: Participant[];
   matches: Match[];
   golf?: GolfData;
+  race?: RaceData;
   ryderGolf?: RyderGolf;
   scoreChallenge?: { scores: Record<string, (number | null)[]> }; // Score Challenge: per-round scores
   ladder?: { order: string[] }; // Ladder: participant ids in rank order (index 0 = #1)
@@ -447,6 +467,7 @@ export const FORMAT_LABELS: Record<Format, string> = {
   custom: "Custom (build your own)",
   "score-challenge": "Score Challenge",
   ladder: "Ladder",
+  race: "Race Day (heats & finals)",
 };
 
 export const FORMAT_BLURBS: Record<Format, string> = {
@@ -473,6 +494,8 @@ export const FORMAT_BLURBS: Record<Format, string> = {
     "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, or darts. Pick whether highest or lowest total wins.",
   ladder:
     "An ongoing challenge ladder — players are ranked, and you challenge someone above you. Win and you swap spots. Great for club/ongoing play (tennis, pickleball, racquetball, pool, foosball, chess).",
+  race:
+    "Everyone competes at once and you record the finishing order — pinewood derby, Mario Kart, anything with heats. Optional pools narrow the field, then the finalists settle it in final races or a bracket.",
 };
 
 // Common tournament-able sports/activities for the picklist. "Other…" is added
@@ -516,6 +539,7 @@ export const ALL_FORMATS: Format[] = [
   "custom",
   "score-challenge",
   "ladder",
+  "race",
 ];
 
 // Specialist formats only fit certain kinds of sport, so they're layered onto a
@@ -569,6 +593,10 @@ const TEAM_FIELD_SPORTS = new Set(["Basketball", "Volleyball", "Soccer", "Flag F
 // One player posts one number — there's no clever pairing to do, so swiss and
 // ladders make no sense even though brackets and round robins are fine.
 const SOLO_SCORE_SPORTS = new Set(["Bowling", "Pop-A-Shot"]);
+// Finish-order heats (Race Day): everyone competes at once and you record who
+// finished where. Board/video-game nights run this way; custom-typed sports
+// (pinewood derby, Mario Kart) get it via the full unknown-sport menu.
+const RACE_SPORTS = new Set(["Board Games", "Video Games / Esports"]);
 
 // Which formats make sense for a given sport. Golf-type sports get the golf
 // formats; everything else gets the universal bracket/round-robin base plus any
@@ -587,6 +615,9 @@ export function formatsForSport(sport: string): Format[] {
   if (AMERICANO_SPORTS.has(sport)) out.push("americano", "mexicano");
   if (!noSwissLadder) out.push("ladder");
   if (SCORE_CHALLENGE_SPORTS.has(sport)) out.push("score-challenge");
+  // Custom-typed sports (pinewood derby, Mario Kart…) are where Race Day was
+  // born — every unknown sport offers it alongside the named race-y ones.
+  if (RACE_SPORTS.has(sport) || !SPORTS.includes(sport)) out.push("race");
   out.push("custom");
   return out;
 }
@@ -613,6 +644,9 @@ export function playStylesForFormat(format: Format): PlayStyle[] {
     case "americano":
     case "mexicano":
       return ["doubles"]; // social mixers are always rotating-partner doubles
+    case "race":
+      // A racer is one entry — a person or a team car — never a rotating pair.
+      return ["singles", "teams"];
     case "round-robin":
     case "pool-bracket":
       return ["singles", "doubles", "doubles-fixed", "teams"];

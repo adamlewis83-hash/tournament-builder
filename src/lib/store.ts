@@ -15,6 +15,7 @@ import {
   TournamentConfig,
 } from "./types";
 import { uid } from "./id";
+import { dealPools, raceAdvancers } from "./race";
 import { isFinal, isWon } from "./score";
 import { genDoublesRR, genSinglesRR, genSwissRound, genKotcNext, genMexicanoRound } from "./schedule";
 import {
@@ -209,6 +210,14 @@ interface State {
   /** Store green outlines from an auto-load — incoming holes win where non-null,
    *  existing outlines survive holes the fetch couldn't fill. */
   setGolfGreens: (id: string, greens: ([number, number][] | null)[]) => void;
+  // Race Day — everything fluid: record/edit a heat's finish order, add or
+  // remove heats at will, move racers between pools, seed (or reseed) finals.
+  setRaceOrder: (id: string, heatId: string, order: string[]) => void;
+  addRaceHeat: (id: string, stage: "pool" | "final", pool?: number) => void;
+  removeRaceHeat: (id: string, heatId: string) => void;
+  setRacePool: (id: string, participantId: string, pool: number) => void;
+  /** Advance the top N of each pool. Reseeding drops existing final heats/bracket. */
+  seedRaceFinals: (id: string, perPool: number) => void;
   generate: (id: string) => void;
   generateNextRound: (id: string) => void;
   resetToSetup: (id: string) => void;
@@ -423,6 +432,9 @@ export function buildMatches(t: Tournament, order?: string[]): Match[] {
 
     case "ladder":
       return []; // ongoing challenge ladder; matches recorded as they happen
+
+    case "race":
+      return []; // heats live on t.race, not matches (bracket finals add matches later)
 
     case "pool-bracket": {
       // Snake-seed participants into pools, then per-pool round robin.
@@ -1420,6 +1432,93 @@ export const useStore = create<State>()(
         }));
       },
 
+      setRaceOrder: (id, heatId, order) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.race) return t;
+            const heats = t.race.heats.map((h) => (h.id === heatId ? { ...h, order } : h));
+            return { ...t, race: { ...t.race, heats }, updatedAt: Date.now() };
+          }),
+        }));
+        pushPatch(id, { kind: "raceOrder", heatId, order });
+      },
+
+      addRaceHeat: (id, stage, pool) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.race) return t;
+            const heat = { id: uid(), stage, ...(stage === "pool" ? { pool: pool ?? 0 } : {}), order: [] };
+            return { ...t, race: { ...t.race, heats: [...t.race.heats, heat] }, updatedAt: Date.now() };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      removeRaceHeat: (id, heatId) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.race) return t;
+            return {
+              ...t,
+              race: { ...t.race, heats: t.race.heats.filter((h) => h.id !== heatId) },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setRacePool: (id, participantId, pool) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.race) return t;
+            return {
+              ...t,
+              race: { ...t.race, pools: { ...t.race.pools, [participantId]: pool } },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      seedRaceFinals: (id, perPool) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.race) return t;
+            const finalists = raceAdvancers(t, perPool);
+            if (finalists.length < 2) return t;
+            const heats = t.race.heats.filter((h) => h.stage !== "final");
+            if (t.race.finalStyle === "bracket") {
+              return {
+                ...t,
+                race: { ...t.race, finalists, heats },
+                matches: genSingleElim(finalists, "winners", {
+                  thirdPlace: t.config.bronzeMatch ?? t.config.thirdPlace,
+                }),
+                updatedAt: Date.now(),
+              };
+            }
+            return {
+              ...t,
+              race: {
+                ...t.race,
+                finalists,
+                heats: [...heats, { id: uid(), stage: "final" as const, order: [] }],
+              },
+              matches: [],
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
       setGolfGreens: (id, greens) => {
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
@@ -1501,6 +1600,28 @@ export const useStore = create<State>()(
                     : {}),
                   ...(t.format === "ladder"
                     ? { ladder: t.ladder ?? { order: t.participants.map((p) => p.id) } }
+                    : {}),
+                  ...(t.format === "race"
+                    ? {
+                        race: {
+                          poolCount: Math.max(1, t.config.poolCount),
+                          pools: dealPools(
+                            t.participants.map((p) => p.id),
+                            Math.max(1, t.config.poolCount),
+                          ),
+                          // One empty heat per pool to start; the host adds more at will.
+                          heats: Array.from(
+                            { length: Math.max(1, t.config.poolCount) * Math.max(1, t.config.rounds) },
+                            (_, i) => ({
+                              id: uid(),
+                              stage: "pool" as const,
+                              pool: i % Math.max(1, t.config.poolCount),
+                              order: [],
+                            }),
+                          ),
+                          finalStyle: (t.config.raceFinal ?? "race") as "race" | "bracket",
+                        },
+                      }
                     : {}),
                   generated: true,
                   updatedAt: Date.now(),
