@@ -916,6 +916,48 @@ check("scorephoto — golf rows carry strokes, not a figure against par", () => 
   assert(getFinalRows(sk).every((r) => r.stat.endsWith(" skins")), "skins lost its skins");
 });
 
+// ---- Out and in: the card read as two nines -------------------------------
+check("golf nines — out and in totals, and only where a card has both", () => {
+  const P: Participant[] = [
+    { id: "a", name: "Scratch", handicap: 0 },
+    { id: "b", name: "Hacker", handicap: 18 },
+  ];
+  const g = defaultGolf(18, ["a", "b"]);
+  g.scores["a"] = g.pars.slice(); // even par all the way round
+  const outPar = g.pars.slice(0, 9).reduce((x, y) => x + y, 0);
+  const inPar = g.pars.slice(9).reduce((x, y) => x + y, 0);
+  const t = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "stroke" }) });
+  const row = computeGolf(t, "stroke").find((r) => r.participantId === "a")!;
+  assert(row.outGross === outPar && row.inGross === inPar, `nines ${row.outGross}/${row.inGross}`);
+  assert(row.outGross + row.inGross === row.gross, "nines do not add up to the total");
+  assert(row.outThru === 9 && row.inThru === 9, `nines thru ${row.outThru}/${row.inThru}`);
+
+  const rows = getFinalRows(t);
+  assert(rows.find((r) => r.name === "Scratch")!.sub === `Out ${outPar} · In ${inPar}`, "nines missing from the card");
+  // A card that hasn't been touched has no nines to show.
+  assert(rows.find((r) => r.name === "Hacker")!.sub === undefined, "nines invented for an empty card");
+
+  // Mid-round: the nine still being played says how far it got.
+  const part = defaultGolf(18, ["a"]);
+  part.scores["a"] = part.pars.map((p, h) => (h < 12 ? p : null));
+  const tp = tour({ format: "golf", participants: [P[0]], golf: part, config: cfg({ golfMode: "stroke" }) });
+  const three = part.pars.slice(9, 12).reduce((x, y) => x + y, 0);
+  assert(
+    getFinalRows(tp)[0].sub === `Out ${outPar} · In ${three} thru 3`,
+    `partial nines: ${getFinalRows(tp)[0].sub}`,
+  );
+
+  // A nine-hole round is one stretch, not an out and an in.
+  const g9 = defaultGolf(9, ["a"]);
+  g9.scores["a"] = g9.pars.slice();
+  const t9 = tour({ format: "golf", participants: [P[0]], golf: g9, config: cfg({ golfMode: "stroke" }) });
+  assert(getFinalRows(t9)[0].sub === undefined, "a nine split itself in two");
+
+  // Points games are scored in points, so the nines stay off them.
+  const st = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "stableford" }) });
+  assert(getFinalRows(st).every((r) => r.sub === undefined), "stableford grew a stroke line");
+});
+
 // ---- Format × play-style: only valid combinations are offered, and each one
 //      the create screen exposes actually produces correctly-shaped matches. ----
 // Rotating-partner "doubles" can only be honored where partners are re-drawn

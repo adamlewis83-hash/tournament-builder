@@ -173,6 +173,12 @@ export interface GolfRow {
   skins: number;
   frontNet: number; // Nassau front 9 (net)
   backNet: number; // Nassau back 9 (net)
+  // The card as a golfer reads it: the two nines, gross, with the holes
+  // played on each so an unfinished nine is never mistaken for a good one.
+  outGross: number; // holes 1–9
+  inGross: number; // holes 10–18
+  outThru: number;
+  inThru: number;
 }
 
 export function computeGolf(
@@ -221,11 +227,22 @@ export function computeGolf(
     let stableford = 0;
     let frontNet = 0;
     let backNet = 0;
+    let outGross = 0;
+    let inGross = 0;
+    let outThru = 0;
+    let inThru = 0;
     for (let h = lo; h <= hi; h++) {
       const s = card[h];
       if (s === null || s === undefined) continue;
       thru++;
       gross += s;
+      if (h < 9) {
+        outGross += s;
+        outThru++;
+      } else {
+        inGross += s;
+        inThru++;
+      }
       parPlayed += g.pars[h];
       const received = holeStrokes(hcp, g.strokeIndex[h], g.holes);
       const netHole = s - received;
@@ -246,6 +263,10 @@ export function computeGolf(
       skins: skinsMap.get(p.id) ?? 0,
       frontNet,
       backNet,
+      outGross,
+      inGross,
+      outThru,
+      inThru,
     };
   });
 

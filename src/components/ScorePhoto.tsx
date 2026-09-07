@@ -104,6 +104,12 @@ export function ScorePhoto({ t }: { t: Tournament }) {
                     {membersOf(r.name).join(" · ")}
                   </span>
                 )}
+                {/* Golf: the two nines, the way the card was played */}
+                {r.sub && (
+                  <span className="block text-[10px] tabular-nums truncate" style={{ color: "#94a3b8" }}>
+                    {r.sub}
+                  </span>
+                )}
               </span>
               <span className="tabular-nums font-bold whitespace-nowrap" style={{ color: "#475569" }}>
                 {r.stat}

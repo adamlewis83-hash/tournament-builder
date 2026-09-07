@@ -14,6 +14,7 @@ const loseSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.
 export interface FinalRow {
   name: string;
   stat: string;
+  sub?: string; // a second line under the name (golf: the two nines)
   rank?: number; // finishing position — set for standings/bracket formats so co-champions share a rank
 }
 
@@ -29,8 +30,20 @@ export function getFinalRows(t: Tournament): FinalRow[] {
       return computeMixedOverall(t, g.segments ?? []).map((r) => ({ name: r.name, stat: `${fmtNum(r.points)} pt` }));
     if (mode === "bingo") return computeBbb(t).map((r) => ({ name: r.name, stat: `${r.points} pt` }));
     const holes = g.holes;
+    // The two nines, the way a golfer reads a card. Only an 18-hole round has
+    // an out and an in; a nine is its own number, and a nine still in progress
+    // says how far it got rather than pretending to be a total.
+    const nines = (r: ReturnType<typeof computeGolf>[number]) => {
+      if (holes !== 18 || !r.thru) return undefined;
+      const half = (label: string, strokes: number, played: number) =>
+        played === 0 ? null : `${label} ${strokes}${played < 9 ? ` thru ${played}` : ""}`;
+      return [half("Out", r.outGross, r.outThru), half("In", r.inGross, r.inThru)]
+        .filter(Boolean)
+        .join(" · ");
+    };
     return computeGolf(t, mode).map((r) => ({
       name: r.name,
+      sub: mode === "stableford" || mode === "skins" ? undefined : nines(r),
       // Stroke-play cards show the score that was shot. A round decided on net
       // carries its net alongside the gross, since net is what ranked the row,
       // and a card still out on the course says how far it got.

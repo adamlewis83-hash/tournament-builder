@@ -610,6 +610,10 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
                 <span className="block text-[10px] text-[var(--muted)] tabular-nums">
                   {r.handicap > 0 ? `hcp ${r.handicap} · ` : ""}
                   {r.thru ? `thru ${r.thru}` : "not started"}
+                  {/* A nine only becomes a number once it is finished — a
+                      part-played nine is already covered by "thru". */}
+                  {g.holes === 18 && r.outThru === 9 ? ` · out ${r.outGross}` : ""}
+                  {g.holes === 18 && r.inThru === 9 ? ` · in ${r.inGross}` : ""}
                 </span>
               </span>
               {r.thru > 0 && (
@@ -1154,6 +1158,20 @@ export function GolfView({ t }: { t: Tournament }) {
   const startHole = g.startHole ?? 1; // 10 for a back-9 round, else 1
   const holeNo = (i: number) => startHole + i; // display hole number
 
+  // A paper card breaks at the turn: OUT after nine, IN after eighteen. Only an
+  // 18-hole round has both; a nine (front or back) is a single stretch and its
+  // total is the Tot column already there.
+  const splitNines = g.holes === 18;
+  const outPar = g.pars.slice(0, 9).reduce((a, b) => a + b, 0);
+  const inPar = g.pars.slice(9, 18).reduce((a, b) => a + b, 0);
+  const cardCols: ({ kind: "hole"; h: number } | { kind: "turn"; key: "out" | "in" })[] = [];
+  for (const h of holes) {
+    cardCols.push({ kind: "hole", h });
+    if (splitNines && h === 8) cardCols.push({ kind: "turn", key: "out" });
+    if (splitNines && h === 17) cardCols.push({ kind: "turn", key: "in" });
+  }
+  const turnCell = "px-2 py-1 text-center bg-[var(--subtle)] font-semibold tabular-nums";
+
   return (
     <div className="space-y-5">
       {isScramble ? (
@@ -1661,33 +1679,49 @@ export function GolfView({ t }: { t: Tournament }) {
               <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1.5 text-left text-xs text-[var(--muted)]">
                 Hole
               </th>
-              {holes.map((h) => (
-                <th key={h} className="px-1 py-1.5 text-center w-9 text-xs text-[var(--muted)]">
-                  {holeNo(h)}
-                </th>
-              ))}
+              {cardCols.map((c) =>
+                c.kind === "hole" ? (
+                  <th key={c.h} className="px-1 py-1.5 text-center w-9 text-xs text-[var(--muted)]">
+                    {holeNo(c.h)}
+                  </th>
+                ) : (
+                  <th key={c.key} className={`${turnCell} text-xs uppercase text-[var(--muted)]`}>
+                    {c.key}
+                  </th>
+                ),
+              )}
               <th className="px-2 py-1.5 text-center text-xs text-[var(--muted)]">Tot</th>
             </tr>
             <tr>
               <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 text-left text-xs font-normal text-[var(--muted)]">
                 Par
               </th>
-              {holes.map((h) => (
-                <th key={h} className="px-1 py-1 text-center text-xs font-normal text-[var(--muted)]">
-                  {g.pars[h]}
-                </th>
-              ))}
+              {cardCols.map((c) =>
+                c.kind === "hole" ? (
+                  <th key={c.h} className="px-1 py-1 text-center text-xs font-normal text-[var(--muted)]">
+                    {g.pars[c.h]}
+                  </th>
+                ) : (
+                  <th key={c.key} className={`${turnCell} text-xs text-[var(--muted)]`}>
+                    {c.key === "out" ? outPar : inPar}
+                  </th>
+                ),
+              )}
               <th className="px-2 py-1 text-center text-xs font-normal text-[var(--muted)]">{totalPar}</th>
             </tr>
             <tr>
               <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 text-left text-xs font-normal text-[var(--muted)]">
                 Hcp
               </th>
-              {holes.map((h) => (
-                <th key={h} className="px-1 py-1 text-center text-[10px] font-normal text-[var(--muted)]/70">
-                  {g.strokeIndex[h]}
-                </th>
-              ))}
+              {cardCols.map((c) =>
+                c.kind === "hole" ? (
+                  <th key={c.h} className="px-1 py-1 text-center text-[10px] font-normal text-[var(--muted)]/70">
+                    {g.strokeIndex[c.h]}
+                  </th>
+                ) : (
+                  <th key={c.key} className="px-2 py-1 bg-[var(--subtle)]"></th>
+                ),
+              )}
               <th className="px-2 py-1"></th>
             </tr>
           </thead>
@@ -1695,6 +1729,8 @@ export function GolfView({ t }: { t: Tournament }) {
             {t.participants.map((p) => {
               const card = g.scores[p.id] ?? [];
               const tot = card.reduce<number>((a, s) => a + (s ?? 0), 0);
+              const nine = (from: number, to: number) =>
+                card.slice(from, to).reduce<number>((a, s) => a + (s ?? 0), 0);
               return (
                 <tr key={p.id}>
                   <td className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-1 font-medium whitespace-nowrap border-t border-[var(--border)]">
@@ -1706,20 +1742,26 @@ export function GolfView({ t }: { t: Tournament }) {
                       {p.name}
                     </span>
                   </td>
-                  {holes.map((h) => (
-                    <td key={h} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
-                      <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[h], g.holes)} />
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={card[h] ?? ""}
-                        onChange={(e) =>
-                          setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))
-                        }
-                        className="mt-0.5 w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
-                      />
-                    </td>
-                  ))}
+                  {cardCols.map((c) =>
+                    c.kind === "hole" ? (
+                      <td key={c.h} className="px-0.5 py-1 align-bottom text-center border-t border-[var(--border)]">
+                        <StrokeDots n={holeStrokes(effectiveHandicap(g, p), g.strokeIndex[c.h], g.holes)} />
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={card[c.h] ?? ""}
+                          onChange={(e) =>
+                            setGolfScore(t.id, p.id, c.h, e.target.value === "" ? null : Number(e.target.value))
+                          }
+                          className="mt-0.5 w-8 rounded border border-[var(--border)] bg-[var(--input)] px-0.5 py-1 text-center text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+                        />
+                      </td>
+                    ) : (
+                      <td key={c.key} className={`${turnCell} border-t border-[var(--border)]`}>
+                        {(c.key === "out" ? nine(0, 9) : nine(9, 18)) || "–"}
+                      </td>
+                    ),
+                  )}
                   <td className="px-2 py-1 text-center font-bold tabular-nums border-t border-[var(--border)]">
                     {tot || "–"}
                   </td>
