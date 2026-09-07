@@ -16,15 +16,25 @@ export function courseHandicap(index: number, tee: TeeSet): number {
   return Math.round(index * (tee.slope / 113) + (tee.rating - tee.par));
 }
 
+/** What a card of this length plays off. Handicaps are 18-hole figures, so a
+ *  nine gets half of one — and it gets it whether or not the course came with
+ *  tee ratings, which is the one place the rule used to be applied unevenly: a
+ *  9-hole round on a bare course handed out all 18 strokes over 9 holes.
+ *  A card of any other length plays off the figure as given; the app only ever
+ *  builds nines and eighteens, so there is no third fraction to guess at. */
+export function handicapForCard(handicap: number, holes: number): number {
+  return holes === 9 ? Math.round(handicap / 2) : handicap;
+}
+
 /** The handicap used for stroke allocation: the player's index adjusted for the tee
- *  set they play (when the course has tees), else the raw index. Clamped at 0. */
+ *  set they play (when the course has tees), else the raw index, halved on a nine.
+ *  Clamped at 0. */
 export function effectiveHandicap(g: GolfData | undefined, p: Participant): number {
   const idx = p.handicap ?? 0;
-  if (!idx || !g?.tees?.length) return idx;
+  if (!idx || !g) return idx;
+  if (!g.tees?.length) return Math.max(0, handicapForCard(idx, g.holes));
   const tee = g.tees.find((t) => t.name === p.tee) ?? g.tees[0];
-  const ch = courseHandicap(idx, tee);
-  // Tee ratings are 18-hole values — a 9-hole round plays off half the course handicap.
-  return Math.max(0, g.holes <= 9 ? Math.round(ch / 2) : ch);
+  return Math.max(0, handicapForCard(courseHandicap(idx, tee), g.holes));
 }
 
 export const isSideGame = (m: GolfMode) => m === "bingo" || m === "wolf";

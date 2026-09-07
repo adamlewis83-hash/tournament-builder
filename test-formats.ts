@@ -45,6 +45,7 @@ import {
   holeStrokes,
   courseHandicap,
   effectiveHandicap,
+  handicapForCard,
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
@@ -1016,12 +1017,9 @@ check("golf multi-round — every round its own card, the total decides it", () 
   const hackerGross = par18 + 18 + (par18 + 18) + (par9 + 9);
   assert(gross[0].name === "Scratch" && gross[0].gross === scratchGross, `gross ${JSON.stringify(gross[0])}`);
   assert(gross.find((r) => r.name === "Hacker")!.gross === hackerGross, "hacker gross wrong");
-  // Net: the shots each round gives back, by the app's own allocation. NOTE a
-  // course with no tee data hands out the full index on a nine (18 shots over 9
-  // holes) where a course WITH tees halves it — an inconsistency in
-  // effectiveHandicap that predates multi-round play and is asserted here as-is
-  // rather than changed underneath every existing 9-hole round.
-  assert(net[0].name === "Hacker" && net[0].net === hackerGross - 54, `net ${JSON.stringify(net[0])}`);
+  // Net: 18 shots on each eighteen, 9 on the nine — a nine is half a round, and
+  // half a handicap, tee ratings or not.
+  assert(net[0].name === "Hacker" && net[0].net === hackerGross - 45, `net ${JSON.stringify(net[0])}`);
   assert(net[0].net < net[1].net, "net order wrong");
   // Each round is its own line, in playing order.
   assert(gross[0].rounds.map((r) => r.gross).join(",") === `${par18},${par18 + 2},${par9}`, "round splits wrong");
@@ -1034,7 +1032,7 @@ check("golf multi-round — every round its own card, the total decides it", () 
 
   // The scorephoto reads it as one event: total, and the rounds behind it.
   const row = getFinalRows(t).find((r) => r.name === "Hacker")!;
-  assert(row.stat === `${hackerGross} · net ${hackerGross - 54}`, `event stat: ${row.stat}`);
+  assert(row.stat === `${hackerGross} · net ${hackerGross - 45}`, `event stat: ${row.stat}`);
   assert(row.sub === `${par18 + 18} · ${par18 + 18} · ${par9 + 9}`, `event rounds: ${row.sub}`);
 
   // One hole left anywhere and the event is still running.
@@ -1068,6 +1066,37 @@ check("golf multi-round — every finished round feeds the index", () => {
   assert(cards.map((c) => c.gross).join(",") === "90,108,126", `grosses: ${cards.map((c) => c.gross)}`);
   // Three differentials is exactly the point where an index exists.
   assert(seedIndexForPlayer([t], "Scratch").index != null, "three rounds should produce an index");
+});
+
+// ---- A nine is half a round, so it is half a handicap --------------------
+check("golf handicap — a nine halves the strokes, tees or no tees", () => {
+  const p: Participant = { id: "a", name: "Hacker", handicap: 18 };
+  const bare9 = defaultGolf(9, ["a"]);
+  const bare18 = defaultGolf(18, ["a"]);
+  // The bug: a bare 9-hole course used to hand out all 18 strokes over 9 holes.
+  assert(effectiveHandicap(bare9, p) === 9, `bare nine: ${effectiveHandicap(bare9, p)}`);
+  assert(effectiveHandicap(bare18, p) === 18, `bare eighteen: ${effectiveHandicap(bare18, p)}`);
+  // Two strokes a hole was the old answer; one is the right one.
+  assert(holeStrokes(effectiveHandicap(bare9, p), 1, 9) === 1, "still two strokes a hole on a nine");
+
+  // With tee ratings the halving already happened, and still does.
+  const tee = { name: "White", rating: 70, slope: 113, par: 72 };
+  const teed9 = { ...bare9, tees: [tee] };
+  const teed18 = { ...bare18, tees: [tee] };
+  const ch = courseHandicap(18, tee); // 18 × 113/113 + (70 − 72) = 16
+  assert(effectiveHandicap(teed18, { ...p, tee: "White" }) === ch, "18-hole course handicap moved");
+  assert(effectiveHandicap(teed9, { ...p, tee: "White" }) === Math.round(ch / 2), "teed nine not halved");
+
+  // A scratch player gets nothing either way, and a card of another length is
+  // left alone rather than guessed at.
+  assert(effectiveHandicap(bare9, { ...p, handicap: 0 }) === 0, "strokes invented for a scratch");
+  assert(handicapForCard(18, 3) === 18 && handicapForCard(18, 18) === 18, "odd card lengths rescaled");
+
+  // Net scoring follows: nine holes of bogey golf off 18 is level net.
+  const g = { ...bare9, scores: { a: bare9.pars.map((x) => x + 1) } };
+  const t = tour({ format: "golf", participants: [p], golf: g, config: cfg({ golfMode: "stroke" }) });
+  const row = computeGolf(t, "stroke")[0];
+  assert(row.net === row.gross - 9, `nine-hole net: gross ${row.gross} net ${row.net}`);
 });
 
 // ---- Format × play-style: only valid combinations are offered, and each one
