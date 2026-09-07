@@ -8,10 +8,12 @@ import {
   aggregateRecords,
   competitionRanks,
   getPlacements,
+  hasCompetition,
   headToHead,
   playersOf,
   titleStreaks,
 } from "@/lib/records";
+import { applyAliases, canonicalName } from "@/lib/aliases";
 import { ago, ordinal } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
 import { getResult } from "@/lib/result";
@@ -22,7 +24,6 @@ import { colorForName, sportAccent } from "@/lib/colors";
 import { Card } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { HydrationGate } from "@/components/HydrationGate";
-import { SeedIndexCard } from "@/components/SeedIndexCard";
 
 export default function RecordsPage() {
   return (
@@ -98,6 +99,42 @@ function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 })
 
 // The address of a player's trophy case (8c).
 const playerHref = (name: string) => `/records/p/${encodeURIComponent(name)}`;
+
+// Under three completed events a ranked podium is theater — this lists who won
+// what, plainly, until there's a body of work to rank.
+function ChampionsSoFar({ completed }: { completed: Tournament[] }) {
+  const rows = [...completed].sort((a, b) => b.updatedAt - a.updatedAt);
+  if (!rows.length) return null;
+  return (
+    <Card className="p-4">
+      <h2 className="mb-2 text-sm font-bold">Champions so far</h2>
+      <ul className="space-y-2">
+        {rows.map((t) => {
+          const champs = getPlacements(t).find((pl) => pl.medal === "gold")?.names ?? [];
+          if (!champs.length) return null;
+          return (
+            <li key={t.id} className="flex items-center gap-2.5 text-sm">
+              <Avatar name={champs[0]} color={colorForName(champs[0])} className="h-7 w-7 text-[10px]" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">
+                  {champs.slice(0, 3).join(" & ")}
+                  {champs.length > 3 ? ` +${champs.length - 3}` : ""}
+                </span>
+                <span className="block truncate text-[11px] text-[var(--muted)]">
+                  {t.name} · {ago(t.updatedAt)}
+                </span>
+              </span>
+              <Emoji e="🥇" className="h-4.5 w-4.5 shrink-0" />
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2.5 text-[10px] text-[var(--muted)]">
+        The ranked podium opens after 3 completed events.
+      </p>
+    </Card>
+  );
+}
 
 // 8a — the reigning champion hero: the most recently completed event's winner,
 // crowned, above the sport chips. Gives the room a focal point instead of
@@ -315,19 +352,27 @@ function HallOfFame({ tournaments }: { tournaments: Tournament[] }) {
                     <span className="text-[var(--muted)]">{r.thirds || "—"}</span>
                   </span>
                   <span className="w-16 text-right">
-                    <span
-                      className={`text-sm font-extrabold tabular-nums ${
-                        r.firsts && proven ? "" : "text-[var(--muted)]"
-                      }`}
-                    >
-                      {Math.round(rate * 100)}%
-                    </span>
-                    <span className="mt-1 ml-auto block h-1 w-12 overflow-hidden rounded-full bg-[var(--subtle)]">
-                      <span
-                        className={`block h-full rounded-full ${proven ? "bg-amber-400" : "bg-[var(--border)]"}`}
-                        style={{ width: `${Math.round(rate * 100)}%` }}
-                      />
-                    </span>
+                    {/* A rate needs a denominator: under 3 events 100% just means
+                        "won once", so the figure waits until it can mean something. */}
+                    {proven ? (
+                      <>
+                        <span
+                          className={`text-sm font-extrabold tabular-nums ${
+                            r.firsts ? "" : "text-[var(--muted)]"
+                          }`}
+                        >
+                          {Math.round(rate * 100)}%
+                        </span>
+                        <span className="mt-1 ml-auto block h-1 w-12 overflow-hidden rounded-full bg-[var(--subtle)]">
+                          <span
+                            className="block h-full rounded-full bg-amber-400"
+                            style={{ width: `${Math.round(rate * 100)}%` }}
+                          />
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm font-bold text-[var(--muted)]">—</span>
+                    )}
                   </span>
                 </Link>
               </li>
@@ -336,20 +381,24 @@ function HallOfFame({ tournaments }: { tournaments: Tournament[] }) {
         </ul>
       )}
       <p className="border-t border-[var(--border)] px-4 py-2 text-[10px] text-[var(--muted)]">
-        Counts reward showing up — title rate (wins ÷ events) shows who converts. Tap a row for
-        their trophy case.
+        Counts reward showing up — title rate (wins ÷ events) shows who converts, once someone has
+        3 events behind it. Tap a row for their trophy case.
       </p>
     </div>
   );
 }
 
 function RecordBook() {
-  const tournaments = useStore((s) => s.tournaments);
-  const allCompleted = tournaments.filter((t) => getResult(t).complete);
+  const raw = useStore((s) => s.tournaments);
+  // Names read through this device's alias map ("Adam" folded into "Adam
+  // Lewis"), and only CONTESTS count as events here — a solo round logged for
+  // the Seed Index is practice, not a championship.
+  const tournaments = applyAliases(raw);
+  const allCompleted = tournaments.filter((t) => getResult(t).complete && hasCompetition(t));
   // Everything below the header narrows to one sport when a chip is picked.
   const [sport, setSport] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
-  useEffect(() => setProfileName(getProfile().name.trim()), []);
+  useEffect(() => setProfileName(canonicalName(getProfile().name.trim())), []);
 
   const sports = [...new Set(allCompleted.map((t) => t.sport))];
   const completed = sport ? allCompleted.filter((t) => t.sport === sport) : allCompleted;
@@ -408,8 +457,6 @@ function RecordBook() {
         </div>
       </div>
 
-      <SeedIndexCard />
-
       <ReigningChampion completed={allCompleted} />
 
       {/* One trophy case per sport — the chips narrow everything below. */}
@@ -454,8 +501,11 @@ function RecordBook() {
         </Card>
       ) : (
         <>
-          {/* Podium — gold / silver / bronze steps, each showing all its medalists */}
-          {golds.length > 0 && (
+          {/* Podium — gold / silver / bronze steps, each showing all its medalists.
+              A career podium needs a career behind it: with one or two events it
+              just restates a finish (a whole winning team piled on the gold riser),
+              so until three events exist the room shows the champions plainly. */}
+          {completed.length >= 3 && golds.length > 0 ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
               <div className="flex items-end justify-center gap-3 sm:gap-6">
                 <PodiumTier players={silvers} tier={2} />
@@ -463,6 +513,8 @@ function RecordBook() {
                 <PodiumTier players={bronzes} tier={3} />
               </div>
             </div>
+          ) : (
+            <ChampionsSoFar completed={completed} />
           )}
 
           {profileName && (

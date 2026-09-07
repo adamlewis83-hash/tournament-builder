@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useStore } from "@/lib/store";
@@ -7,9 +8,11 @@ import {
   aggregateRecords,
   competitionRanks,
   getPlacements,
+  hasCompetition,
   playersOf,
   titleStreaks,
 } from "@/lib/records";
+import { applyAliases, canonicalName, getAliases, removeAlias, setAlias } from "@/lib/aliases";
 import { getResult } from "@/lib/result";
 import { ago, ordinal } from "@/lib/format";
 import { colorForName, sportAccent } from "@/lib/colors";
@@ -42,17 +45,51 @@ export default function PlayerTrophyCase() {
   );
 }
 
-function CaseBody({ name }: { name: string }) {
-  const tournaments = useStore((s) => s.tournaments);
+function CaseBody({ name: rawName }: { name: string }) {
+  const raw = useStore((s) => s.tournaments);
+  // Bumped when an alias is merged/removed so everything below re-derives.
+  const [aliasRev, setAliasRev] = useState(0);
+  void aliasRev;
+  const name = canonicalName(rawName);
+  const tournaments = applyAliases(raw);
   const records = aggregateRecords(tournaments);
   const rankOf = competitionRanks(records);
   const idx = records.findIndex((r) => r.name.toLowerCase() === name.toLowerCase());
+  const bump = () => setAliasRev((v) => v + 1);
 
   if (idx < 0) {
+    // Still list this name's aliases with their × — a merge that emptied the
+    // record (folding away the only opponents) must stay undoable from here.
+    const stuck = Object.entries(getAliases()).filter(
+      ([, canon]) => canon.toLowerCase() === name.toLowerCase(),
+    );
     return (
       <Card className="p-10 text-center">
         <p className="font-medium">No record for “{name}” yet</p>
-        <Link href="/records" className="text-sm text-[var(--brand)] hover:underline">
+        {stuck.length > 0 && (
+          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+            {stuck.map(([alias]) => (
+              <span
+                key={alias}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2.5 py-1 text-xs font-medium"
+              >
+                merged: {alias}
+                <button
+                  type="button"
+                  aria-label={`Stop merging ${alias}`}
+                  onClick={() => {
+                    removeAlias(alias);
+                    bump();
+                  }}
+                  className="ml-0.5 text-[var(--muted)] hover:text-rose-400"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <Link href="/records" className="mt-2 block text-sm text-[var(--brand)] hover:underline">
           ← Trophy Room
         </Link>
       </Card>
@@ -89,15 +126,26 @@ function CaseBody({ name }: { name: string }) {
   const bestSport = bySport[0]?.sport ?? "—";
 
   // Full event history, newest first, with this player's placement in each.
+  // A solo round stays in the history — it happened — but carries no medal or
+  // rank: there was nobody to place against.
   const history = tournaments
     .filter((t) => getResult(t).complete && playersOf(t).some((n) => n.toLowerCase() === name.toLowerCase()))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((t) => {
+      if (!hasCompetition(t)) return { t, rank: undefined, medal: undefined };
       const pl = getPlacements(t).find((p) =>
         p.names.some((n) => n.toLowerCase() === name.toLowerCase()),
       );
       return { t, rank: pl?.rank, medal: pl?.medal };
     });
+
+  // Every other name seen in any tournament — candidates for "also plays as".
+  const otherNames = [
+    ...new Set(tournaments.flatMap((t) => playersOf(t)).filter((n) => n.toLowerCase() !== name.toLowerCase())),
+  ].sort((a, b) => a.localeCompare(b));
+  const myAliases = Object.entries(getAliases()).filter(
+    ([, canon]) => canon.toLowerCase() === name.toLowerCase(),
+  );
 
   return (
     <div className="space-y-5">
@@ -253,6 +301,86 @@ function CaseBody({ name }: { name: string }) {
           ))}
         </div>
       </section>
+
+      {/* Same person, typed two ways — fold another spelling into this name.
+          View-level and device-local: the tournaments keep the names as entered. */}
+      <section>
+        <h2 className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-[var(--muted)]">
+          Also plays as
+        </h2>
+        <Card className="p-3.5">
+          {myAliases.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap gap-1.5">
+              {myAliases.map(([alias]) => (
+                <span
+                  key={alias}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2.5 py-1 text-xs font-medium"
+                >
+                  {alias}
+                  <button
+                    type="button"
+                    aria-label={`Stop merging ${alias}`}
+                    onClick={() => {
+                      removeAlias(alias);
+                      setAliasRev((v) => v + 1);
+                    }}
+                    className="ml-0.5 text-[var(--muted)] hover:text-rose-400"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {otherNames.length > 0 ? (
+            <MergePicker
+              names={otherNames}
+              onMerge={(other) => {
+                setAlias(other, me.name);
+                setAliasRev((v) => v + 1);
+              }}
+            />
+          ) : (
+            <p className="text-xs text-[var(--muted)]">No other names to merge.</p>
+          )}
+          <p className="mt-2 text-[10px] text-[var(--muted)]">
+            If {me.name} shows up under another spelling (“Adam” vs “Adam Lewis”), merge it here —
+            medals, events, and the Seed Index combine. Only this device&apos;s view changes; ×
+            undoes it.
+          </p>
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function MergePicker({ names, onMerge }: { names: string[]; onMerge: (n: string) => void }) {
+  const [pick, setPick] = useState("");
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={pick}
+        onChange={(e) => setPick(e.target.value)}
+        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm"
+      >
+        <option value="">Pick a name to merge in…</option>
+        {names.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!pick}
+        onClick={() => {
+          onMerge(pick);
+          setPick("");
+        }}
+        className="shrink-0 rounded-lg bg-[var(--brand)] px-3 py-1.5 text-sm font-semibold text-[var(--on-brand)] transition disabled:opacity-40"
+      >
+        Merge
+      </button>
     </div>
   );
 }

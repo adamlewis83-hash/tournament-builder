@@ -334,7 +334,7 @@ export function aggregateRecords(tournaments: Tournament[]): RecordRow[] {
   };
 
   for (const t of tournaments) {
-    if (!getResult(t).complete) continue;
+    if (!getResult(t).complete || !hasCompetition(t)) continue;
 
     if (t.format === "ryder") {
       const { winners, losers } = ryderTeams(t);
@@ -406,8 +406,18 @@ export function playersOf(t: Tournament): string[] {
   return [...out];
 }
 
+/**
+ * Whether a completed tournament is a CONTEST — someone beat someone. A solo
+ * golf round logged for the Seed Index is a practice card, not a championship:
+ * it mints no medal, no streak, no reigning champion. (The round still feeds
+ * the Seed Index and the player's own history — those aren't competitions.)
+ */
+export const hasCompetition = (t: Tournament): boolean => playersOf(t).length >= 2;
+
 const completedByDate = (tournaments: Tournament[]): Tournament[] =>
-  tournaments.filter((t) => getResult(t).complete).sort((a, b) => a.updatedAt - b.updatedAt);
+  tournaments
+    .filter((t) => getResult(t).complete && hasCompetition(t))
+    .sort((a, b) => a.updatedAt - b.updatedAt);
 
 export interface Rivalry {
   rival: string;

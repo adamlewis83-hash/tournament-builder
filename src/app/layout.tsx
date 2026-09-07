@@ -6,6 +6,7 @@ import { CloudSync } from "@/components/CloudSync";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { SeedIndexSync } from "@/components/SeedIndexSync";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"], weight: ["500", "700"] });
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: swScript }} />
         <PullToRefresh />
         <CloudSync />
+        <SeedIndexSync />
         <TopBar />
         <main className="relative z-10 flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))]">
           {children}

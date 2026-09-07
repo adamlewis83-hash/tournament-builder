@@ -49,7 +49,8 @@ import {
 } from "./src/lib/golf";
 import { getResult } from "./src/lib/result";
 import { isFinal, isWon, winMargin } from "./src/lib/score";
-import { aggregateRecords, getRanking, getFinalRows, getPlacements, headToHead, titleStreaks } from "./src/lib/records";
+import { aggregateRecords, getRanking, getFinalRows, getPlacements, hasCompetition, headToHead, titleStreaks } from "./src/lib/records";
+import { applyAliases, canonicalName } from "./src/lib/aliases";
 import { dealPools, raceAdvancers, raceStandings } from "./src/lib/race";
 import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
@@ -774,6 +775,80 @@ check("trophy room — head-to-head records and title streaks", () => {
   const p1 = st.find((s) => s.name === "P1");
   assert(!!p1 && p1.best === 2 && p1.current === 0, `P1 streak ${JSON.stringify(p1)}`);
   assert(!st.find((s) => s.name === "P2"), "a single title is a medal, not a streak");
+});
+
+// ---- Trophy Room: solo rounds are practice, and aliases fold spellings -----
+check("trophy room — a solo golf round mints no medals", () => {
+  const P = players(1);
+  const g = defaultGolf(18, [P[0].id]);
+  g.scores[P[0].id] = g.pars.map((par) => par + 1);
+  const solo = tour({
+    format: "golf",
+    updatedAt: 5,
+    participants: P,
+    golf: g,
+    config: cfg({ golfMode: "stroke" }),
+  }) as Tournament;
+  assert(getResult(solo).complete, "solo round should complete");
+  assert(!hasCompetition(solo), "one player is not a contest");
+  assert(aggregateRecords([solo]).length === 0, "solo round should mint no records");
+  assert(titleStreaks([solo]).length === 0, "solo round should start no streak");
+
+  // Alongside a real contest, only the contest counts.
+  const P2 = players(2);
+  const g2 = defaultGolf(18, P2.map((p) => p.id));
+  P2.forEach((p, i) => {
+    g2.scores[p.id] = g2.pars.map((par) => par + i);
+  });
+  const duel = tour({
+    format: "golf",
+    updatedAt: 6,
+    participants: P2,
+    golf: g2,
+    config: cfg({ golfMode: "stroke" }),
+  }) as Tournament;
+  const rec = aggregateRecords([solo, duel]);
+  assert(rec.length === 2, `only the duel's two players should have rows, got ${rec.length}`);
+  assert(rec[0].name === "P1" && rec[0].firsts === 1 && rec[0].events === 1, "duel winner takes the gold");
+});
+
+check("trophy room — an alias folds two spellings into one player", () => {
+  const map = { adam: "Adam Lewis" };
+  assert(canonicalName("  Adam ", map) === "Adam Lewis", "alias resolves through trim/case");
+  assert(canonicalName("Boomer", map) === "Boomer", "unmapped names pass through");
+
+  const mkWin = (id: string, at: number, winner: string, loser: string): Tournament =>
+    tour({
+      id,
+      updatedAt: at,
+      participants: [
+        { id: "a", name: winner },
+        { id: "b", name: loser },
+      ],
+      matches: [
+        {
+          id: `${id}m`,
+          phase: "rr" as const,
+          round: 1,
+          order: 0,
+          sideA: ["a"],
+          sideB: ["b"],
+          scoreA: 11,
+          scoreB: 5,
+        },
+      ],
+    }) as Tournament;
+  const ts = [mkWin("w1", 1, "Adam", "Boomer"), mkWin("w2", 2, "Adam Lewis", "Boomer")];
+
+  const split = aggregateRecords(ts);
+  assert(split.length === 3, "unmerged, two spellings are two players");
+
+  const merged = aggregateRecords(applyAliases(ts, map));
+  assert(merged.length === 2, `merged should be 2 rows, got ${merged.length}`);
+  const me = merged.find((r) => r.name === "Adam Lewis");
+  assert(!!me && me.firsts === 2 && me.events === 2, `merged record ${JSON.stringify(me)}`);
+  assert(applyAliases(ts, {}) === ts, "an empty map is a no-op passthrough");
+  assert(ts[0].participants[0].name === "Adam", "aliasing must not mutate the source");
 });
 
 // ---- Green geometry: front/center/back from a green polygon ----------------

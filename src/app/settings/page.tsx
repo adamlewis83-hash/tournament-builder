@@ -10,6 +10,8 @@ import { FriendLinkPanel } from "@/components/FriendLinkPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
 import { getProfile, setProfile, type Profile } from "@/lib/profile";
 import { seedIndexForPlayer } from "@/lib/handicap";
+import { applyAliases, canonicalName } from "@/lib/aliases";
+import { SeedIndexCard } from "@/components/SeedIndexCard";
 import { useStore } from "@/lib/store";
 import { colorForName } from "@/lib/colors";
 import { Avatar } from "@/components/Avatar";
@@ -60,10 +62,17 @@ function ProfileSetting() {
   const [prof, setProf] = useState<Profile>(getProfile);
   const [pending, setPending] = useState<File | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const tournaments = useStore((s) => s.tournaments);
   function save(next: Profile) {
     setProf(next);
     setProfile(next);
   }
+  // While auto-update owns the handicap, the box is a display, not an input —
+  // anything typed there would be snapped back after the next round anyway.
+  const autoOwnsHandicap =
+    prof.seedIndexAuto &&
+    !!prof.name.trim() &&
+    seedIndexForPlayer(applyAliases(tournaments), canonicalName(prof.name.trim())).index != null;
   return (
     <div className="flex items-center gap-3">
       {choosing && (
@@ -114,6 +123,7 @@ function ProfileSetting() {
             step="0.1"
             inputMode="decimal"
             value={prof.golfHandicap ?? ""}
+            disabled={autoOwnsHandicap}
             onChange={(e) =>
               save({
                 ...prof,
@@ -121,9 +131,11 @@ function ProfileSetting() {
               })
             }
             placeholder="—"
-            className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm text-center bg-[var(--surface)]"
+            className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm text-center bg-[var(--surface)] disabled:opacity-60"
           />
-          <span className="text-[10px] text-[var(--muted)]">auto-fills golf events</span>
+          <span className="text-[10px] text-[var(--muted)]">
+            {autoOwnsHandicap ? "kept current by your Seed Index" : "auto-fills golf events"}
+          </span>
         </div>
         <SeedIndexAdopt prof={prof} save={save} />
         <p className="mt-1 text-xs text-[var(--muted)]">
@@ -204,6 +216,12 @@ export default function SettingsPage() {
         <ProfileSetting />
       </Card>
 
+      {/* The Seed Index lives with the handicap it feeds — this is a setting
+          about you, not a trophy. (It also renders on player trophy cases.) */}
+      <div className="mt-4">
+        <SeedIndexCard />
+      </div>
+
       <Card className="p-5 mt-4 space-y-3">
         <div>
           <h2 className="font-semibold">Your library</h2>
@@ -250,37 +268,57 @@ export default function SettingsPage() {
   );
 }
 
-// The Seed Index, offered right where the handicap lives: one tap adopts the
-// number grown from your finished Sporos rounds into your profile (which then
-// auto-fills every golf event). Renders nothing until an index exists.
+// The Seed Index next to the handicap it feeds. Auto-update is the default:
+// finish a round and the handicap that pre-fills your next event already
+// moved (SeedIndexSync in the layout does the writing). Turning it off makes
+// the handicap yours to type, with a one-tap adopt when you want the index.
 function SeedIndexAdopt({ prof, save }: { prof: Profile; save: (p: Profile) => void }) {
   const tournaments = useStore((s) => s.tournaments);
-  const name = prof.name.trim();
+  const name = canonicalName(prof.name.trim());
   if (!name) return null;
-  const r = seedIndexForPlayer(tournaments, name);
+  const r = seedIndexForPlayer(applyAliases(tournaments), name);
   if (r.index == null) return null;
   const current = prof.golfHandicap;
   const same = current != null && Math.abs(current - r.index) < 0.05;
   return (
-    <p className="mt-1.5 text-xs text-[var(--muted)]">
-      ⛳ Seed Index from your {r.rounds} Sporos round{r.rounds === 1 ? "" : "s"}:{" "}
-      <span className="font-semibold text-[var(--foreground)] tabular-nums">
-        {r.index.toFixed(1)}
-      </span>
-      {same ? (
-        <span> — in use ✓</span>
-      ) : (
-        <>
-          {" "}
+    <div className="mt-1.5 space-y-1">
+      <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+        <input
+          type="checkbox"
+          checked={prof.seedIndexAuto}
+          onChange={(e) =>
+            save({
+              ...prof,
+              seedIndexAuto: e.target.checked,
+              // Turning auto ON adopts the index right away.
+              ...(e.target.checked ? { golfHandicap: r.index } : {}),
+            })
+          }
+          className="h-3.5 w-3.5 accent-[var(--brand)]"
+        />
+        <span>
+          Auto-update from my Seed Index{" "}
+          <span className="font-semibold text-[var(--foreground)] tabular-nums">
+            ({r.index.toFixed(1)}
+          </span>
+          <span className="tabular-nums">
+            {" "}
+            from {r.rounds} round{r.rounds === 1 ? "" : "s"})
+          </span>
+        </span>
+      </label>
+      {!prof.seedIndexAuto && !same && (
+        <p className="text-xs text-[var(--muted)]">
+          ⛳ Index says {r.index.toFixed(1)} —{" "}
           <button
             type="button"
             onClick={() => save({ ...prof, golfHandicap: r.index })}
             className="font-semibold text-[var(--brand)] hover:underline"
           >
-            Use it
+            use it once
           </button>
-        </>
+        </p>
       )}
-    </p>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
+import { applyAliases, canonicalName } from "@/lib/aliases";
 import { cardsForPlayer, indexHistory, seedIndexForPlayer } from "@/lib/handicap";
 import { gameMetrics, gameTakeaway, roundStats, sumStats, type Light } from "@/lib/golfStats";
 import { Card } from "./ui";
@@ -49,10 +50,13 @@ const LIGHT_COLOR: Record<Light, string> = {
 // the index is derived from the rounds on this device, so anyone who has played
 // here has one.
 export function SeedIndexCard({ player }: { player?: string }) {
-  const tournaments = useStore((s) => s.tournaments);
+  const raw = useStore((s) => s.tournaments);
+  // Read through the alias map so rounds logged under a second spelling of the
+  // same person feed one index.
+  const tournaments = applyAliases(raw);
   const [profileName, setProfileName] = useState("");
   useEffect(() => setProfileName(getProfile().name.trim()), []);
-  const name = player?.trim() || profileName;
+  const name = canonicalName(player?.trim() || profileName);
   const mine = !player;
   if (!name) return null;
 

@@ -5,10 +5,19 @@ export interface Profile {
   photo: string | null; // small square JPEG data-URL (see lib/image resizePhoto)
   color: string | null; // chosen initials-circle color (used when no photo)
   golfHandicap: number | null; // handicap index — auto-fills golf & Ryder Cup events
+  // Keep golfHandicap tracking the Seed Index as rounds finish (default). Off =
+  // the handicap is typed by hand and the index only moves in with a tap.
+  seedIndexAuto: boolean;
 }
 
 const KEY = "sporos-profile";
-const DEFAULTS: Profile = { name: "", photo: null, color: null, golfHandicap: null };
+const DEFAULTS: Profile = {
+  name: "",
+  photo: null,
+  color: null,
+  golfHandicap: null,
+  seedIndexAuto: true,
+};
 
 export function getProfile(): Profile {
   if (typeof window === "undefined") return DEFAULTS;
