@@ -5,10 +5,11 @@
       {
         "appIDs": ["6FD9JGT9T5.com.lewcrewlabs.sporos"],
         "appID": "6FD9JGT9T5.com.lewcrewlabs.sporos",
-        "paths": ["/join/*", "/live/*"],
+        "paths": ["/join/*", "/live/*", "/f/*"],
         "components": [
           { "/": "/join/*" },
-          { "/": "/live/*" }
+          { "/": "/live/*" },
+          { "/": "/f/*" }
         ]
       }
     ]

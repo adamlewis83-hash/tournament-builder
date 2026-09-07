@@ -58,6 +58,40 @@ export async function linkFriend(
   }
 }
 
+/** One account this device is linked to, whether or not it has posted anything. */
+export interface LinkedFriend {
+  key: string; // their library key
+  name: string | null; // null until they've opened Sporos with a profile name
+  sharing: boolean; // false = they turned activity sharing off
+  lastActive: number | null; // newest tournament they've synced, if any
+}
+
+export async function fetchLinks(owner: string): Promise<LinkedFriend[]> {
+  try {
+    const res = await fetch(`/api/feed/links?owner=${encodeURIComponent(owner)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return ((await res.json()) as { friends?: LinkedFriend[] }).friends ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Drop a link, both ways. */
+export async function unlinkFriend(owner: string, friendKey: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/feed/link", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, friendKey }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchFeed(owner: string): Promise<FeedItem[]> {
   try {
     const res = await fetch(`/api/feed?owner=${encodeURIComponent(owner)}`);
