@@ -558,8 +558,8 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
         <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
           {(
             [
-              ["net", "Net"],
               ["gross", "Gross"],
+              ["net", "Net"],
               ["stableford", "Stbl"],
               ["skins", "Skins"],
             ] as const
@@ -579,6 +579,15 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
           ))}
         </div>
       </div>
+      {/* Side-game lenses come with no shared vocabulary the way gross/net do —
+          one line says how the number on each row is earned. */}
+      {(lens === "stableford" || lens === "skins") && (
+        <p className="border-b border-[var(--border)] bg-[var(--subtle)] px-4 py-2 text-[11px] leading-snug text-[var(--muted)]">
+          {lens === "stableford"
+            ? "Stableford — points per hole on net score: eagle 4, birdie 3, par 2, bogey 1, worse 0. Highest points wins."
+            : "Skins — lowest net score alone on a hole wins its skin. Ties carry the skin to the next hole."}
+        </p>
+      )}
       <ul className="divide-y divide-[var(--border)]">
         {rows.map((r, i) => {
           const prev = prevRank.get(r.participantId);
@@ -1182,8 +1191,8 @@ function EventLeaderboard({ t }: { t: Tournament }) {
           <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
             {(
               [
-                ["net", "Net"],
                 ["gross", "Gross"],
+                ["net", "Net"],
               ] as const
             ).map(([v, label]) => (
               <button
