@@ -2731,4 +2731,3 @@ if (failures.length) {
 } else {
   console.log("✅ All format/sport scenarios passed.");
 }
-
