@@ -1,6 +1,6 @@
 import { Match, Tournament } from "./types";
 import { computeStandings, pointsLeaderboard } from "./standings";
-import { computeBbb, computeGolf, computeMixedOverall, formatToPar } from "./golf";
+import { computeBbb, computeGolf, computeMixedOverall } from "./golf";
 import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
@@ -28,15 +28,21 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     if (mode === "mixed")
       return computeMixedOverall(t, g.segments ?? []).map((r) => ({ name: r.name, stat: `${fmtNum(r.points)} pt` }));
     if (mode === "bingo") return computeBbb(t).map((r) => ({ name: r.name, stat: `${r.points} pt` }));
+    const holes = g.holes;
     return computeGolf(t, mode).map((r) => ({
       name: r.name,
+      // Stroke-play cards show the score that was shot. A round decided on net
+      // carries its net alongside the gross, since net is what ranked the row,
+      // and a card still out on the course says how far it got.
       stat:
         mode === "stableford"
           ? `${r.stableford} pt`
           : mode === "skins"
             ? `${r.skins} skins`
             : r.thru
-              ? formatToPar(r.toPar)
+              ? `${r.gross}${r.net !== r.gross ? ` · net ${r.net}` : ""}${
+                  r.thru < holes ? ` (thru ${r.thru})` : ""
+                }`
               : "—",
     }));
   }

@@ -879,6 +879,43 @@ check("stroke winner is by net not gross", () => {
   assert(r.winner === "Hacker", `net should win: got ${r.winner}`);
 });
 
+// ---- Scorephoto rows: a golf card shows the score that was shot -----------
+check("scorephoto — golf rows carry strokes, not a figure against par", () => {
+  const P: Participant[] = [
+    { id: "a", name: "Scratch", handicap: 0 },
+    { id: "b", name: "Hacker", handicap: 18 },
+  ];
+  const g = defaultGolf(18, ["a", "b"]);
+  const par = g.pars.reduce((x, y) => x + y, 0);
+  g.scores["a"] = g.pars.map((p) => p + 1); // gross par + 18
+  g.scores["b"] = g.pars.map((p) => p + 2); // gross par + 36, net par + 18
+  const t = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "stroke" }) });
+  const rows = getFinalRows(t);
+  const scratch = rows.find((r) => r.name === "Scratch")!;
+  const hacker = rows.find((r) => r.name === "Hacker")!;
+  // A scratch player's card is the number they wrote down, nothing else.
+  assert(scratch.stat === `${par + 18}`, `scratch stat: ${scratch.stat}`);
+  // Where strokes are given, net decided the order, so it rides along.
+  assert(hacker.stat === `${par + 36} · net ${par + 18}`, `hacker stat: ${hacker.stat}`);
+  // Nothing anywhere reads as a plus/minus against par.
+  assert(!rows.some((r) => /^[+-]/.test(r.stat) || r.stat === "E"), `to-par leaked: ${JSON.stringify(rows)}`);
+
+  // A card still out on the course says how far it got.
+  const part = defaultGolf(18, ["a", "b"]);
+  part.scores["a"] = part.pars.map((p, h) => (h < 9 ? p : null));
+  const tp = tour({ format: "golf", participants: P, golf: part, config: cfg({ golfMode: "stroke" }) });
+  const nine = getFinalRows(tp).find((r) => r.name === "Scratch")!;
+  assert(nine.stat === `${part.pars.slice(0, 9).reduce((x, y) => x + y, 0)} (thru 9)`, `partial: ${nine.stat}`);
+  // An untouched card stays blank.
+  assert(getFinalRows(tp).find((r) => r.name === "Hacker")!.stat === "—", "empty card invented a score");
+
+  // Points games keep their own units.
+  const st = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "stableford" }) });
+  assert(getFinalRows(st).every((r) => r.stat.endsWith(" pt")), "stableford lost its points");
+  const sk = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "skins" }) });
+  assert(getFinalRows(sk).every((r) => r.stat.endsWith(" skins")), "skins lost its skins");
+});
+
 // ---- Format × play-style: only valid combinations are offered, and each one
 //      the create screen exposes actually produces correctly-shaped matches. ----
 // Rotating-partner "doubles" can only be honored where partners are re-drawn
