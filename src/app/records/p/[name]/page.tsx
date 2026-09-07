@@ -19,6 +19,7 @@ import { HydrationGate } from "@/components/HydrationGate";
 import { Crown } from "@/components/icons";
 import { Emoji } from "@/components/Emoji";
 import { Card } from "@/components/ui";
+import { SeedIndexCard } from "@/components/SeedIndexCard";
 
 const MEDAL: Record<string, string> = { gold: "🥇", silver: "🥈", bronze: "🥉" };
 const SHELF_STYLE: Record<string, string> = {
@@ -179,6 +180,11 @@ function CaseBody({ name }: { name: string }) {
           </Card>
         ))}
       </div>
+
+      {/* Golf — the Seed Index grown from this player's rounds, with the game
+          metrics behind it. Renders itself away for anyone who hasn't finished
+          an individual golf round. */}
+      <SeedIndexCard player={me.name} />
 
       {/* By sport */}
       {bySport.length > 0 && (

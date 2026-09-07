@@ -7,6 +7,7 @@
 //   up & down   missed the green, needed at most one putt
 //   scramble    missed the green, still walked off at par or better
 //   sand save   flagged a greenside bunker, still made par or better
+//   trouble     penalty strokes recorded on the hole (water + OB)
 // Anything that can't be derived from what was actually entered is null —
 // never guessed, never counted against the player.
 
@@ -17,8 +18,13 @@ export interface DerivedHole {
   approach: number | null; // shots to reach the green
   upAndDown: boolean | null; // null when the green was hit (no up&down to attempt)
   scramble: boolean | null; // null when the green was hit
-  sandSave: boolean | null; // null unless a bunker was flagged
+  sandSave: boolean | null; // null unless a greenside bunker was flagged
+  penalties: number; // penalty strokes recorded on the hole (water + OB)
 }
+
+/** Penalty strokes recorded on a hole. Nothing flagged means nothing counted. */
+export const penaltyStrokes = (e: HoleEntry | null | undefined): number =>
+  Math.max(0, e?.water ?? 0) + Math.max(0, e?.ob ?? 0);
 
 export function deriveHole(
   par: number,
@@ -27,8 +33,9 @@ export function deriveHole(
 ): DerivedHole {
   const putts = e?.putts ?? null;
   const sandSave = e?.bunker && score != null ? score <= par : null;
+  const penalties = penaltyStrokes(e);
   if (score == null || putts == null) {
-    return { gir: null, approach: null, upAndDown: null, scramble: null, sandSave };
+    return { gir: null, approach: null, upAndDown: null, scramble: null, sandSave, penalties };
   }
   const approach = score - putts;
   const gir = approach <= par - 2;
@@ -38,6 +45,7 @@ export function deriveHole(
     upAndDown: gir ? null : putts <= 1,
     scramble: gir ? null : score <= par,
     sandSave,
+    penalties,
   };
 }
 
@@ -49,6 +57,10 @@ export interface RoundStats {
   upDown: { made: number; opps: number };
   scramble: { made: number; opps: number };
   sandSave: { made: number; opps: number };
+  // Trouble: penalty strokes recorded, the holes they landed on, and the holes
+  // with a score to measure them against (the per-18 denominator).
+  penalties: { strokes: number; water: number; ob: number; holes: number; scored: number };
+  fairwayBunkers: number; // holes that found a fairway/waste bunker
 }
 
 /** Aggregate a round's derived stats. Holes only count toward a stat when the
@@ -66,6 +78,8 @@ export function roundStats(
     upDown: { made: 0, opps: 0 },
     scramble: { made: 0, opps: 0 },
     sandSave: { made: 0, opps: 0 },
+    penalties: { strokes: 0, water: 0, ob: 0, holes: 0, scored: 0 },
+    fairwayBunkers: 0,
   };
   for (let h = 0; h < pars.length; h++) {
     const e = entries?.[h] ?? null;
@@ -74,6 +88,17 @@ export function roundStats(
     if (e?.tee && pars[h] >= 4) {
       out.fairways.opps++;
       if (e.tee === "F") out.fairways.hit++;
+    }
+    if (e?.fairwayBunker) out.fairwayBunkers++;
+    // Trouble is measured over holes that were actually played.
+    if (score != null) {
+      out.penalties.scored++;
+      const water = Math.max(0, e?.water ?? 0);
+      const ob = Math.max(0, e?.ob ?? 0);
+      out.penalties.water += water;
+      out.penalties.ob += ob;
+      out.penalties.strokes += water + ob;
+      if (water + ob > 0) out.penalties.holes++;
     }
     const d = deriveHole(pars[h], score, e);
     if (d.gir != null) {
@@ -110,6 +135,14 @@ export function sumStats(list: RoundStats[]): RoundStats {
       upDown: { made: a.upDown.made + b.upDown.made, opps: a.upDown.opps + b.upDown.opps },
       scramble: { made: a.scramble.made + b.scramble.made, opps: a.scramble.opps + b.scramble.opps },
       sandSave: { made: a.sandSave.made + b.sandSave.made, opps: a.sandSave.opps + b.sandSave.opps },
+      penalties: {
+        strokes: a.penalties.strokes + b.penalties.strokes,
+        water: a.penalties.water + b.penalties.water,
+        ob: a.penalties.ob + b.penalties.ob,
+        holes: a.penalties.holes + b.penalties.holes,
+        scored: a.penalties.scored + b.penalties.scored,
+      },
+      fairwayBunkers: a.fairwayBunkers + b.fairwayBunkers,
     }),
     {
       holesEntered: 0,
@@ -119,6 +152,8 @@ export function sumStats(list: RoundStats[]): RoundStats {
       upDown: { made: 0, opps: 0 },
       scramble: { made: 0, opps: 0 },
       sandSave: { made: 0, opps: 0 },
+      penalties: { strokes: 0, water: 0, ob: 0, holes: 0, scored: 0 },
+      fairwayBunkers: 0,
     },
   );
 }
@@ -128,7 +163,7 @@ export function sumStats(list: RoundStats[]): RoundStats {
 export type Light = "good" | "ok" | "poor";
 
 export interface GameMetric {
-  key: "fairways" | "gir" | "updown" | "putts";
+  key: "fairways" | "gir" | "updown" | "putts" | "penalties";
   label: string;
   value: string; // display value ("48%" or "1.92/hole")
   barPct: number; // 0–100 bar fill
@@ -136,10 +171,10 @@ export interface GameMetric {
 }
 
 /**
- * The four game metrics, thresholds calibrated to recreational golf (a
- * mid-handicap hits ~45% fairways, ~30% GIR, saves ~25% of misses, and
- * two-putts on pace). A metric only appears once it has enough opportunities
- * to mean something.
+ * The game metrics, thresholds calibrated to recreational golf (a mid-handicap
+ * hits ~45% fairways, ~30% GIR, saves ~25% of misses, two-putts on pace, and
+ * gives away a couple of penalty strokes a round). A metric only appears once
+ * it has enough opportunities to mean something.
  */
 export function gameMetrics(s: RoundStats): GameMetric[] {
   const out: GameMetric[] = [];
@@ -185,6 +220,21 @@ export function gameMetrics(s: RoundStats): GameMetric[] {
       light: v <= 1.8 ? "good" : v <= 2.05 ? "ok" : "poor",
     });
   }
+  // Trouble, normalized per 18 holes so a nine and an eighteen compare. Only
+  // counts holes that were played, and only for a card that is being kept: on a
+  // score-only round the absence of a penalty flag proves nothing, so no metric
+  // appears. Once the taps are coming in, no flag genuinely means a clean card.
+  if (s.penalties.scored >= 9 && (s.holesEntered >= 9 || s.penalties.strokes > 0)) {
+    const v = (18 * s.penalties.strokes) / s.penalties.scored;
+    out.push({
+      key: "penalties",
+      label: "Penalties/18",
+      value: v.toFixed(1),
+      // Lower is better — 0 fills the bar, 6+ per round empties it.
+      barPct: Math.max(0, Math.min(100, ((6 - v) / 6) * 100)),
+      light: v <= 1 ? "good" : v <= 3 ? "ok" : "poor",
+    });
+  }
   return out;
 }
 
@@ -193,6 +243,7 @@ const TAKEAWAYS: Record<GameMetric["key"], (m: GameMetric) => string> = {
   putts: (m) => `The flat stick is the lever — ${m.value} putts per hole. Lag speed first, line second.`,
   fairways: (m) => `Biggest gain is off the tee — ${m.value} fairways. The most controlled club you own is worth strokes.`,
   updown: (m) => `Short game pays fastest — you save par ${m.value} of the time you miss a green.`,
+  penalties: (m) => `Trouble is the leak — ${m.value} penalty strokes per 18. Club down and take the safe side.`,
 };
 
 /** One actionable line: the worst traffic light wins (ties break toward the
@@ -200,7 +251,9 @@ const TAKEAWAYS: Record<GameMetric["key"], (m: GameMetric) => string> = {
 export function gameTakeaway(metrics: GameMetric[]): string | null {
   if (!metrics.length) return null;
   const rank: Record<Light, number> = { poor: 2, ok: 1, good: 0 };
-  const priority: GameMetric["key"][] = ["gir", "putts", "fairways", "updown"];
+  // Penalty strokes come first when they are bad: nothing else on this list
+  // costs a card as fast as reloading off the tee.
+  const priority: GameMetric["key"][] = ["penalties", "gir", "putts", "fairways", "updown"];
   const worst = [...metrics].sort(
     (a, b) => rank[b.light] - rank[a.light] || priority.indexOf(a.key) - priority.indexOf(b.key),
   )[0];
@@ -289,6 +342,18 @@ export function roundInsights(
     }
   }
 
+  // Trouble — penalty strokes are the loudest, most fixable number on a card.
+  if (s.penalties.strokes > 0) {
+    const bits: string[] = [];
+    if (s.penalties.water > 0) bits.push(`${s.penalties.water} in water`);
+    if (s.penalties.ob > 0) bits.push(`${s.penalties.ob} out of bounds`);
+    out.push(
+      `Trouble cost you ${s.penalties.strokes} penalty stroke${plural(s.penalties.strokes)} across ` +
+        `${s.penalties.holes} hole${plural(s.penalties.holes)}` +
+        (bits.length ? ` — ${bits.join(", ")}.` : "."),
+    );
+  }
+
   // Scrambling — the short-game save rate.
   if (s.scramble.opps >= 3) {
     out.push(
@@ -311,13 +376,26 @@ export function autoSummary(
   e: HoleEntry | null | undefined,
 ): string | null {
   const d = deriveHole(par, score, e);
-  if (d.gir == null) return null;
+  // Trouble stands on its own — flagged water or OB reads back straight away,
+  // whether or not the putts that finish the hole have been entered yet.
+  const trouble: string[] = [];
+  const water = Math.max(0, e?.water ?? 0);
+  const ob = Math.max(0, e?.ob ?? 0);
+  if (water > 0) trouble.push(`${water > 1 ? `${water} × ` : ""}water`);
+  if (ob > 0) trouble.push(`${ob > 1 ? `${ob} × ` : ""}OB`);
+  if (e?.fairwayBunker) trouble.push("fairway bunker");
+  if (d.gir == null) {
+    if (!trouble.length) return null;
+    const cost = d.penalties > 0 ? [`+${d.penalties} penalty`] : [];
+    return cost.concat(trouble).join(" · ");
+  }
   const putts = e!.putts!;
   const puttWord = `${putts}-putt`;
-  if (d.gir) return `GIR ✓ · ${puttWord}`;
-  const bits = [`Missed green`, puttWord];
-  if (d.sandSave) bits.push("sand save ✓");
-  else if (d.upAndDown && d.scramble) bits.push("up & down ✓");
-  else if (d.scramble) bits.push("scrambled ✓");
-  return bits.join(" · ");
+  const bits = d.gir ? ["GIR ✓", puttWord] : ["Missed green", puttWord];
+  if (!d.gir) {
+    if (d.sandSave) bits.push("sand save ✓");
+    else if (d.upAndDown && d.scramble) bits.push("up & down ✓");
+    else if (d.scramble) bits.push("scrambled ✓");
+  }
+  return bits.concat(trouble).join(" · ");
 }

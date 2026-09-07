@@ -105,7 +105,7 @@ export function ScorePhoto({ t }: { t: Tournament }) {
                   </span>
                 )}
               </span>
-              <span className="tabular-nums font-bold" style={{ color: "#475569" }}>
+              <span className="tabular-nums font-bold whitespace-nowrap" style={{ color: "#475569" }}>
                 {r.stat}
               </span>
             </div>
