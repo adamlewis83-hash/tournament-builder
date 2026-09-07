@@ -519,21 +519,45 @@ export function GolfSetup({ t }: { t: Tournament }) {
             {multiRoundable && (
               <div className="mt-3">
                 <span className="text-sm font-medium">Rounds</span>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setRoundCount(n)}
-                      className={`rounded-lg border px-4 py-2 text-sm transition ${
-                        roundCount === n
-                          ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
-                          : "border-[var(--border)] hover:bg-[var(--hover)]"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
+                {/* − / + stepper with a typeable middle, instead of a chip per
+                    count — a row of numbers fills the screen and still caps the
+                    trip. Clamped 1–10 on blur so the field can be emptied while
+                    editing. */}
+                <div className="mt-1 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+                  <button
+                    type="button"
+                    aria-label="Fewer rounds"
+                    onClick={() => setRoundCount(Math.max(1, roundCount - 1))}
+                    disabled={roundCount <= 1}
+                    className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={10}
+                    value={roundCount}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (!Number.isNaN(v)) setRoundCount(Math.max(1, Math.min(10, v)));
+                    }}
+                    onBlur={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setRoundCount(Number.isNaN(v) ? 1 : Math.max(1, Math.min(10, v)));
+                    }}
+                    className="w-12 border-x border-[var(--border)] bg-transparent py-2 text-center text-sm font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    aria-label="More rounds"
+                    onClick={() => setRoundCount(Math.min(10, roundCount + 1))}
+                    disabled={roundCount >= 10}
+                    className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
+                  >
+                    +
+                  </button>
                 </div>
                 <p className="mt-1.5 text-xs text-[var(--muted)]">
                   {roundCount === 1
