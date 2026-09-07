@@ -76,6 +76,7 @@ interface PlayerRow {
 export function GolfSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfPlayers = useStore((s) => s.setGolfPlayers);
+  const setGolfRoundCount = useStore((s) => s.setGolfRoundCount);
   const courses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
   const saveFriend = useStore((s) => s.saveFriend);
@@ -84,7 +85,13 @@ export function GolfSetup({ t }: { t: Tournament }) {
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
   );
   const isScramble = TEAM_ROW_MODES.includes(mode);
+  // Multi-round events are stroke play added up. Points games (Stableford,
+  // Skins) and the side games are single-round affairs, so they don't offer it.
+  const multiRoundable = mode === "stroke" || mode === "nassau" || isScramble;
   const [holes, setHoles] = useState<number>(t.golf?.holes ?? 18);
+  // A multi-round event: several rounds, each its own card and course, added up
+  // into one leaderboard. One round is the ordinary golf tournament.
+  const [roundCount, setRoundCount] = useState<number>(t.golf?.rounds?.length ?? 1);
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
   );
@@ -372,6 +379,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
       segments: mode === "mixed" ? segments : undefined,
       teams: mode === "mixed" && teamMode,
     });
+    // Rounds last: it reshapes the event around the card that was just saved,
+    // and round 1 keeps that card.
+    setGolfRoundCount(t.id, multiRoundable ? roundCount : 1);
     // The Start button sits at the bottom of a long form; the scorecard that
     // replaces it inherits that scroll offset and opens at the page bottom.
     // Scroll now and once more after the re-render commits (not rAF — that
@@ -505,6 +515,33 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 </button>
               ))}
             </div>
+            {/* Rounds: a trip is one tournament with several cards. */}
+            {multiRoundable && (
+              <div className="mt-3">
+                <span className="text-sm font-medium">Rounds</span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRoundCount(n)}
+                      className={`rounded-lg border px-4 py-2 text-sm transition ${
+                        roundCount === n
+                          ? "border-[var(--brand)] ring-1 ring-[var(--brand)] bg-[var(--brand-soft)]"
+                          : "border-[var(--border)] hover:bg-[var(--hover)]"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs text-[var(--muted)]">
+                  {roundCount === 1
+                    ? "One round — the usual golf tournament."
+                    : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins. Every round starts on this course — switch to a round and re-open setup to give it its own.`}
+                </p>
+              </div>
+            )}
             {holes === 9 && (
               <div className="mt-2">
                 <div className="flex gap-2">

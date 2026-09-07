@@ -4,6 +4,7 @@ import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { cupScore } from "./ryderGolf";
 import { computeBbb, computeGolf, computeMixedOverall, computeVegas, mixedComplete } from "./golf";
+import { eventComplete, eventStandings, isMultiRound } from "./golfRounds";
 import { raceResult } from "./race";
 
 export interface TournamentResult {
@@ -105,6 +106,14 @@ export function getResult(t: Tournament): TournamentResult {
         return { complete: true, winner: o[0]?.points ? o[0].name : null };
       }
       return none;
+    }
+    // A multi-round event isn't over until the last hole of the last round, and
+    // the winner is the lowest total across all of them — the round in play
+    // decides nothing on its own.
+    if (isMultiRound(t)) {
+      if (!eventComplete(t)) return none;
+      const rows = eventStandings(t, "net");
+      return { complete: true, winner: rows[0]?.name ?? null };
     }
     const everyHole =
       P.length > 0 &&

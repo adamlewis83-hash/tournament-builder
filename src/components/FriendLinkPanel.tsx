@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import {
   fetchFriendCode,
+  fetchLinks,
   fetchSharePref,
   linkFriend,
   setSharePref,
+  unlinkFriend,
+  type LinkedFriend,
 } from "@/lib/feed";
 import { getLibraryKey } from "@/lib/library";
 import { getProfile } from "@/lib/profile";
+import { ago } from "@/lib/format";
 import { Button, Card } from "./ui";
 
 // Settings → Linked friends & activity (P6): your shareable friend code (text
@@ -21,12 +25,14 @@ export function FriendLinkPanel() {
   const [entry, setEntry] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [links, setLinks] = useState<LinkedFriend[] | null>(null);
 
   useEffect(() => {
     const key = getLibraryKey();
     setOwner(key);
     fetchSharePref(key).then(setShare);
     fetchFriendCode(key, getProfile().name.trim()).then((r) => setCode(r?.code ?? null));
+    fetchLinks(key).then(setLinks);
   }, []);
 
   const inviteUrl = code ? `https://sporos.app/f/${code}` : null;
@@ -34,7 +40,12 @@ export function FriendLinkPanel() {
   async function invite() {
     if (!inviteUrl) return;
     const name = getProfile().name.trim() || "Your friend";
-    const text = `${name} wants to link up on Sporos — tap to add them: ${inviteUrl}`;
+    // The code travels with the link on purpose: a texted link can land in a
+    // browser rather than the app, and the code is what lets them finish the
+    // link on the account they actually play on.
+    const text =
+      `${name} wants to link up on Sporos — tap to add them: ${inviteUrl}\n\n` +
+      `Already have the app? Open it and enter code ${code} in Settings → Linked friends.`;
     // The share sheet reaches Messages on iOS; clipboard is the desktop fallback.
     if (navigator.share) {
       try {
@@ -61,7 +72,16 @@ export function FriendLinkPanel() {
     const r = await linkFriend(owner, c, getProfile().name.trim());
     setBusy(false);
     setMsg(r.ok ? `✓ Linked with ${r.friendName} — their rounds now show on your Home.` : r.error);
-    if (r.ok) setEntry("");
+    if (r.ok) {
+      setEntry("");
+      fetchLinks(owner).then(setLinks);
+    }
+  }
+
+  async function drop(f: LinkedFriend) {
+    setLinks((list) => (list ?? []).filter((x) => x.key !== f.key));
+    await unlinkFriend(owner, f.key);
+    fetchLinks(owner).then(setLinks);
   }
 
   return (
@@ -96,6 +116,52 @@ export function FriendLinkPanel() {
         </Button>
       </div>
       {msg && <p className="text-xs text-[var(--muted)]">{msg}</p>}
+
+      {/* Who you are actually linked to. A link only ever showed up as activity
+          on Home, so an invite accepted in the wrong place (a texted link
+          opening a browser instead of the app) looked like nothing happened.
+          This is the list, and the way out of a bad one. */}
+      {links != null && (
+        <div className="border-t border-[var(--border)] pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+            Linked accounts ({links.length})
+          </p>
+          {links.length === 0 ? (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Nobody yet. Send the invite above, or enter their code — whoever accepts has to do it
+              inside the Sporos app, or the link lands on the browser they opened instead.
+            </p>
+          ) : (
+            <ul className="mt-1.5 space-y-1.5">
+              {links.map((f) => (
+                <li
+                  key={f.key}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">
+                      {f.name ?? "Unnamed account"}
+                    </span>
+                    <span className="block text-[11px] text-[var(--muted)]">
+                      {f.lastActive == null
+                        ? "no rounds yet — nothing of theirs can show on your Home"
+                        : `last round ${ago(f.lastActive)}`}
+                      {f.sharing ? "" : " · sharing off"}
+                    </span>
+                  </span>
+                  <Button
+                    variant="danger"
+                    className="shrink-0 px-2 py-1 text-xs"
+                    onClick={() => drop(f)}
+                  >
+                    Unlink
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <button
         type="button"

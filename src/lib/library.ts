@@ -20,6 +20,36 @@ export function getLibraryKey(): string {
   return k;
 }
 
+/** The stored library key, or null if this browser has never used Sporos.
+ *  Unlike getLibraryKey it does NOT mint one — asking the question must not
+ *  create an empty account (an invite link opened in a stray browser used to
+ *  do exactly that, and linked the friend to nothing). */
+export function peekLibraryKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(KEY);
+}
+
+/** Is Sporos actually LIVED IN here — a saved tournament or a profile name —
+ *  as opposed to merely opened once? A bare key proves nothing: the app mints
+ *  one the moment any page loads, this one included. Used by the invite
+ *  landing, where linking an empty library is worse than not linking at all. */
+export function hasSporosData(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if ((JSON.parse(localStorage.getItem("sporos-profile") || "{}").name ?? "").trim()) return true;
+  } catch {
+    /* unreadable profile — fall through to the library */
+  }
+  try {
+    const raw = localStorage.getItem("tournament-builder-v1");
+    if (!raw) return false;
+    const state = JSON.parse(raw)?.state;
+    return (state?.tournaments?.length ?? 0) > 0 || (state?.friends?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function setLibraryKey(k: string) {
   if (typeof window !== "undefined") localStorage.setItem(KEY, k.trim().toUpperCase());
 }

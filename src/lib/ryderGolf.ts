@@ -6,7 +6,7 @@ import {
   Tournament,
   VegasRules,
 } from "./types";
-import { holeStrokes, vegasNumber } from "./golf";
+import { handicapForCard, holeStrokes, vegasNumber } from "./golf";
 import { matchWeights, RyderScore, ryderScore } from "./ryder";
 
 export interface MatchEntity {
@@ -43,6 +43,9 @@ export function entitiesForMatch(m: Match): MatchEntity[] {
 const hcpOf = (p: Participant[], id: string) => p.find((x) => x.id === id)?.handicap ?? 0;
 const teamHcp = (p: Participant[], ids: string[]) =>
   ids.length ? Math.round(ids.reduce((s, id) => s + hcpOf(p, id), 0) / ids.length) : 0;
+// A cup session played over a nine is half a round, so it plays off half the
+// handicap — the same rule the stroke-play card uses.
+const cardHcp = (h: number, holes: number) => handicapForCard(h, holes);
 
 /** The card a given session (round) is played on: its assigned course/nine if
  *  set (multi-course cups), else the cup's default course. */
@@ -65,12 +68,12 @@ export function entityStrokes(t: Tournament, m: Match, key: string, h: number): 
   const si = card.strokeIndex[h];
   if (oneBall(m.label)) {
     const ids = key === "A" ? m.sideA : m.sideB;
-    return holeStrokes(teamHcp(t.participants, ids), si, card.holes);
+    return holeStrokes(cardHcp(teamHcp(t.participants, ids), card.holes), si, card.holes);
   }
   // Vegas is gross by default — the combined number is its own equalizer — but
   // house rules can switch it to net, and then strokes show like anywhere else.
   if (m.label === "Vegas" && !cupVegasRules(t).net) return 0;
-  return holeStrokes(hcpOf(t.participants, key), si, card.holes);
+  return holeStrokes(cardHcp(hcpOf(t.participants, key), card.holes), si, card.holes);
 }
 
 /** The cup's Vegas house rules. Only `net` and `flipOn` apply here — presses and
@@ -99,8 +102,8 @@ export function holeNets(t: Tournament, m: Match, h: number): { netA: number; ne
     const gb = sc["B"]?.[h];
     if (ga == null || gb == null) return null;
     return {
-      netA: ga - holeStrokes(teamHcp(P, m.sideA), si, card.holes),
-      netB: gb - holeStrokes(teamHcp(P, m.sideB), si, card.holes),
+      netA: ga - holeStrokes(cardHcp(teamHcp(P, m.sideA), card.holes), si, card.holes),
+      netB: gb - holeStrokes(cardHcp(teamHcp(P, m.sideB), card.holes), si, card.holes),
     };
   }
   if (!m.sideA.every((id) => sc[id]?.[h] != null)) return null;
@@ -113,7 +116,7 @@ export function holeNets(t: Tournament, m: Match, h: number): { netA: number; ne
     const balls = (ids: string[]) =>
       ids.map((id) => {
         const raw = sc[id]![h] as number;
-        return rules.net ? raw - holeStrokes(hcpOf(P, id), si, card.holes) : raw;
+        return rules.net ? raw - holeStrokes(cardHcp(hcpOf(P, id), card.holes), si, card.holes) : raw;
       });
     const ballsA = balls(m.sideA);
     const ballsB = balls(m.sideB);
@@ -131,14 +134,14 @@ export function holeNets(t: Tournament, m: Match, h: number): { netA: number; ne
     // Sum of each ball's net Stableford points; negated so "lower wins" holds.
     const pts = (ids: string[]) =>
       ids.reduce((sum, id) => {
-        const net = (sc[id]![h] as number) - holeStrokes(hcpOf(P, id), si, card.holes);
+        const net = (sc[id]![h] as number) - holeStrokes(cardHcp(hcpOf(P, id), card.holes), si, card.holes);
         return sum + Math.max(0, card.pars[h] - net + 2);
       }, 0);
     return { netA: -pts(m.sideA), netB: -pts(m.sideB) };
   }
 
   const best = (ids: string[]) =>
-    Math.min(...ids.map((id) => (sc[id]![h] as number) - holeStrokes(hcpOf(P, id), si, card.holes)));
+    Math.min(...ids.map((id) => (sc[id]![h] as number) - holeStrokes(cardHcp(hcpOf(P, id), card.holes), si, card.holes)));
   return { netA: best(m.sideA), netB: best(m.sideB) };
 }
 

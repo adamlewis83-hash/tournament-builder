@@ -1,6 +1,7 @@
 import { Match, Tournament } from "./types";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { computeBbb, computeGolf, computeMixedOverall } from "./golf";
+import { eventStandings, isMultiRound } from "./golfRounds";
 import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
@@ -14,6 +15,7 @@ const loseSide = (m: Match) => ((m.scoreA as number) > (m.scoreB as number) ? m.
 export interface FinalRow {
   name: string;
   stat: string;
+  sub?: string; // a second line under the name (golf: the two nines)
   rank?: number; // finishing position — set for standings/bracket formats so co-champions share a rank
 }
 
@@ -28,9 +30,34 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     if (mode === "mixed")
       return computeMixedOverall(t, g.segments ?? []).map((r) => ({ name: r.name, stat: `${fmtNum(r.points)} pt` }));
     if (mode === "bingo") return computeBbb(t).map((r) => ({ name: r.name, stat: `${r.points} pt` }));
+    // A multi-round event is read as one event: the total, and the rounds that
+    // made it — the way a PGA leaderboard reads "284 · 71 · 68 · 73 · 72".
+    if (isMultiRound(t) && mode !== "stableford" && mode !== "skins") {
+      return eventStandings(t, "net").map((r) => ({
+        name: r.name,
+        stat: r.thru
+          ? `${r.gross}${r.net !== r.gross ? ` · net ${r.net}` : ""}`
+          : "—",
+        sub: r.thru
+          ? r.rounds.map((c) => (c.thru ? `${c.gross}` : "—")).join(" · ")
+          : undefined,
+      }));
+    }
     const holes = g.holes;
+    // The two nines, the way a golfer reads a card. Only an 18-hole round has
+    // an out and an in; a nine is its own number, and a nine still in progress
+    // says how far it got rather than pretending to be a total.
+    const nines = (r: ReturnType<typeof computeGolf>[number]) => {
+      if (holes !== 18 || !r.thru) return undefined;
+      const half = (label: string, strokes: number, played: number) =>
+        played === 0 ? null : `${label} ${strokes}${played < 9 ? ` thru ${played}` : ""}`;
+      return [half("Out", r.outGross, r.outThru), half("In", r.inGross, r.inThru)]
+        .filter(Boolean)
+        .join(" · ");
+    };
     return computeGolf(t, mode).map((r) => ({
       name: r.name,
+      sub: mode === "stableford" || mode === "skins" ? undefined : nines(r),
       // Stroke-play cards show the score that was shot. A round decided on net
       // carries its net alongside the gross, since net is what ranked the row,
       // and a card still out on the course says how far it got.
@@ -92,6 +119,9 @@ function golfNames(t: Tournament): string[] {
   if (!g) return [];
   if (t.config.golfMode === "mixed") return computeMixedOverall(t, g.segments ?? []).map((r) => r.name);
   if (t.config.golfMode === "bingo") return computeBbb(t).map((r) => r.name);
+  // A multi-round event places on the event total, not on the round in play.
+  if (isMultiRound(t) && t.config.golfMode !== "stableford" && t.config.golfMode !== "skins")
+    return eventStandings(t, "net").map((r) => r.name);
   return computeGolf(t, t.config.golfMode).map((r) => r.name);
 }
 
