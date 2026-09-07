@@ -106,8 +106,8 @@ export default function FriendInvitePage() {
                 <p className="text-xs text-[var(--muted)]">
                   {copied ? "✓ Copied" : "Tap the code to copy it"}
                 </p>
-                <a href={APP_STORE_URL} className="block text-sm font-medium text-[var(--brand)] hover:underline">
-                  New here? Get Sporos on the App Store →
+                <a href={APP_STORE_URL} className="block">
+                  <Button className="w-full py-3">Don&apos;t have Sporos? Get the app →</Button>
                 </a>
                 <button
                   type="button"
