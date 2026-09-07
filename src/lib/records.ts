@@ -1,6 +1,7 @@
 import { Match, Tournament } from "./types";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { computeBbb, computeGolf, computeMixedOverall } from "./golf";
+import { eventStandings, isMultiRound } from "./golfRounds";
 import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
@@ -29,6 +30,19 @@ export function getFinalRows(t: Tournament): FinalRow[] {
     if (mode === "mixed")
       return computeMixedOverall(t, g.segments ?? []).map((r) => ({ name: r.name, stat: `${fmtNum(r.points)} pt` }));
     if (mode === "bingo") return computeBbb(t).map((r) => ({ name: r.name, stat: `${r.points} pt` }));
+    // A multi-round event is read as one event: the total, and the rounds that
+    // made it — the way a PGA leaderboard reads "284 · 71 · 68 · 73 · 72".
+    if (isMultiRound(t) && mode !== "stableford" && mode !== "skins") {
+      return eventStandings(t, "net").map((r) => ({
+        name: r.name,
+        stat: r.thru
+          ? `${r.gross}${r.net !== r.gross ? ` · net ${r.net}` : ""}`
+          : "—",
+        sub: r.thru
+          ? r.rounds.map((c) => (c.thru ? `${c.gross}` : "—")).join(" · ")
+          : undefined,
+      }));
+    }
     const holes = g.holes;
     // The two nines, the way a golfer reads a card. Only an 18-hole round has
     // an out and an in; a nine is its own number, and a nine still in progress
@@ -105,6 +119,9 @@ function golfNames(t: Tournament): string[] {
   if (!g) return [];
   if (t.config.golfMode === "mixed") return computeMixedOverall(t, g.segments ?? []).map((r) => r.name);
   if (t.config.golfMode === "bingo") return computeBbb(t).map((r) => r.name);
+  // A multi-round event places on the event total, not on the round in play.
+  if (isMultiRound(t) && t.config.golfMode !== "stableford" && t.config.golfMode !== "skins")
+    return eventStandings(t, "net").map((r) => r.name);
   return computeGolf(t, t.config.golfMode).map((r) => r.name);
 }
 

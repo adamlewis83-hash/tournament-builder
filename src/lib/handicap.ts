@@ -104,6 +104,7 @@ export function sporosIndex(rounds: RoundScore[]): IndexResult {
 // ---- Rounds from real Sporos data -------------------------------------------
 
 import type { Tournament } from "./types";
+import { roundCards } from "./golfRounds";
 
 // Modes where each participant's card is their own ball, hole by hole — the
 // only cards an individual handicap can be read from. Team-row games (a pair
@@ -150,32 +151,37 @@ export function cardsForPlayer(tournaments: Tournament[], playerName: string): P
 
     const p = t.participants.find((x) => x.name.trim().toLowerCase() === who);
     if (!p) continue;
-    const g = t.golf;
-    const card = g.scores[p.id] ?? [];
-    const holes = g.holes;
-    let gross = 0;
-    let filled = 0;
-    for (let h = 0; h < holes; h++) {
-      const s = card[h];
-      if (s == null) break;
-      gross += s;
-      filled++;
-    }
-    if (filled !== holes) continue; // an unfinished card is not a round
+    // A multi-round event is several rounds, and each finished one counts on its
+    // own — it was played on its own course, on its own day.
+    roundCards(t).forEach((g, ri) => {
+      const card = g.scores[p.id] ?? [];
+      const holes = g.holes;
+      let gross = 0;
+      let filled = 0;
+      for (let h = 0; h < holes; h++) {
+        const s = card[h];
+        if (s == null) break;
+        gross += s;
+        filled++;
+      }
+      if (filled !== holes) return; // an unfinished card is not a round
 
-    const par = g.pars.slice(0, holes).reduce((a, b) => a + b, 0);
-    const tee = g.tees?.find((x) => x.name === p.tee) ?? g.tees?.[0];
-    out.push({
-      at: t.updatedAt ?? t.createdAt ?? 0,
-      holes,
-      pars: g.pars.slice(0, holes),
-      scores: card.slice(0, holes) as number[],
-      entries: g.stats?.[p.id],
-      gross,
-      // Tee ratings are 18-hole figures; a bare course counts at par (doubled
-      // for a nine so the pairing math stays in 18-hole units).
-      rating: tee?.rating ?? (holes <= 9 ? par * 2 : par),
-      slope: tee?.slope ?? 113,
+      const par = g.pars.slice(0, holes).reduce((a, b) => a + b, 0);
+      const tee = g.tees?.find((x) => x.name === p.tee) ?? g.tees?.[0];
+      out.push({
+        // Rounds of one event share a timestamp, so playing order breaks the tie
+        // and the nine-pairing stays in the order they were played.
+        at: (t.updatedAt ?? t.createdAt ?? 0) + ri,
+        holes,
+        pars: g.pars.slice(0, holes),
+        scores: card.slice(0, holes) as number[],
+        entries: g.stats?.[p.id],
+        gross,
+        // Tee ratings are 18-hole figures; a bare course counts at par (doubled
+        // for a nine so the pairing math stays in 18-hole units).
+        rating: tee?.rating ?? (holes <= 9 ? par * 2 : par),
+        slope: tee?.slope ?? 113,
+      });
     });
   }
   return out.sort((a, b) => a.at - b.at);

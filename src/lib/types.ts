@@ -277,6 +277,22 @@ export interface RaceData {
   finalists?: string[]; // set when the finals are seeded
 }
 
+// One round of a multi-round event — its own course, its own card, its own
+// stats. A tournament plays these in order and adds them up, the way a PGA
+// event runs four individual rounds and crowns the lowest total.
+export interface GolfRoundCard {
+  id: string;
+  name: string; // "Round 1", or whatever the host calls the day
+  holes: number;
+  startHole?: number;
+  courseName?: string;
+  pars: number[];
+  strokeIndex: number[];
+  tees?: TeeSet[]; // this round's tee sets — a different course means different ratings
+  scores: Record<string, (number | null)[]>;
+  stats?: Record<string, (HoleEntry | null)[]>;
+}
+
 export interface GolfData {
   holes: number; // 9 or 18
   startHole?: number; // first hole number played (1 for front/18-hole, 10 for back 9) — display only
@@ -296,6 +312,14 @@ export interface GolfData {
   // 0 = with player 2, 1 = with player 3, 2 = with player 4. null inherits the
   // previous hole's pairing (holes before any pick use pairing 0).
   vegasPairs?: (0 | 1 | 2 | null)[];
+  // ---- Multi-round events (PGA-style) ------------------------------------
+  // Every scoring surface in the app reads ONE card, so the card at the top of
+  // this object is always the round being played right now. `rounds` holds the
+  // event in playing order; the entry for the active round is refreshed from
+  // the live card whenever the host switches rounds, so read it through
+  // lib/golfRounds (roundCards) rather than directly.
+  rounds?: GolfRoundCard[];
+  roundId?: string; // which of them is the card above
 }
 
 export interface Match {

@@ -55,6 +55,7 @@ import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
 import { autoSummary, deriveHole, gameMetrics, gameTakeaway, roundInsights, roundStats, sumStats } from "./src/lib/golfStats";
+import { eventComplete, eventStandings, isMultiRound, roundCards } from "./src/lib/golfRounds";
 import {
   formatsForSport,
   SPORTS,
@@ -72,7 +73,7 @@ import {
   VEGAS_BASIC,
   VEGAS_DEFAULTS,
 } from "./src/lib/types";
-import { differential, RoundScore, sporosIndex } from "./src/lib/handicap";
+import { cardsForPlayer, differential, RoundScore, seedIndexForPlayer, sporosIndex } from "./src/lib/handicap";
 import { sportEmoji } from "./src/lib/sportEmoji";
 
 let pass = 0;
@@ -956,6 +957,117 @@ check("golf nines — out and in totals, and only where a card has both", () => 
   // Points games are scored in points, so the nines stay off them.
   const st = tour({ format: "golf", participants: P, golf: g, config: cfg({ golfMode: "stableford" }) });
   assert(getFinalRows(st).every((r) => r.sub === undefined), "stableford grew a stroke line");
+});
+
+// ---- Multi-round events: a PGA-style tournament of several rounds ----------
+check("golf multi-round — every round its own card, the total decides it", () => {
+  const P: Participant[] = [
+    { id: "a", name: "Scratch", handicap: 0 },
+    { id: "b", name: "Hacker", handicap: 18 },
+  ];
+  const c18 = defaultGolf(18, ["a", "b"]);
+  const c9 = defaultGolf(9, ["a", "b"]);
+  const par18 = c18.pars.reduce((x, y) => x + y, 0); // 72
+  const par9 = c9.pars.reduce((x, y) => x + y, 0); // 36
+  const card = (base: typeof c18, a: number, b: number) => ({
+    a: base.pars.map((p, i) => p + (i === 0 ? a : 0)),
+    b: base.pars.map((p) => p + b),
+  });
+  // R1 and R2 at 18 holes, R3 a nine at another course. Hacker gives back 18
+  // shots a round on the eighteens and 9 on the nine.
+  const r1 = {
+    id: "r1",
+    name: "Round 1",
+    holes: 18,
+    pars: c18.pars,
+    strokeIndex: c18.strokeIndex,
+    courseName: "Pebble",
+    scores: { a: card(c18, 0, 0).a, b: card(c18, 0, 1).b },
+  };
+  const r2 = { ...r1, id: "r2", name: "Round 2", courseName: "Spyglass", scores: { a: card(c18, 2, 0).a, b: card(c18, 0, 1).b } };
+  const r3live = {
+    id: "r3",
+    name: "Round 3",
+    holes: 9,
+    pars: c9.pars,
+    strokeIndex: c9.strokeIndex,
+    courseName: "The Hay",
+    scores: { a: c9.pars.slice(), b: c9.pars.map((p) => p + 1) },
+  };
+  // The parked copy of the round in play is deliberately stale — everything
+  // must read the live card instead.
+  const golf = {
+    ...c9,
+    courseName: r3live.courseName,
+    scores: r3live.scores,
+    rounds: [r1, r2, { ...r3live, scores: {} }],
+    roundId: "r3",
+  };
+  const t = tour({ format: "golf", participants: P, golf, config: cfg({ golfMode: "stroke" }) });
+
+  assert(isMultiRound(t), "event not recognised as multi-round");
+  assert(roundCards(t).length === 3, "rounds lost");
+  // Substitution: the live card, not the stale parked copy.
+  assert(roundCards(t)[2].scores.a?.length === 9, "stale parked round used instead of the live card");
+
+  const gross = eventStandings(t, "gross");
+  const net = eventStandings(t, "net");
+  const scratchGross = par18 + (par18 + 2) + par9; // 72 + 74 + 36
+  const hackerGross = par18 + 18 + (par18 + 18) + (par9 + 9);
+  assert(gross[0].name === "Scratch" && gross[0].gross === scratchGross, `gross ${JSON.stringify(gross[0])}`);
+  assert(gross.find((r) => r.name === "Hacker")!.gross === hackerGross, "hacker gross wrong");
+  // Net: the shots each round gives back, by the app's own allocation. NOTE a
+  // course with no tee data hands out the full index on a nine (18 shots over 9
+  // holes) where a course WITH tees halves it — an inconsistency in
+  // effectiveHandicap that predates multi-round play and is asserted here as-is
+  // rather than changed underneath every existing 9-hole round.
+  assert(net[0].name === "Hacker" && net[0].net === hackerGross - 54, `net ${JSON.stringify(net[0])}`);
+  assert(net[0].net < net[1].net, "net order wrong");
+  // Each round is its own line, in playing order.
+  assert(gross[0].rounds.map((r) => r.gross).join(",") === `${par18},${par18 + 2},${par9}`, "round splits wrong");
+  assert(gross[0].thru === 45 && gross[0].roundsPlayed === 3, "holes played wrong");
+
+  // The event is the result: complete only when every round is, and won on the total.
+  assert(eventComplete(t), "event should be complete");
+  const res = getResult(t);
+  assert(res.complete && res.winner === "Hacker", `event winner: ${JSON.stringify(res)}`);
+
+  // The scorephoto reads it as one event: total, and the rounds behind it.
+  const row = getFinalRows(t).find((r) => r.name === "Hacker")!;
+  assert(row.stat === `${hackerGross} · net ${hackerGross - 54}`, `event stat: ${row.stat}`);
+  assert(row.sub === `${par18 + 18} · ${par18 + 18} · ${par9 + 9}`, `event rounds: ${row.sub}`);
+
+  // One hole left anywhere and the event is still running.
+  const open = structuredClone(t);
+  open.golf!.scores.a[8] = null;
+  assert(!eventComplete(open), "an unfinished last round read as complete");
+  assert(!getResult(open).complete, "unfinished event crowned a winner");
+
+  // A single-round tournament is untouched by any of this.
+  const solo = tour({ format: "golf", participants: P, golf: defaultGolf(18, ["a", "b"]), config: cfg({ golfMode: "stroke" }) });
+  assert(!isMultiRound(solo) && roundCards(solo).length === 1, "a plain round grew rounds");
+});
+
+// The Seed Index counts each round of an event, not just the one in play.
+check("golf multi-round — every finished round feeds the index", () => {
+  const P: Participant[] = [{ id: "a", name: "Scratch", handicap: 0 }];
+  const base = defaultGolf(18, ["a"]);
+  const round = (id: string, over: number) => ({
+    id,
+    name: id,
+    holes: 18,
+    pars: base.pars,
+    strokeIndex: base.strokeIndex,
+    scores: { a: base.pars.map((p) => p + over) },
+  });
+  const live = round("r3", 3);
+  const golf = { ...base, scores: live.scores, rounds: [round("r1", 1), round("r2", 2), { ...live, scores: {} }], roundId: "r3" };
+  const t = tour({ format: "golf", participants: P, golf, config: cfg({ golfMode: "stroke" }), updatedAt: 1000 });
+  const cards = cardsForPlayer([t], "Scratch");
+  assert(cards.length === 3, `rounds counted: ${cards.length}`);
+  assert(cards.map((c) => c.gross).join(",") === "90,108,126", `grosses: ${cards.map((c) => c.gross)}`);
+  // Three differentials is exactly the point where an index exists.
+  assert(seedIndexForPlayer([t], "Scratch").index != null, "three rounds should produce an index");
 });
 
 // ---- Format × play-style: only valid combinations are offered, and each one

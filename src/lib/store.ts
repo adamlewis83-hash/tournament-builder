@@ -29,6 +29,7 @@ import {
 } from "./ryder";
 import { matchOutcome } from "./ryderGolf";
 import { defaultGolf } from "./golf";
+import { blankRound, liveCard } from "./golfRounds";
 import {
   genDoubleElim,
   genSingleElim,
@@ -198,6 +199,14 @@ interface State {
     hole: number,
     patch: Partial<HoleEntry>,
   ) => void;
+  // Multi-round events: the card on GolfData is the round in play, so adding or
+  // switching rounds parks the live card and loads another in its place.
+  addGolfRound: (id: string, name?: string) => void;
+  /** Set how many rounds the event runs. Round 1 stays the card in play. */
+  setGolfRoundCount: (id: string, count: number) => void;
+  switchGolfRound: (id: string, roundId: string) => void;
+  renameGolfRound: (id: string, roundId: string, name: string) => void;
+  removeGolfRound: (id: string, roundId: string) => void;
   setGolfAward: (
     id: string,
     kind: "bingo" | "bango" | "bongo",
@@ -1293,6 +1302,13 @@ export const useStore = create<State>()(
             if (input.pars && input.pars.length === golf.holes) golf.pars = input.pars;
             if (input.strokeIndex && input.strokeIndex.length === golf.holes)
               golf.strokeIndex = input.strokeIndex;
+            // A multi-round event keeps its other rounds through a setup re-save:
+            // setup edits the round in play (that is how round 3 gets its own
+            // course), it doesn't dissolve the event around it.
+            if (prev?.rounds?.length) {
+              golf.rounds = prev.rounds;
+              golf.roundId = prev.roundId;
+            }
             if (input.startHole && input.startHole > 1) golf.startHole = input.startHole;
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
             if (input.tees?.length) golf.tees = input.tees;
@@ -1531,6 +1547,200 @@ export const useStore = create<State>()(
             return { ...t, golf: { ...t.golf, greens: next }, updatedAt: Date.now() };
           }),
         }));
+      },
+
+      // ---- Multi-round events ------------------------------------------
+      // The card on GolfData is always the round being played, so switching
+      // rounds is a swap: park the live card back into the event's list, load
+      // the other one in its place. Spectators get a full replace rather than a
+      // per-hole patch, since every card on their screen has just changed.
+      setGolfRoundCount: (id, count) => {
+        if (blocked(id)) return;
+        const n = Math.max(1, Math.min(8, Math.round(count)));
+        const cur = get().tournaments.find((x) => x.id === id);
+        const had = cur?.golf?.rounds?.length ?? 1;
+        if (n < had) snapshot(id, "Rounds removed");
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const existing = g.rounds?.length ? g.rounds.map((r) => (r.id === live.id ? live : r)) : [live];
+            if (n === 1) {
+              // Back to a single round: round 1 is the one that stays, card and all.
+              const first = existing[0];
+              return {
+                ...t,
+                golf: {
+                  ...g,
+                  rounds: undefined,
+                  roundId: undefined,
+                  holes: first.holes,
+                  startHole: first.startHole,
+                  courseName: first.courseName,
+                  pars: first.pars,
+                  strokeIndex: first.strokeIndex,
+                  tees: first.tees,
+                  scores: first.scores,
+                  stats: first.stats,
+                },
+                updatedAt: Date.now(),
+              };
+            }
+            const rounds = existing.slice(0, n);
+            // Growing: each new round starts as the same course, unscored — the
+            // host changes it in setup if the next day is somewhere else.
+            while (rounds.length < n)
+              rounds.push(blankRound(rounds[0], uid(), `Round ${rounds.length + 1}`));
+            // Stay on the round the host is standing in — re-saving setup to
+            // give round 3 its own course must not walk them back to round 1.
+            // Only a round that just got trimmed away hands the card over.
+            const target = rounds.find((r) => r.id === g.roundId) ?? rounds[0];
+            return {
+              ...t,
+              golf: {
+                ...g,
+                rounds,
+                roundId: target.id,
+                holes: target.holes,
+                startHole: target.startHole,
+                courseName: target.courseName,
+                pars: target.pars,
+                strokeIndex: target.strokeIndex,
+                tees: target.tees,
+                scores: target.scores,
+                stats: target.stats,
+              },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      addGolfRound: (id, name) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const list = g.rounds?.length ? g.rounds.map((r) => (r.id === live.id ? live : r)) : [live];
+            const next = blankRound(live, uid(), name?.trim() || `Round ${list.length + 1}`);
+            const rounds = [...list, next];
+            return {
+              ...t,
+              golf: {
+                ...g,
+                rounds,
+                roundId: next.id,
+                holes: next.holes,
+                startHole: next.startHole,
+                courseName: next.courseName,
+                pars: next.pars,
+                strokeIndex: next.strokeIndex,
+                tees: next.tees,
+                scores: {},
+                stats: undefined,
+                // Course geometry and side-game state belong to the round that
+                // was just parked, not to the new one.
+                pins: undefined,
+                greens: undefined,
+                bbb: undefined,
+                wolf: undefined,
+                vegasPairs: undefined,
+              },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      switchGolfRound: (id, roundId) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length || t.golf.roundId === roundId) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const rounds = g.rounds!.map((r) => (r.id === live.id ? live : r));
+            const target = rounds.find((r) => r.id === roundId);
+            if (!target) return t;
+            return {
+              ...t,
+              golf: {
+                ...g,
+                rounds,
+                roundId: target.id,
+                holes: target.holes,
+                startHole: target.startHole,
+                courseName: target.courseName,
+                pars: target.pars,
+                strokeIndex: target.strokeIndex,
+                tees: target.tees,
+                scores: target.scores,
+                stats: target.stats,
+                pins: undefined,
+                greens: undefined,
+                bbb: undefined,
+                wolf: undefined,
+                vegasPairs: undefined,
+              },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      renameGolfRound: (id, roundId, name) => {
+        if (blocked(id)) return;
+        const clean = name.trim().slice(0, 40);
+        if (!clean) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length) return t;
+            const rounds = t.golf.rounds.map((r) => (r.id === roundId ? { ...r, name: clean } : r));
+            return { ...t, golf: { ...t.golf, rounds }, updatedAt: Date.now() };
+          }),
+        }));
+        pushSettings(id);
+      },
+
+      // Drop a round and everything scored on it. The event always keeps one.
+      removeGolfRound: (id, roundId) => {
+        if (blocked(id)) return;
+        snapshot(id, "Round removed");
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length || t.golf.rounds.length < 2) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const rounds = g.rounds!.map((r) => (r.id === live.id ? live : r)).filter((r) => r.id !== roundId);
+            if (!rounds.length) return t;
+            // Removing the round in play hands the card to its neighbour.
+            const target = g.roundId === roundId ? rounds[0] : rounds.find((r) => r.id === g.roundId)!;
+            return {
+              ...t,
+              golf: {
+                ...g,
+                rounds,
+                roundId: target.id,
+                holes: target.holes,
+                startHole: target.startHole,
+                courseName: target.courseName,
+                pars: target.pars,
+                strokeIndex: target.strokeIndex,
+                tees: target.tees,
+                scores: target.scores,
+                stats: target.stats,
+              },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
       },
 
       setGolfAward: (id, kind, hole, participantId) => {

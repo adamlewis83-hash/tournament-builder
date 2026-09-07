@@ -27,6 +27,7 @@ import {
 import { colorFor, photoFor } from "@/lib/colors";
 import { autoSummary, deriveHole, roundInsights, roundStats } from "@/lib/golfStats";
 import { seedIndexForPlayer } from "@/lib/handicap";
+import { eventStandings, isMultiRound, roundCards } from "@/lib/golfRounds";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -1088,6 +1089,190 @@ function HoleDetail({
   );
 }
 
+// The event's rounds, as tabs. A multi-round tournament plays one card at a
+// time — this is how the host moves between them, and how everyone sees which
+// day they are standing in. Each chip carries that round's course and how far
+// the group has got through it.
+function RoundBar({ t }: { t: Tournament }) {
+  const switchRound = useStore((s) => s.switchGolfRound);
+  const addRound = useStore((s) => s.addGolfRound);
+  const g = t.golf;
+  if (!g?.rounds?.length) return null;
+  const cards = roundCards(t);
+  const holesDone = (c: (typeof cards)[number]) => {
+    let done = 0;
+    let total = 0;
+    for (const p of t.participants) {
+      total += c.holes;
+      const card = c.scores[p.id] ?? [];
+      for (let h = 0; h < c.holes; h++) if (card[h] != null) done++;
+    }
+    return { done, total };
+  };
+
+  return (
+    <div className="no-print">
+      <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1">
+        {cards.map((c, i) => {
+          const { done, total } = holesDone(c);
+          const live = c.id === g.roundId;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => switchRound(t.id, c.id)}
+              className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
+                live
+                  ? "border-[var(--brand)] bg-[var(--brand-soft)]"
+                  : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              <span
+                className={`block text-xs font-bold ${live ? "text-[var(--brand)]" : "text-[var(--foreground)]"}`}
+              >
+                {c.name || `Round ${i + 1}`}
+              </span>
+              <span className="block text-[10px] text-[var(--muted)]">
+                {done === 0
+                  ? c.courseName || "not started"
+                  : done >= total
+                    ? `✓ ${c.courseName || "complete"}`
+                    : `${Math.round((100 * done) / total)}% in`}
+              </span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => addRound(t.id)}
+          className="shrink-0 rounded-xl border border-dashed border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:bg-[var(--hover)]"
+        >
+          + Round
+        </button>
+      </div>
+      <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+        Scoring {cards.find((c) => c.id === g.roundId)?.name ?? "this round"} — every round adds up
+        into the event leaderboard below. Edit setup to give this round its own course.
+      </p>
+    </div>
+  );
+}
+
+// The event leaderboard: all rounds added up, lowest total wins, in gross or in
+// net. This is the number the trip is actually played for — the round in play
+// decides nothing on its own.
+function EventLeaderboard({ t }: { t: Tournament }) {
+  const [lens, setLens] = useState<"net" | "gross">("net");
+  const cards = roundCards(t);
+  const rows = eventStandings(t, lens);
+  const anyHandicap = t.participants.some((p) => (p.handicap ?? 0) > 0);
+  const total = (r: (typeof rows)[number]) => (lens === "net" ? r.net : r.gross);
+  const rel = (r: (typeof rows)[number]) => (lens === "net" ? r.netToPar : r.toPar);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-2.5">
+        <span className="text-sm font-bold">
+          Event leaderboard{" "}
+          <span className="font-normal text-[var(--muted)]">
+            · {cards.length} round{cards.length === 1 ? "" : "s"}
+          </span>
+        </span>
+        {anyHandicap && (
+          <div className="no-print inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            {(
+              [
+                ["net", "Net"],
+                ["gross", "Gross"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setLens(v)}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                  lens === v
+                    ? "bg-[var(--brand)] text-[var(--on-brand)]"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--subtle)] text-left text-[var(--muted)]">
+              <th className="px-3 py-2 w-8">#</th>
+              <th className="px-2 py-2">Player</th>
+              {cards.map((c, i) => (
+                <th key={c.id} className="px-2 py-2 text-center w-12 font-medium" title={c.courseName ?? ""}>
+                  {c.name?.match(/^Round (\d+)$/) ? `R${i + 1}` : c.name || `R${i + 1}`}
+                </th>
+              ))}
+              <th className="px-2 py-2 text-center w-14">Total</th>
+              <th className="px-2 py-2 text-center w-14">To par</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr
+                key={r.participantId}
+                className={`border-b border-[var(--border)] last:border-0 ${
+                  i === 0 && r.thru > 0 ? "bg-[var(--win-bg)]" : ""
+                }`}
+              >
+                <td className="px-3 py-2 font-bold text-[var(--muted)] tabular-nums">
+                  {r.thru ? i + 1 : "–"}
+                </td>
+                <td className="px-2 py-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Avatar
+                      name={r.name}
+                      color={colorFor(t.participants, r.participantId)}
+                      photo={photoFor(t.participants, r.participantId)}
+                      className="h-6 w-6 text-[10px]"
+                    />
+                    <span className="truncate">{r.name}</span>
+                    {lens === "net" && r.handicap > 0 && (
+                      <span className="text-[10px] text-[var(--muted)]">({r.handicap})</span>
+                    )}
+                  </span>
+                </td>
+                {r.rounds.map((c) => (
+                  <td key={c.roundId} className="px-2 py-2 text-center tabular-nums text-[var(--muted)]">
+                    {c.thru === 0 ? "–" : lens === "net" ? c.net : c.gross}
+                    {c.thru > 0 && c.thru < c.holes && (
+                      <span className="block text-[9px] leading-none">thru {c.thru}</span>
+                    )}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-extrabold tabular-nums">
+                  {r.thru ? total(r) : "–"}
+                </td>
+                <td
+                  className={`px-2 py-2 text-center font-bold tabular-nums ${
+                    r.thru && rel(r) < 0 ? "text-[var(--win)]" : ""
+                  }`}
+                >
+                  {r.thru ? formatToPar(rel(r)) : "–"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="px-4 py-2 text-[11px] text-[var(--muted)]">
+        Lowest {lens === "net" ? "net" : "gross"} total after every round wins. Ranked on score
+        against par, so a player mid-round sits where they stand, not where their stroke count does.
+      </p>
+    </div>
+  );
+}
+
 export function GolfView({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfScore = useStore((s) => s.setGolfScore);
@@ -1174,6 +1359,7 @@ export function GolfView({ t }: { t: Tournament }) {
 
   return (
     <div className="space-y-5">
+      <RoundBar t={t} />
       {isScramble ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)]">
@@ -1548,6 +1734,10 @@ export function GolfView({ t }: { t: Tournament }) {
           </>
         );
       })()}
+
+      {/* The event board first — in a multi-round tournament it is the one that
+          decides the trip; the round board below is today's play. */}
+      {isMultiRound(t) && mode !== "stableford" && mode !== "skins" && <EventLeaderboard t={t} />}
 
       {/* Leaderboard — 7c live board (four lenses) for per-player rounds; team
           and Vegas cards keep their own tables, and Nassau keeps its totals. */}
