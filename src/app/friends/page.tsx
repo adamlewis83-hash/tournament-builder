@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { colorForName } from "@/lib/colors";
+import { seedIndexForPlayer } from "@/lib/handicap";
+import type { Friend } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { Button, Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
@@ -89,30 +91,83 @@ function Friends() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-2">
           {sorted.map((f) => (
-            <Card key={f.id} className="p-3 flex items-center gap-3">
-              <Avatar
-                name={f.name}
-                color={f.color || colorForName(f.name)}
-                photo={f.photo}
-                className="h-9 w-9 text-sm shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold truncate">{f.name}</p>
-                {f.handicap != null && (
-                  <p className="text-xs text-[var(--muted)]">Golf hcp {f.handicap}</p>
-                )}
-              </div>
-              <Button
-                variant="danger"
-                className="px-2 py-1 text-xs"
-                onClick={() => removeFriend(f.id)}
-              >
-                Remove
-              </Button>
-            </Card>
+            <FriendCard
+              key={f.id}
+              friend={f}
+              onSave={saveFriend}
+              onRemove={() => removeFriend(f.id)}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// One saved player. Their Seed Index — the estimated handicap grown from the
+// rounds they've finished here — sits right on the card, one tap from becoming
+// the handicap that auto-fills their next event. The name links through to
+// their full profile, where the index and the game behind it live.
+function FriendCard({
+  friend: f,
+  onSave,
+  onRemove,
+}: {
+  friend: Friend;
+  onSave: (input: Omit<Friend, "id"> & { id?: string }) => string;
+  onRemove: () => void;
+}) {
+  const tournaments = useStore((s) => s.tournaments);
+  const seed = seedIndexForPlayer(tournaments, f.name);
+  const inUse = seed.index != null && f.handicap != null && Math.abs(f.handicap - seed.index) < 0.05;
+
+  return (
+    <Card className="p-3 flex items-center gap-3">
+      <Avatar
+        name={f.name}
+        color={f.color || colorForName(f.name)}
+        photo={f.photo}
+        className="h-9 w-9 text-sm shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/records/p/${encodeURIComponent(f.name)}`}
+          className="font-semibold truncate hover:underline"
+        >
+          {f.name}
+        </Link>
+        {f.handicap != null && (
+          <p className="text-xs text-[var(--muted)]">Golf hcp {f.handicap}</p>
+        )}
+        {seed.index != null && (
+          <p className="text-xs text-[var(--muted)]">
+            ⛳ Seed Index{" "}
+            <span className="font-semibold text-[var(--foreground)] tabular-nums">
+              {seed.index.toFixed(1)}
+            </span>{" "}
+            <span className="text-[10px]">
+              ({seed.rounds} round{seed.rounds === 1 ? "" : "s"})
+            </span>
+            {inUse ? (
+              <span> — in use ✓</span>
+            ) : (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => onSave({ id: f.id, name: f.name, handicap: seed.index ?? undefined })}
+                  className="font-semibold text-[var(--brand)] hover:underline"
+                >
+                  Use it
+                </button>
+              </>
+            )}
+          </p>
+        )}
+      </div>
+      <Button variant="danger" className="px-2 py-1 text-xs" onClick={onRemove}>
+        Remove
+      </Button>
+    </Card>
   );
 }

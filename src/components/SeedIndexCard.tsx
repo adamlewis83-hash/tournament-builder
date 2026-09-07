@@ -41,12 +41,19 @@ const LIGHT_COLOR: Record<Light, string> = {
 // The player's Seed Index — the estimated handicap grown from rounds actually
 // played in Sporos — plus the 7e trend panel: delta and best-ever, a 10-round
 // bar trend, traffic-light game metrics, and one actionable takeaway.
-// Renders nothing until the profile has a name and at least one finished
-// individual golf round exists.
-export function SeedIndexCard() {
+// Renders nothing until there is a name and at least one finished individual
+// golf round for it.
+//
+// With no `player` it is the phone owner's own card (the name comes from the
+// profile). Pass a name and it becomes that player's card, on their profile —
+// the index is derived from the rounds on this device, so anyone who has played
+// here has one.
+export function SeedIndexCard({ player }: { player?: string }) {
   const tournaments = useStore((s) => s.tournaments);
-  const [name, setName] = useState("");
-  useEffect(() => setName(getProfile().name.trim()), []);
+  const [profileName, setProfileName] = useState("");
+  useEffect(() => setProfileName(getProfile().name.trim()), []);
+  const name = player?.trim() || profileName;
+  const mine = !player;
   if (!name) return null;
 
   const r = seedIndexForPlayer(tournaments, name);
@@ -67,7 +74,7 @@ export function SeedIndexCard() {
         <div>
           <h2 className="font-semibold flex items-center gap-2">⛳ Seed Index</h2>
           <p className="text-xs text-[var(--muted)]">
-            Your estimated handicap, grown from {r.rounds} finished round
+            {mine ? "Your" : `${name}'s`} estimated handicap, grown from {r.rounds} finished round
             {r.rounds === 1 ? "" : "s"} in Sporos
             {r.pendingNine ? " · one 9-hole round is waiting for a partner nine" : ""}.
           </p>
@@ -143,7 +150,7 @@ export function SeedIndexCard() {
       )}
 
       <p className="mt-2 text-[10px] text-[var(--muted)]">
-        WHS-style estimate — best {r.used || "—"} of your last {Math.min(20, r.differentials.length)}{" "}
+        WHS-style estimate — best {r.used || "—"} of the last {Math.min(20, r.differentials.length)}{" "}
         differentials{r.adjustment ? ` (${r.adjustment} adjustment)` : ""}. Not an official index.
       </p>
     </Card>

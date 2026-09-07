@@ -587,6 +587,63 @@ check("golf game metrics — traffic lights and one actionable takeaway", () => 
   assert(gameTakeaway([]) === null, "takeaway from nothing");
 });
 
+// ---- Trouble: water, out of bounds, and the two kinds of bunker ------------
+check("golf trouble — penalty strokes counted, never invented", () => {
+  // Water and OB hold penalty strokes; the two add up on the hole.
+  assert(deriveHole(4, 7, { putts: 2, water: 1 }).penalties === 1, "water penalty lost");
+  assert(deriveHole(4, 8, { putts: 2, water: 1, ob: 1 }).penalties === 2, "water + OB not added");
+  // Nothing flagged is nothing counted — a score-only hole is not a clean hole.
+  assert(deriveHole(4, 7, { putts: 2 }).penalties === 0, "penalty invented");
+  // A fairway bunker is not a greenside one: it can never become a sand save.
+  assert(deriveHole(4, 4, { putts: 1, fairwayBunker: true }).sandSave === null, "fairway bunker faked a sand save");
+
+  // Aggregation: penalty strokes, the holes they landed on, and the played
+  // holes they are measured against.
+  const s = roundStats(
+    [4, 4, 4],
+    [7, 4, 6],
+    [{ putts: 2, water: 1 }, { putts: 2 }, { putts: 2, ob: 1, fairwayBunker: true }],
+  );
+  assert(s.penalties.strokes === 2 && s.penalties.holes === 2, `penalties ${JSON.stringify(s.penalties)}`);
+  assert(s.penalties.water === 1 && s.penalties.ob === 1, `split ${JSON.stringify(s.penalties)}`);
+  assert(s.penalties.scored === 3, `denominator ${JSON.stringify(s.penalties)}`);
+  assert(s.fairwayBunkers === 1, `fairway bunkers ${s.fairwayBunkers}`);
+  // An unplayed hole contributes no denominator.
+  assert(roundStats([4], [null], undefined).penalties.scored === 0, "unplayed hole counted");
+
+  // Per-18 metric: 4 penalty strokes over 9 played holes reads as 8.0 per 18.
+  const pars9 = Array(9).fill(4);
+  const rough = gameMetrics(
+    roundStats(
+      pars9,
+      Array(9).fill(6),
+      Array(9).fill(null).map((_, i) => (i < 4 ? { putts: 2, water: 1 } : { putts: 2 })),
+    ),
+  ).find((m) => m.key === "penalties");
+  assert(rough?.value === "8.0" && rough.light === "poor", `penalty metric ${JSON.stringify(rough)}`);
+  // A kept card with nothing flagged reads clean; a score-only card says nothing.
+  const clean = gameMetrics(roundStats(pars9, Array(9).fill(4), Array(9).fill({ putts: 2 })))
+    .find((m) => m.key === "penalties");
+  assert(clean?.value === "0.0" && clean.light === "good", `clean metric ${JSON.stringify(clean)}`);
+  assert(
+    !gameMetrics(roundStats(pars9, Array(9).fill(4), undefined)).some((m) => m.key === "penalties"),
+    "penalty metric from a score-only card",
+  );
+
+  // The AUTO strip names trouble, with or without the putts that finish the hole.
+  assert(autoSummary(4, 7, { water: 2 }) === "+2 penalty · 2 × water", autoSummary(4, 7, { water: 2 }) ?? "null");
+  assert(autoSummary(4, 6, { putts: 2, ob: 1 })!.includes("OB"), "auto dropped OB");
+  assert(autoSummary(4, 4, { fairwayBunker: true }) === "fairway bunker", "auto dropped fairway bunker");
+
+  // The written insight adds up the damage and splits it by kind.
+  const line = roundInsights(
+    [4, 4, 4, 4, 4, 4],
+    [7, 4, 6, 5, 4, 5],
+    [{ putts: 2, water: 1 }, { putts: 2 }, { putts: 2, ob: 1 }, { putts: 2 }, { putts: 2 }, { putts: 2 }],
+  ).find((x) => x.startsWith("Trouble cost you"));
+  assert(!!line && line.includes("2 penalty strokes") && line.includes("1 in water") && line.includes("1 out of bounds"), `insight: ${line}`);
+});
+
 // ---- Post-round insights: written cards from derived stats -----------------
 check("golf insights — evidence-backed sentences, nothing invented", () => {
   const pars9 = Array(9).fill(4);
@@ -2636,4 +2693,5 @@ if (failures.length) {
   process.exit(1);
 } else {
   console.log("✅ All format/sport scenarios passed.");
-}
+}
+

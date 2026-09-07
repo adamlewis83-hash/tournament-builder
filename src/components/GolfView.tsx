@@ -681,6 +681,238 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
   );
 }
 
+// The tap rows themselves — putts, tee-shot result, and trouble. Lifted out of
+// the hero card so any player on the card can be given the same rows, not just
+// the phone's owner: whoever is keeping the book can enter a playing partner's
+// detail without borrowing their phone.
+function StatTaps({
+  entry,
+  onStat,
+  compact = false,
+}: {
+  entry: import("@/lib/types").HoleEntry | null;
+  onStat: (p: Partial<import("@/lib/types").HoleEntry>) => void;
+  compact?: boolean;
+}) {
+  const h = compact ? "h-8" : "h-9";
+  const label = `${compact ? "w-11" : "w-12"} shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]`;
+  const off = "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]";
+  const on = "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]";
+  // Penalty counts cycle rather than step: one tap is the common case (a
+  // reload, a drop), a second covers the hole that got away, and one more
+  // clears it. No stepper, no long-press.
+  const nextPenalty = (cur: number | null | undefined) => {
+    const n = ((cur ?? 0) + 1) % 4;
+    return n === 0 ? null : n;
+  };
+  const count = (n: number | null | undefined) => (n && n > 1 ? ` ×${n}` : "");
+
+  return (
+    <>
+      <div className={`${compact ? "mt-2" : "mt-3"} flex items-center gap-2`}>
+        <span className={label}>Putts</span>
+        <div className="flex flex-1 gap-1.5">
+          {[0, 1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onStat({ putts: entry?.putts === n ? null : n })}
+              className={`${h} flex-1 rounded-lg border text-sm font-semibold tabular-nums transition ${
+                entry?.putts === n ? on : off
+              }`}
+            >
+              {n === 4 ? "4+" : n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className={label}>Tee</span>
+        <div className="flex flex-1 gap-1.5">
+          {(
+            [
+              ["L", "◀ L"],
+              ["F", "Fairway"],
+              ["R", "R ▶"],
+            ] as const
+          ).map(([v, text]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onStat({ tee: entry?.tee === v ? null : v })}
+              className={`${h} flex-1 rounded-lg border text-sm font-semibold transition ${
+                entry?.tee === v ? on : off
+              }`}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Trouble — the strokes that actually wreck a card. Water and OB count
+          penalty strokes; the two sand flags are separate because only a
+          greenside bunker can ever become a sand save. */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className={label}>Trouble</span>
+        <div className="flex flex-1 gap-1.5">
+          <button
+            type="button"
+            onClick={() => onStat({ water: nextPenalty(entry?.water) })}
+            title="Penalty stroke in water — tap again to add another"
+            className={`${h} flex-1 whitespace-nowrap rounded-lg border px-1 text-[11px] font-semibold transition ${
+              entry?.water ? "border-sky-400 bg-sky-400/15 text-sky-500" : off
+            }`}
+          >
+            💧 Water{count(entry?.water)}
+          </button>
+          <button
+            type="button"
+            onClick={() => onStat({ ob: nextPenalty(entry?.ob) })}
+            title="Penalty stroke out of bounds or lost ball — tap again to add another"
+            className={`${h} flex-1 whitespace-nowrap rounded-lg border px-1 text-[11px] font-semibold transition ${
+              entry?.ob ? "border-rose-400 bg-rose-400/15 text-rose-500" : off
+            }`}
+          >
+            ⛔ OB{count(entry?.ob)}
+          </button>
+          <button
+            type="button"
+            onClick={() => onStat({ bunker: !entry?.bunker })}
+            title="Greenside bunker on this hole"
+            className={`${h} flex-1 whitespace-nowrap rounded-lg border px-1 text-[11px] font-semibold transition ${
+              entry?.bunker ? "border-amber-400 bg-amber-400/15 text-amber-500" : off
+            }`}
+          >
+            ⛱ Sand
+          </button>
+          <button
+            type="button"
+            onClick={() => onStat({ fairwayBunker: !entry?.fairwayBunker })}
+            title="Fairway or waste bunker on this hole"
+            className={`${h} flex-1 whitespace-nowrap rounded-lg border px-1 text-[11px] font-semibold transition ${
+              entry?.fairwayBunker ? "border-amber-400 bg-amber-400/15 text-amber-500" : off
+            }`}
+          >
+            ⛱ Fwy
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// A playing partner's row on the hole screen: their score, and — behind one
+// tap — the same putts/tee/trouble rows the phone's owner gets. Whoever is
+// keeping the book can fill in a partner's card as it happens; the stats land
+// on that player's own record, so their Seed Index and profile grow from it.
+function PartnerRow({
+  name,
+  color,
+  photo,
+  handicap,
+  par,
+  score,
+  entry,
+  rel,
+  showStats,
+  onAdj,
+  onScore,
+  onStat,
+}: {
+  name: string;
+  color: string;
+  photo?: string;
+  handicap: number;
+  par: number;
+  score: number | null;
+  entry: import("@/lib/types").HoleEntry | null;
+  rel: number | null;
+  showStats: boolean;
+  onAdj: (d: number) => void;
+  onScore: (v: number | null) => void;
+  onStat: (p: Partial<import("@/lib/types").HoleEntry>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const auto = autoSummary(par, score, entry);
+  const entered =
+    entry != null &&
+    (entry.putts != null ||
+      entry.tee != null ||
+      entry.bunker ||
+      entry.fairwayBunker ||
+      !!entry.water ||
+      !!entry.ob);
+
+  return (
+    <div className="rounded-lg bg-[var(--subtle)] px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 min-w-0">
+          <Avatar name={name} color={color} photo={photo} className="h-6 w-6 text-[10px]" />
+          <span className="truncate">{name}</span>
+          {handicap > 0 && <span className="text-xs text-[var(--muted)]">({handicap})</span>}
+        </span>
+        <span className="flex items-center gap-2 shrink-0">
+          {rel != null && (
+            <span
+              className={`text-xs w-8 text-right ${rel < 0 ? "text-[var(--win)]" : rel > 0 ? "text-[var(--muted)]" : ""}`}
+            >
+              {rel === 0 ? "E" : rel > 0 ? `+${rel}` : rel}
+            </span>
+          )}
+          <button
+            onClick={() => onAdj(-1)}
+            aria-label={`Minus one for ${name}`}
+            className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] text-2xl font-bold text-[var(--muted)] transition hover:bg-[var(--hover)]"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={score ?? ""}
+            onChange={(e) => onScore(e.target.value === "" ? null : Number(e.target.value))}
+            placeholder="–"
+            className="w-14 rounded-xl border border-[var(--border)] bg-[var(--input)] py-1.5 text-center text-2xl font-extrabold tabular-nums outline-none focus:border-[var(--brand)]"
+          />
+          <button
+            onClick={() => onAdj(1)}
+            aria-label={`Plus one for ${name}`}
+            className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand)] text-2xl font-bold text-[var(--on-brand)] transition hover:opacity-90"
+          >
+            +
+          </button>
+        </span>
+      </div>
+      {showStats && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="mt-1 text-[11px] font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+          >
+            {open ? "▾ Hide detail" : "▸ Detail"}
+            {!open && entered && <span className="ml-1 text-[var(--muted)]">· entered</span>}
+          </button>
+          {open && (
+            <div className="pb-1">
+              <StatTaps entry={entry} onStat={onStat} compact />
+              {auto && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-[var(--surface)] px-2.5 py-1.5">
+                  <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                    Auto
+                  </span>
+                  <span className="text-xs text-[var(--muted)]">{auto}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // 7b — the hole detail sheet: "YOU ENTER — 3 TAPS" against "SPOROS DERIVES —
 // 0 TAPS", with the explicitly-optional club/distance row collapsed behind a
 // dashed border. Top-level component (not inline) so its inputs keep focus.
@@ -709,6 +941,15 @@ function HoleDetail({
   const received = holeStrokes(handicap, si, holesCount);
   const net = score != null ? score - received : null;
   const stbl = net != null ? Math.max(0, 2 + (par - net)) : null;
+
+  const troubleLabel = [
+    entry?.water ? `${entry.water > 1 ? `${entry.water}× ` : ""}water` : null,
+    entry?.ob ? `${entry.ob > 1 ? `${entry.ob}× ` : ""}OB` : null,
+    entry?.bunker ? "sand" : null,
+    entry?.fairwayBunker ? "fwy sand" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   const yesNo = (v: boolean | null, na: string) =>
     v == null ? (
@@ -740,19 +981,20 @@ function HoleDetail({
         <div className="mt-2 space-y-3">
           <div>
             <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-[var(--muted)]">
-              You enter — 3 taps
+              You enter — 3 taps, plus trouble
             </div>
-            <div className="grid grid-cols-3 gap-1.5 text-center text-sm">
+            <div className="grid grid-cols-2 gap-1.5 text-center text-sm">
               {(
                 [
                   ["Score", score != null ? String(score) : "—"],
                   ["Putts", entry?.putts != null ? (entry.putts === 4 ? "4+" : String(entry.putts)) : "—"],
                   ["Tee", teeLabel],
+                  ["Trouble", troubleLabel || "clean"],
                 ] as const
               ).map(([label, v]) => (
                 <div key={label} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5">
                   <div className="text-[9px] uppercase tracking-wide text-[var(--muted)]">{label}</div>
-                  <div className="font-semibold tabular-nums">{v}</div>
+                  <div className="truncate font-semibold tabular-nums">{v}</div>
                 </div>
               ))}
             </div>
@@ -781,6 +1023,14 @@ function HoleDetail({
               <div className="flex justify-between gap-2">
                 <span className="text-[var(--muted)]">Sand save</span>
                 {yesNo(d.sandSave, "no bunker")}
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Penalty strokes</span>
+                <span
+                  className={`font-semibold tabular-nums ${d.penalties > 0 ? "text-rose-500" : "text-[var(--muted)]"}`}
+                >
+                  {d.penalties > 0 ? `+${d.penalties}` : "none"}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-[var(--muted)]">Net · Stbl</span>
@@ -1192,67 +1442,8 @@ export function GolfView({ t }: { t: Tournament }) {
                     +
                   </button>
                 </div>
-                {/* The other two taps — everything else derives from these */}
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                    Putts
-                  </span>
-                  <div className="flex flex-1 gap-1.5">
-                    {[0, 1, 2, 3, 4].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => stat({ putts: heroEntry?.putts === n ? null : n })}
-                        className={`h-9 flex-1 rounded-lg border text-sm font-semibold tabular-nums transition ${
-                          heroEntry?.putts === n
-                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
-                        }`}
-                      >
-                        {n === 4 ? "4+" : n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                    Tee
-                  </span>
-                  <div className="flex flex-1 gap-1.5">
-                    {(
-                      [
-                        ["L", "◀ L"],
-                        ["F", "Fairway"],
-                        ["R", "R ▶"],
-                      ] as const
-                    ).map(([v, label]) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => stat({ tee: heroEntry?.tee === v ? null : v })}
-                        className={`h-9 flex-1 rounded-lg border text-sm font-semibold transition ${
-                          heroEntry?.tee === v
-                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => stat({ bunker: !heroEntry?.bunker })}
-                      title="Greenside bunker on this hole"
-                      className={`h-9 w-14 shrink-0 rounded-lg border text-sm transition ${
-                        heroEntry?.bunker
-                          ? "border-amber-400 bg-amber-400/15 text-amber-500"
-                          : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--hover)]"
-                      }`}
-                    >
-                      ⛱ Sand
-                    </button>
-                  </div>
-                </div>
+                {/* The other taps — everything else derives from these */}
+                <StatTaps entry={heroEntry} onStat={stat} />
                 {auto && (
                   <div className="mt-2 flex items-center gap-2 rounded-lg bg-[var(--surface)] px-2.5 py-1.5">
                     <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">
@@ -1278,49 +1469,27 @@ export function GolfView({ t }: { t: Tournament }) {
               {t.participants
                 .filter((p) => p.id !== heroP?.id)
                 .map((p) => {
-                const v = g.scores[p.id]?.[h];
-                const rel = v != null && !isVegas ? v - g.pars[h] : null;
-                return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Avatar name={p.name} color={colorFor(t.participants, p.id)} photo={photoFor(t.participants, p.id)} className="h-6 w-6 text-[10px]" />
-                      <span className="truncate">{p.name}</span>
-                      {effectiveHandicap(g, p) > 0 && (
-                        <span className="text-xs text-[var(--muted)]">({effectiveHandicap(g, p)})</span>
-                      )}
-                    </span>
-                    <span className="flex items-center gap-2 shrink-0">
-                      {rel != null && (
-                        <span className={`text-xs w-8 text-right ${rel < 0 ? "text-[var(--win)]" : rel > 0 ? "text-[var(--muted)]" : ""}`}>
-                          {rel === 0 ? "E" : rel > 0 ? `+${rel}` : rel}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => adj(p.id, -1)}
-                        aria-label={`Minus one for ${p.name}`}
-                        className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] text-2xl font-bold text-[var(--muted)] transition hover:bg-[var(--hover)]"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={v ?? ""}
-                        onChange={(e) => setGolfScore(t.id, p.id, h, e.target.value === "" ? null : Number(e.target.value))}
-                        placeholder="–"
-                        className="w-14 rounded-xl border border-[var(--border)] bg-[var(--input)] py-1.5 text-center text-2xl font-extrabold tabular-nums outline-none focus:border-[var(--brand)]"
-                      />
-                      <button
-                        onClick={() => adj(p.id, 1)}
-                        aria-label={`Plus one for ${p.name}`}
-                        className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand)] text-2xl font-bold text-[var(--on-brand)] transition hover:opacity-90"
-                      >
-                        +
-                      </button>
-                    </span>
-                  </div>
-                );
-              })}
+                  const v = g.scores[p.id]?.[h] ?? null;
+                  return (
+                    <PartnerRow
+                      key={p.id}
+                      name={p.name}
+                      color={colorFor(t.participants, p.id)}
+                      photo={photoFor(t.participants, p.id)}
+                      handicap={effectiveHandicap(g, p)}
+                      par={g.pars[h]}
+                      score={v}
+                      entry={g.stats?.[p.id]?.[h] ?? null}
+                      rel={v != null && !isVegas ? v - g.pars[h] : null}
+                      // Team-row cards hold a pair's combined number, so there is
+                      // no one player's putts or tee shot to record against them.
+                      showStats={!teamRows}
+                      onAdj={(d) => adj(p.id, d)}
+                      onScore={(val) => setGolfScore(t.id, p.id, h, val)}
+                      onStat={(patchEntry) => setGolfHoleStat(t.id, p.id, h, patchEntry)}
+                    />
+                  );
+                })}
             </div>
 
             {/* Full aerial — expanded from the band's Map button */}
