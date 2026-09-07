@@ -29,6 +29,8 @@ export default function FriendInvitePage() {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [msg, setMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // "web" = the person tapped "stay on the web" — don't bounce them again.
+  const [stay, setStay] = useState(false);
   // Does Sporos actually live here? A stored key proves nothing — every page
   // load mints one, this page included — so the test is whether there is a
   // profile or a library to link. Read through useSyncExternalStore: the server
@@ -42,6 +44,23 @@ export default function FriendInvitePage() {
   useEffect(() => {
     lookupFriendCode(code).then((r) => setInviter(r ? r.name : ""));
   }, [code]);
+
+  // An iPhone with no Sporos lived-in here means the app isn't installed (a
+  // phone WITH it opens this link in the app once iOS refreshes its link
+  // registry, and the app context has a library). Adam's ask: the invite should
+  // take that person to the App Store, not park them on a web page. A short
+  // pause shows the code first — the App Store can't carry it through the
+  // install, so the code (also in the invite text) is what finishes the link.
+  const isIphone =
+    typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const bouncing = isIphone && hasLibrary === false && !!inviter && !stay && state === "idle";
+  useEffect(() => {
+    if (!bouncing) return;
+    const timer = setTimeout(() => {
+      window.location.href = APP_STORE_URL;
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [bouncing]);
 
   async function copyCode() {
     try {
@@ -89,6 +108,35 @@ export default function FriendInvitePage() {
             </p>
             {state === "done" ? (
               <p className="text-sm font-medium text-[var(--brand)]">✓ {msg}</p>
+            ) : bouncing ? (
+              <>
+                {/* iPhone, no app: heading to the App Store. The code flashes
+                    first because the store can't carry it through the install. */}
+                <p className="text-sm text-[var(--muted)]">
+                  Taking you to the App Store… After installing, enter this code in Settings →
+                  Linked friends (it&apos;s also in the text you got):
+                </p>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="mx-auto block rounded-xl border border-[var(--border)] bg-[var(--subtle)] px-4 py-3 font-mono text-2xl font-bold tracking-[0.3em]"
+                >
+                  {code}
+                </button>
+                <p className="text-xs text-[var(--muted)]">
+                  {copied ? "✓ Copied" : "Tap the code to copy it"}
+                </p>
+                <a href={APP_STORE_URL} className="block">
+                  <Button className="w-full py-3">Open the App Store now →</Button>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setStay(true)}
+                  className="text-xs text-[var(--muted)] underline"
+                >
+                  Stay on the web instead
+                </button>
+              </>
             ) : hasLibrary === false ? (
               <>
                 {/* No Sporos here. Linking this browser would link an empty
