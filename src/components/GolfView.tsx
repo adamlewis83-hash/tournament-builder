@@ -27,6 +27,7 @@ import {
 import { colorFor, photoFor } from "@/lib/colors";
 import { autoSummary, deriveHole, roundInsights, roundStats } from "@/lib/golfStats";
 import { seedIndexForPlayer } from "@/lib/handicap";
+import { indexInputsFor } from "@/lib/pastRounds";
 import { eventStandings, isMultiRound, roundCards } from "@/lib/golfRounds";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
@@ -324,10 +325,12 @@ function RoundSummary({ t, player }: { t: Tournament; player: Tournament["partic
 
   // The handicap moving before your eyes: the Seed Index with and without
   // this round. (Rounds auto-save — nothing to press, just the receipt.)
-  const after = seedIndexForPlayer(tournaments, player.name);
+  const extras = indexInputsFor(player.name);
+  const after = seedIndexForPlayer(tournaments, player.name, extras);
   const before = seedIndexForPlayer(
     tournaments.filter((x) => x.id !== t.id),
     player.name,
+    extras,
   );
 
   const pct = (hit: number, opps: number) => (opps > 0 ? `${Math.round((100 * hit) / opps)}%` : "—");
@@ -462,7 +465,9 @@ function LiveLeaderboard({ t }: { t: Tournament }) {
   const g = t.golf!;
   const played = t.config.golfMode;
   const [lens, setLens] = useState<"net" | "gross" | "stableford" | "skins">(
-    played === "stableford" ? "stableford" : played === "skins" ? "skins" : "net",
+    // Gross is the number everyone says out loud, so the board opens on it.
+    // Net is one tap away, and still settles a handicap event.
+    played === "stableford" ? "stableford" : played === "skins" ? "skins" : "gross",
   );
   const modeFor = lens === "stableford" ? "stableford" : lens === "skins" ? "skins" : "stroke";
   const netToPar = (r: ReturnType<typeof computeGolf>[number]) => r.net - (r.gross - r.toPar);
@@ -1171,7 +1176,7 @@ function RoundBar({ t }: { t: Tournament }) {
 // net. This is the number the trip is actually played for — the round in play
 // decides nothing on its own.
 function EventLeaderboard({ t }: { t: Tournament }) {
-  const [lens, setLens] = useState<"net" | "gross">("net");
+  const [lens, setLens] = useState<"net" | "gross">("gross");
   const cards = roundCards(t);
   const rows = eventStandings(t, lens);
   const anyHandicap = t.participants.some((p) => (p.handicap ?? 0) > 0);
