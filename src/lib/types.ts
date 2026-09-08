@@ -525,7 +525,7 @@ export const FORMAT_BLURBS: Record<Format, string> = {
   golf:
     "Hole-by-hole scorecard with handicaps. Score it as Stroke Play (gross/net), Stableford, Skins, or a team Scramble — switch anytime.",
   custom:
-    "A blank slate — add players, then create each round's matchups yourself. The app tracks scores and the leaderboard. For events that don't fit a standard format.",
+    "You make the matchups — 1v1s, doubles, teams, even lopsided sides, any rounds. Sporos keeps score, the standings, and the bracket. For events that only exist in your head.",
   "score-challenge":
     "Everyone posts a score each round and is ranked by total — no head-to-head. Perfect for bowling, pop-a-shot, or darts. Pick whether highest or lowest total wins.",
   ladder:
@@ -642,7 +642,9 @@ export function formatsForSport(sport: string): Format[] {
   // Golf-family sports don't get Score Challenge: it is "post one bare number per
   // round", which for golf is a worse copy of the Traditional scorecard — no holes,
   // no pars, no handicaps. It stays for the sports where a round IS one number.
-  if (/golf/i.test(sport)) return ["golf", "ryder", "custom"];
+  // Custom is gone from golf too: bare win/loss matchups with no cards is match
+  // play done worse than Ryder Cup Style does it — a trap, not an option.
+  if (/golf/i.test(sport)) return ["golf", "ryder"];
   const noSwissLadder = TEAM_FIELD_SPORTS.has(sport) || SOLO_SCORE_SPORTS.has(sport);
   const out: Format[] = ["round-robin"];
   if (!noSwissLadder) out.push("swiss");

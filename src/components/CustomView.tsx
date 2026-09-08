@@ -18,6 +18,7 @@ export function CustomView({ t }: { t: Tournament }) {
   const [tab, setTab] = useState<"schedule" | "bracket" | "standings">("schedule");
   // Each player can be assigned to Side A, Side B, or neither — so any pairing/matchup is possible.
   const [assign, setAssign] = useState<Record<string, "A" | "B">>({});
+  const [help, setHelp] = useState(false);
 
   const rounds = Array.from(new Set(t.matches.map((m) => m.round))).sort((x, y) => x - y);
   const maxRound = rounds.length ? rounds[rounds.length - 1] : 1;
@@ -117,7 +118,35 @@ export function CustomView({ t }: { t: Tournament }) {
         <>
           {!spectator && (
             <Card className="p-4 space-y-3">
-              <h3 className="font-semibold text-sm">Build a match</h3>
+              <h3 className="flex items-center gap-1.5 font-semibold text-sm">
+                Build a match
+                <button
+                  type="button"
+                  aria-label="How the Custom format works"
+                  onClick={() => setHelp((v) => !v)}
+                  className={`grid h-4.5 w-4.5 place-items-center rounded-full border text-[10px] font-bold transition ${
+                    help
+                      ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                      : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  ?
+                </button>
+              </h3>
+              {help && (
+                <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
+                  <p className="mb-1 font-semibold text-[var(--foreground)]">
+                    Custom is the format where YOU make the matchups:
+                  </p>
+                  <ol className="list-decimal space-y-1 pl-4">
+                    <li>Tap players onto side <b>A</b> or <b>B</b> and hit <b>Add match</b>. Any shape works — 1v1, 2v2, teams, even 3v1. It is not just for team events.</li>
+                    <li><b>Auto-pair</b> instantly matches everyone still free into 1v1s.</li>
+                    <li>The <b>round number</b> just groups matchups — think &quot;Friday games&quot; vs &quot;Saturday games&quot;. Add as many matches to a round as you like, whenever you like.</li>
+                    <li>Score matches as they finish. The <b>Leaderboard</b> ranks everyone by results, and the <b>Bracket</b> tab draws your rounds as columns.</li>
+                    <li>There is no fixed schedule and no forced advancement — dad plays the winner, grudge matches welcome. When someone should be crowned, just stop adding matches.</li>
+                  </ol>
+                </div>
+              )}
               <p className="text-xs text-[var(--muted)]">
                 Tap each player onto <b className="text-[var(--brand)]">A</b> or{" "}
                 <b className="text-rose-400">B</b> — any singles, doubles, or team combination —

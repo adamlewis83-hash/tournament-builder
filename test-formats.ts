@@ -2507,12 +2507,15 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
 check("formats by sport — golf gets golf formats, and not Score Challenge", () => {
   for (const sport of ["Golf", "Disc Golf"]) {
     const list = formatsForSport(sport);
-    for (const f of ["golf", "ryder", "custom"] as Format[])
+    for (const f of ["golf", "ryder"] as Format[])
       assert(list.includes(f), `${sport} is missing ${f}`);
     // Score Challenge is "post one bare number per round" — for golf that is a worse
     // copy of the Traditional scorecard (no holes, pars, or handicaps), so the
     // golf-family sports don't offer it.
     assert(!list.includes("score-challenge"), `${sport} offered Score Challenge again`);
+    // Custom is gone from golf too: bare win/loss matchups without cards is
+    // match play done worse than Ryder Cup Style does it.
+    assert(!list.includes("custom"), `${sport} offered Custom again`);
     for (const f of ["round-robin", "swiss", "single-elim"] as Format[])
       assert(!list.includes(f), `${sport} offered the court format ${f}`);
   }
