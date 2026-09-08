@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useStore, useTournament } from "@/lib/store";
 import { FORMAT_LABELS, PLAYSTYLE_LABELS } from "@/lib/types";
 import { isGrantedScorer } from "@/lib/perms";
 import { Badge, Button, Card, StatusPill } from "@/components/ui";
 import { Settings } from "@/components/icons";
 import { isFinal } from "@/lib/score";
+import { getResult } from "@/lib/result";
 import { bracketChampion } from "@/lib/bracket";
 import { Tournament } from "@/lib/types";
 import { tournamentStatus } from "@/lib/status";
@@ -253,7 +254,60 @@ function TournamentDetail({ id }: { id: string }) {
       {shown && t.format === "pool-bracket" && <PoolView t={t} />}
 
       {shown && !t.spectator && <PlayerPhotos t={t} />}
+
+      {/* The event's over and the crew is standing right there — one tap sets up
+          the rematch (same players and settings, fresh scores). */}
+      {shown && !t.spectator && getResult(t).complete && <RunItBack t={t} />}
     </div>
+  );
+}
+
+function RunItBack({ t }: { t: Tournament }) {
+  const router = useRouter();
+  const duplicate = useStore((s) => s.duplicateTournament);
+  const reset = useStore((s) => s.resetToSetup);
+  const patch = useStore((s) => s.patchTournament);
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-2 p-4">
+      <span className="text-sm">
+        <span className="font-semibold">🏁 That&apos;s a wrap.</span>{" "}
+        <span className="text-[var(--muted)]">Run it back with the same crew?</span>
+      </span>
+      <Button
+        variant="outline"
+        className="px-3 py-1.5 text-sm"
+        onClick={() => {
+          const id = duplicate(t.id);
+          if (!id) return;
+          // A duplicate is a full copy, finished scores and all — the rematch
+          // wants the same people and settings with everything unplayed. Reset
+          // clears the schedule; golf cards & race heats hold their numbers on
+          // purpose (score-restore), so the copy's are emptied by hand.
+          reset(id);
+          const copy = useStore.getState().tournaments.find((x) => x.id === id);
+          if (copy?.golf)
+            patch(id, {
+              golf: {
+                ...copy.golf,
+                scores: {},
+                stats: undefined,
+                rounds: copy.golf.rounds?.map((r) => ({ ...r, scores: {}, stats: undefined })),
+              },
+            });
+          if (copy?.race)
+            patch(id, {
+              race: {
+                ...copy.race,
+                heats: copy.race.heats.map((h) => ({ ...h, order: [] })),
+                finalists: undefined,
+              },
+            });
+          router.push(`/t/${id}`);
+        }}
+      >
+        Rematch — same setup →
+      </Button>
+    </Card>
   );
 }
 

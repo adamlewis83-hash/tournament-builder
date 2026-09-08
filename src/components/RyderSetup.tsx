@@ -16,6 +16,7 @@ import { defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
+import { InfoTip } from "./InfoTip";
 import { ReorderList } from "./ReorderList";
 
 interface CourseState {
@@ -623,8 +624,18 @@ export function RyderSetup({ t }: { t: Tournament }) {
             : `${program.length} session${program.length > 1 ? "s" : ""} of ${course.holes} holes each, played in this order — drag ⠿ (or use ↑↓) to rearrange. Pairings are set per session in the match view (or randomized).`}
         </p>
 
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)] mb-1.5 flex items-center gap-1.5">
           Cup points — what a win is worth
+          <InfoTip label="How cup scoring works" title="Cup scoring, in plain words:">
+            <p>
+              The teams race to a points total, like the Ryder Cup on TV. Every session your
+              program plays is worth cup points — these buttons set how they&apos;re handed out:
+              one point per <b>match</b> (each pairing&apos;s win counts), one per{" "}
+              <b>session</b> (the side that takes the session banks the point), or one per{" "}
+              <b>18 holes</b>. Halved results split the point. First team past half the total
+              points lifts the cup.
+            </p>
+          </InfoTip>
         </div>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(CUP_SCORING_LABELS) as RyderScoring[]).map((val) => (

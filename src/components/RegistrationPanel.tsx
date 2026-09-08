@@ -65,14 +65,19 @@ export function RegistrationPanel({ t }: { t: Tournament }) {
   }
 
   if (!code) {
+    // One quiet row until it's wanted — typing names is the simpler first-timer
+    // path, and this card used to shout over it.
     return (
-      <Card className="p-5 text-center">
-        <h3 className="font-semibold">Let players add themselves</h3>
-        <p className="text-sm text-[var(--muted)] mt-1 mb-3">
-          Open registration and share a QR/code — each player enters their own name
-          {t.format === "golf" ? ", handicap," : ""} and photo. No typing for you.
-        </p>
-        <Button onClick={openRegistration} disabled={busy}>
+      <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <span className="text-sm">
+          <span className="font-semibold">Or let players add themselves</span>
+          <span className="text-[var(--muted)]">
+            {" "}
+            — share a QR/code, everyone types their own name
+            {t.format === "golf" ? " and handicap" : ""}.
+          </span>
+        </span>
+        <Button variant="outline" className="px-3 py-1.5 text-sm" onClick={openRegistration} disabled={busy}>
           {busy ? "Opening…" : "Open registration →"}
         </Button>
       </Card>

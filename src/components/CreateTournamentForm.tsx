@@ -43,6 +43,16 @@ const STYLE_HINTS: Partial<Record<PlayStyle, string>> = {
 };
 const OTHER = "__other__";
 const TEAM_SPORTS = new Set(["Flag Football", "Soccer", "Basketball", "Volleyball", "Spikeball"]);
+
+// The format a sport lands on before anyone chooses — picking a sport should be
+// enough to hit Create. The cards stay right there for people who want different.
+function defaultFormatFor(sport: string): Format {
+  const avail = formatsForSport(sport);
+  if (avail.includes("golf")) return "golf";
+  if (TEAM_SPORTS.has(sport) && avail.includes("single-elim")) return "single-elim";
+  if (avail.includes("score-challenge") && !avail.includes("swiss")) return "score-challenge";
+  return avail.includes("round-robin") ? "round-robin" : avail[0];
+}
 // The sports shown up-front in the picker (each has a custom SportIcon); the rest
 // live behind "More…". Order follows SPORTS.
 const PRIMARY_SPORTS = SPORTS.slice(0, 8);
@@ -111,11 +121,14 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
   // during render is the React-recommended way to react to a derived change.
   if (styleOptions.length && !styleOptions.includes(playStyle)) setPlayStyle(styleOptions[0]);
 
-  // Keep the selected format valid for the chosen sport.
+  // Picking a sport picks its natural format too (Pickleball → Round Robin,
+  // Basketball → Bracket, Golf → Traditional) — two taps to Create. Changing
+  // format afterwards is one tap on the cards below.
   useEffect(() => {
-    const avail = sportChoice === OTHER ? ALL_FORMATS : formatsForSport(sport);
-    if (!avail.includes(format)) setFormat(avail[0]);
-  }, [sportChoice, sport, format]);
+    setFormat(sportChoice === OTHER ? "round-robin" : defaultFormatFor(sport));
+    // Reacting to the SPORT only — a format the user then picks must stick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sportChoice, sport]);
 
   // Team sports default to the Teams play style (with rosters).
   useEffect(() => {
@@ -124,7 +137,13 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const id = createTournament({ name, sport, format, playStyle });
+    // No name typed? Name it like a person would — "Pickleball · Sep 8". It
+    // stays editable right on the tournament page.
+    const autoName = `${sport} · ${new Date().toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    })}`;
+    const id = createTournament({ name: name.trim() || autoName, sport, format, playStyle });
     onDone?.();
     router.push(`/t/${id}`);
   }
@@ -133,18 +152,12 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-6">
-      {/* Step 1 — name & sport */}
+      {/* Step 1 — the sport IS the decision. The name is optional and comes
+          after; no autofocus, so mobile doesn't open a keyboard over the chips. */}
       <section>
-        <StepHeader n={1} title="Name & sport" />
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Tournament name — e.g. Saturday Pickleball"
-          className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
-        />
+        <StepHeader n={1} title="Sport" />
         {/* Tappable sport chips (icon + label) instead of a native dropdown */}
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {sportChips.map((s) => {
             const on = sportChoice === s;
             return (
@@ -196,6 +209,12 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
             className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
           />
         )}
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={`Name (optional) — we'll call it "${sport} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}"`}
+          className="mt-2 w-full rounded-lg border px-3 py-2 text-sm bg-[var(--surface)]"
+        />
         {/* The finder is most useful right when Disc Golf is picked. */}
         {/disc\s*golf/i.test(sport) && (
           <Link

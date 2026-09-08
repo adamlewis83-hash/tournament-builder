@@ -161,6 +161,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
   // Raw text so the box can be cleared/edited freely; clamped to 2–64 only when used.
   // 4 by default — matches golf's sample and a real casual group; type 16 for a bracket.
   const [sampleN, setSampleN] = useState("4");
+  // Points/win-by/clock fold away — the per-sport defaults are right for most.
+  const [showScoring, setShowScoring] = useState(false);
   const sampleCount = Math.max(2, Math.min(64, Math.round(Number(sampleN) || 2)));
 
   // Host isn't automatically a player — let them add themselves from their profile.
@@ -230,10 +232,13 @@ export function SetupPanel({ t }: { t: Tournament }) {
   });
   const build = (list: { name: string; members: string[] }[]) =>
     list
-      .map((tm) => ({
+      .map((tm, i) => ({
+        // A roster without a typed name is still a team — "Team 3" beats being
+        // silently dropped for skipping a box nobody needed.
         name: isFixed
           ? tm.members.map((m) => m.trim()).filter(Boolean).join(" & ")
-          : tm.name.trim(),
+          : tm.name.trim() ||
+            (tm.members.some((m) => m.trim()) ? `Team ${i + 1}` : ""),
         members: tm.members.map((m) => m.trim()).filter(Boolean),
       }))
       .filter((tm) => tm.name);
@@ -807,36 +812,51 @@ export function SetupPanel({ t }: { t: Tournament }) {
             />
           )}
           {!golfSport && (
-            <>
-              <NumberField
-                label="Games to"
-                value={cfg.pointsTo}
-                min={1}
-                max={99}
-                onChange={(v) => setCfg({ pointsTo: v })}
-                hint="Scoring target — live scoring ends the game here"
-              />
-              <NumberField
-                label="Win by"
-                value={winMargin(cfg)}
-                min={1}
-                max={10}
-                onChange={(v) => setCfg({ winBy: v, winByTwo: undefined })}
-                hint={
-                  winMargin(cfg) > 1
-                    ? `Keeps playing at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by ${winMargin(cfg)}. 1 = first to ${cfg.pointsTo} wins.`
-                    : `First side to ${cfg.pointsTo} wins, even by one point. Set 2 for pickleball or tennis.`
-                }
-              />
-              <NumberField
-                label="Time limit (min)"
-                value={cfg.timeLimitMin ?? 0}
-                min={0}
-                max={180}
-                onChange={(v) => setCfg({ timeLimitMin: v })}
-                hint="0 = no clock. Points or time — whichever first"
-              />
-            </>
+            /* The defaults are right for most groups — one summary line, and the
+               three number boxes fold out only for hosts who want different. */
+            <div className="col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowScoring((v) => !v)}
+                className="text-sm font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+              >
+                {showScoring ? "▾" : "▸"} Scoring: games to {cfg.pointsTo}
+                {winMargin(cfg) > 1 ? `, win by ${winMargin(cfg)}` : ""}
+                {cfg.timeLimitMin ? ` · ${cfg.timeLimitMin} min clock` : ""}
+              </button>
+              {showScoring && (
+                <div className="mt-2 grid grid-cols-2 gap-4">
+                  <NumberField
+                    label="Games to"
+                    value={cfg.pointsTo}
+                    min={1}
+                    max={99}
+                    onChange={(v) => setCfg({ pointsTo: v })}
+                    hint="Scoring target — live scoring ends the game here"
+                  />
+                  <NumberField
+                    label="Win by"
+                    value={winMargin(cfg)}
+                    min={1}
+                    max={10}
+                    onChange={(v) => setCfg({ winBy: v, winByTwo: undefined })}
+                    hint={
+                      winMargin(cfg) > 1
+                        ? `Keeps playing at ${cfg.pointsTo}–${Math.max(0, cfg.pointsTo - 1)} until someone leads by ${winMargin(cfg)}. 1 = first to ${cfg.pointsTo} wins.`
+                        : `First side to ${cfg.pointsTo} wins, even by one point. Set 2 for pickleball or tennis.`
+                    }
+                  />
+                  <NumberField
+                    label="Time limit (min)"
+                    value={cfg.timeLimitMin ?? 0}
+                    min={0}
+                    max={180}
+                    onChange={(v) => setCfg({ timeLimitMin: v })}
+                    hint="0 = no clock. Points or time — whichever first"
+                  />
+                </div>
+              )}
+            </div>
           )}
           {t.format === "pool-bracket" && (
             <label className="block">
@@ -914,7 +934,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
           )}
         </div>
 
-        <div className="mt-auto pt-5">
+        {/* Sticky: the primary action never scrolls out of reach on a long form. */}
+        <div className="sticky bottom-0 z-10 mt-auto -mx-5 rounded-b-2xl bg-[var(--surface)]/95 px-5 pb-1 pt-4 backdrop-blur">
           {(t.format === "single-elim" || t.format === "double-elim") && (
             <h3 className="mb-1 font-semibold">Seed the bracket</h3>
           )}

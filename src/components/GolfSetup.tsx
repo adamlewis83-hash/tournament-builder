@@ -19,6 +19,7 @@ import {
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { canonicalName } from "@/lib/aliases";
+import { InfoTip } from "./InfoTip";
 import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
@@ -114,6 +115,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [tees, setTees] = useState<TeeSet[]>(t.golf?.tees ?? []);
   const [defaultTee, setDefaultTee] = useState<string | undefined>(undefined);
   const [teeForm, setTeeForm] = useState<{ name: string; rating: string; slope: string } | null>(null);
+  // The Course card folds to one line once a course is in hand — the longest
+  // stretch of the longest form, gone until someone taps Change.
+  const [courseOpen, setCourseOpen] = useState<boolean>(() => !(t.golf?.courseName ?? "").trim());
   const [teeFinding, setTeeFinding] = useState(false);
   const [teeFindMsg, setTeeFindMsg] = useState<string | null>(null);
   const [showCourse, setShowCourse] = useState(false);
@@ -294,6 +298,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setPars(c.pars);
     setSi(c.strokeIndex);
     setSegments(defaultSegments(c.holes, teamMode));
+    setCourseOpen(false);
   }
 
   function applyCourse(c: ImportedCourse) {
@@ -303,6 +308,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setPars(c.pars);
     setSi(c.strokeIndex);
     setSegments(defaultSegments(c.holes, teamMode));
+    setCourseOpen(false);
   }
 
   async function runSearch() {
@@ -320,6 +326,16 @@ export function GolfSetup({ t }: { t: Tournament }) {
       applyCourse(c);
       setResults([]);
       setQuery("");
+      // A searched course goes straight into the library (upserted by name):
+      // it's already in hand, and saving is what makes it show up in the
+      // per-round pickers and the next event — no save ritual to remember.
+      saveCourse({
+        name: c.name,
+        holes: Math.min(c.pars.length, 18),
+        pars: c.pars.slice(0, 18),
+        strokeIndex: c.strokeIndex.slice(0, 18),
+        tees: c.tees?.length ? c.tees : undefined,
+      });
     }
   }
 
@@ -452,6 +468,31 @@ export function GolfSetup({ t }: { t: Tournament }) {
             Manage courses
           </Link>
         </div>
+
+        {/* Folded: one line says everything that matters; Change reopens. */}
+        {!courseOpen && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--subtle)] px-3.5 py-2.5">
+            <span className="min-w-0 text-sm">
+              <span className="font-semibold">✓ {courseName.trim() || "Course set"}</span>
+              <span className="text-[var(--muted)]">
+                {" "}
+                · {holes} holes
+                {tees.length ? ` · ${tees.length} tee set${tees.length === 1 ? "" : "s"}` : ""}
+                {multiRoundable && roundCount > 1 ? ` · ${roundCount} rounds` : ""}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setCourseOpen(true)}
+              className="shrink-0 text-sm font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+            >
+              Change
+            </button>
+          </div>
+        )}
+        {courseOpen && (
+          <>
+
 
         {/* Disc golf isn't in the ball-golf course database — point at the OSM finder. */}
         {/disc\s*golf/i.test(t.sport) && (
@@ -955,13 +996,28 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </Button>
           <span className="text-xs text-[var(--muted)]">Reuse its pars &amp; stroke index next time.</span>
         </div>
+          </>
+        )}
       </Card>
 
       {/* Players + handicaps */}
       <Card className="p-5 order-3">
         <div className="flex items-center justify-between mb-1 gap-2">
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold">{teamsMode ? "Teams" : "Players & handicaps"}</h2>
+            <h2 className="flex items-center gap-1.5 font-semibold">
+              {teamsMode ? "Teams" : "Players & handicaps"}
+              {!teamsMode && (
+                <InfoTip label="What is a handicap" title="Handicaps, in plain words:">
+                  <p>
+                    A handicap index says how many strokes over par someone usually shoots — it
+                    lets a 20 play a 5 fairly by taking strokes off their score (&quot;net&quot;).
+                    Don&apos;t know yours? Leave it 0 and compete on raw (&quot;gross&quot;)
+                    score, or play a few rounds and Sporos grows a Seed Index for you in
+                    Settings.
+                  </p>
+                </InfoTip>
+              )}
+            </h2>
             {!teamsMode && profileName && (
               <button
                 type="button"
@@ -1277,7 +1333,8 @@ export function GolfSetup({ t }: { t: Tournament }) {
         )}
       </Card>
 
-      <div className="flex justify-end order-4">
+      {/* Sticky: the way out of a long form rides along instead of hiding at the bottom. */}
+      <div className="sticky bottom-0 z-10 order-4 -mx-1 flex justify-end bg-[var(--background)]/90 px-1 py-2.5 backdrop-blur">
         <Button onClick={handleGenerate} disabled={!valid} className="px-6 py-3">
           Start scorecard →
         </Button>
