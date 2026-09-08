@@ -159,7 +159,8 @@ export function SetupPanel({ t }: { t: Tournament }) {
 
   const [text, setText] = useState(t.participants.map((p) => p.name).join("\n"));
   // Raw text so the box can be cleared/edited freely; clamped to 2–64 only when used.
-  const [sampleN, setSampleN] = useState("16");
+  // 4 by default — matches golf's sample and a real casual group; type 16 for a bracket.
+  const [sampleN, setSampleN] = useState("4");
   const sampleCount = Math.max(2, Math.min(64, Math.round(Number(sampleN) || 2)));
 
   // Host isn't automatically a player — let them add themselves from their profile.
