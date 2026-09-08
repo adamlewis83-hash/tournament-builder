@@ -37,14 +37,15 @@ const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bron
 
 type Medalist = { name: string; firsts: number; seconds: number; thirds: number };
 
-// One medal step of the podium — shows EVERY player on that step, so a doubles duo
-// (two co-champions, or two runners-up) both appear instead of the group being cut off.
+// One step of the podium — shows EVERY player on that step, so a doubles duo
+// (two co-champions, or two runners-up) both appear instead of being cut off.
+// The riser says the RANK ("1st"), never a medal: this podium orders career
+// records, and a step full of gold-winners under a 🥈 read as nonsense.
 function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 }) {
   // Render nothing for an absent tier (e.g. no bronze/3rd-place match). The parent
   // centers whatever tiers exist, so a 1- or 1-2-place podium stays balanced instead
   // of leaving a detached empty column with a gap.
   if (!players.length) return null;
-  const medal = tier === 1 ? "🥇" : tier === 2 ? "🥈" : "🥉";
   const barH = tier === 1 ? "h-16" : tier === 2 ? "h-11" : "h-8";
   const barBg =
     tier === 1
@@ -54,9 +55,17 @@ function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 })
         : "border-orange-400 bg-orange-400/20";
   const show = players.slice(0, 4);
   const extra = players.length - show.length;
+  // What this step's record actually is, in medals: "1🥇 1🥈", zeros dropped.
+  const tally = (
+    [
+      [players[0].firsts, "🥇"],
+      [players[0].seconds, "🥈"],
+      [players[0].thirds, "🥉"],
+    ] as const
+  ).filter(([n]) => n > 0);
   return (
     <div className="flex w-24 flex-col items-center sm:w-28">
-      {/* The champion wears the crown; every step's medal sits in its riser (8a). */}
+      {/* The champion wears the crown. */}
       {tier === 1 ? <Crown className="h-5 w-5 text-amber-500" /> : <div className="h-5" />}
       <div className="mt-1 flex flex-wrap items-end justify-center gap-1">
         {show.map((p) => (
@@ -83,15 +92,19 @@ function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 })
         ))}
         {extra > 0 ? ` +${extra}` : ""}
       </div>
-      {/* The step's medal tally (ties share a step precisely because their records
-          match, so one line speaks for everyone on it) — makes the ordering legible. */}
-      <div className="text-[10px] text-[var(--muted)] tabular-nums">
-        {players[0].firsts} · {players[0].seconds} · {players[0].thirds}
+      {/* The step's shared record, as the medals themselves. */}
+      <div className="flex items-center gap-1 text-[10px] text-[var(--muted)] tabular-nums">
+        {tally.map(([n, e]) => (
+          <span key={e} className="inline-flex items-center gap-0.5">
+            {n}
+            <Emoji e={e} className="h-3 w-3" />
+          </span>
+        ))}
       </div>
       <div
-        className={`mt-1.5 flex w-full items-start justify-center rounded-t-md border-t-2 pt-1.5 ${barBg} ${barH}`}
+        className={`mt-1.5 flex w-full items-start justify-center rounded-t-md border-t-2 pt-1 text-[11px] font-extrabold text-[var(--muted)] ${barBg} ${barH}`}
       >
-        <Emoji e={medal} className={tier === 1 ? "h-5 w-5" : "h-4 w-4"} />
+        {tier === 1 ? "1st" : tier === 2 ? "2nd" : "3rd"}
       </div>
     </div>
   );
@@ -397,6 +410,7 @@ function RecordBook() {
   const allCompleted = tournaments.filter((t) => getResult(t).complete && hasCompetition(t));
   // Everything below the header narrows to one sport when a chip is picked.
   const [sport, setSport] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [profileName, setProfileName] = useState("");
   useEffect(() => setProfileName(canonicalName(getProfile().name.trim())), []);
 
@@ -431,6 +445,18 @@ function RecordBook() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Trophy className="h-6 w-6 text-amber-500" /> Trophy Room
+              <button
+                type="button"
+                aria-label="How the Trophy Room works"
+                onClick={() => setShowHelp((v) => !v)}
+                className={`grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold transition ${
+                  showHelp
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                ?
+              </button>
             </h1>
             <p className="text-sm text-[var(--muted)]">
               Every champion, streak, and rivalry you&apos;ve crowned.
@@ -456,6 +482,21 @@ function RecordBook() {
           )}
         </div>
       </div>
+
+      {showHelp && (
+        <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
+          <p className="mb-1 font-semibold text-[var(--foreground)]">
+            How to read this room — it&apos;s your group&apos;s career, across every finished event:
+          </p>
+          <ol className="list-decimal space-y-1 pl-4">
+            <li>An <b>event</b> is one completed tournament. Solo practice rounds don&apos;t count — nobody was beaten.</li>
+            <li><b>Reigning champion</b> — whoever won the most recent event. That&apos;s all it means.</li>
+            <li>The <b>podium</b> ranks career records: most golds, then silvers, then bronzes. Identical records share a step — a whole winning team can stand on one. It opens after 3 events; until then you get the plain champions list.</li>
+            <li>The <b>Hall of Fame</b> is the same ranking as a table. The three small numbers are gold / silver / bronze counts; the % is titles ÷ events, shown once someone has 3 events behind it.</li>
+            <li><b>Past events</b> is the concrete list — every event and who won it. Tap any name anywhere for their trophy case, where you can also merge a name typed two ways.</li>
+          </ol>
+        </div>
+      )}
 
       <ReigningChampion completed={allCompleted} />
 
@@ -512,6 +553,10 @@ function RecordBook() {
                 <PodiumTier players={golds} tier={1} />
                 <PodiumTier players={bronzes} tier={3} />
               </div>
+              <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
+                Best career records across every event — not one event&apos;s result. Matching
+                records share a step.
+              </p>
             </div>
           ) : (
             <ChampionsSoFar completed={completed} />
