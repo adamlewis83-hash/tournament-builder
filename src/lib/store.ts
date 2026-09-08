@@ -205,6 +205,20 @@ interface State {
   /** Set how many rounds the event runs. Round 1 stays the card in play. */
   setGolfRoundCount: (id: string, count: number) => void;
   switchGolfRound: (id: string, roundId: string) => void;
+  /** Put a round on a course — its card takes the course's holes, pars, stroke
+   *  index and tees (scores stay). Works on parked rounds, so setup can assign
+   *  every round's course up front instead of one switch-and-save at a time. */
+  setGolfRoundCourse: (
+    id: string,
+    roundId: string,
+    course: {
+      name: string;
+      holes: number;
+      pars: number[];
+      strokeIndex: number[];
+      tees?: import("./types").TeeSet[];
+    },
+  ) => void;
   renameGolfRound: (id: string, roundId: string, name: string) => void;
   removeGolfRound: (id: string, roundId: string) => void;
   setGolfAward: (
@@ -1610,6 +1624,51 @@ export const useStore = create<State>()(
                 tees: target.tees,
                 scores: target.scores,
                 stats: target.stats,
+              },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfRoundCourse: (id, roundId, course) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const withLive = g.rounds!.map((r) => (r.id === live.id ? { ...live, name: r.name } : r));
+            const rounds = withLive.map((r) =>
+              r.id === roundId
+                ? {
+                    ...r,
+                    holes: course.holes,
+                    startHole: 1,
+                    courseName: course.name,
+                    pars: [...course.pars],
+                    strokeIndex: [...course.strokeIndex],
+                    tees: course.tees ? course.tees.map((x) => ({ ...x })) : undefined,
+                  }
+                : r,
+            );
+            // The live card mirrors its round, so a course change to the round
+            // being played lands on the card too.
+            const active = rounds.find((r) => r.id === g.roundId) ?? rounds[0];
+            return {
+              ...t,
+              golf: {
+                ...g,
+                rounds,
+                holes: active.holes,
+                startHole: active.startHole,
+                courseName: active.courseName,
+                pars: active.pars,
+                strokeIndex: active.strokeIndex,
+                tees: active.tees,
+                scores: active.scores,
+                stats: active.stats,
               },
               updatedAt: Date.now(),
             };

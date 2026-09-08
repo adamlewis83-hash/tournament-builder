@@ -77,6 +77,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const patch = useStore((s) => s.patchTournament);
   const setGolfPlayers = useStore((s) => s.setGolfPlayers);
   const setGolfRoundCount = useStore((s) => s.setGolfRoundCount);
+  const setGolfRoundCourse = useStore((s) => s.setGolfRoundCourse);
   const courses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
   const saveFriend = useStore((s) => s.saveFriend);
@@ -92,6 +93,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // A multi-round event: several rounds, each its own card and course, added up
   // into one leaderboard. One round is the ordinary golf tournament.
   const [roundCount, setRoundCount] = useState<number>(t.golf?.rounds?.length ?? 1);
+  // Per-round course picks (round index → saved-course id). "" = leave it: a
+  // new round plays the course this form sets; an existing round keeps its own.
+  const [roundCourses, setRoundCourses] = useState<Record<number, string>>({});
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
   );
@@ -382,6 +386,21 @@ export function GolfSetup({ t }: { t: Tournament }) {
     // Rounds last: it reshapes the event around the card that was just saved,
     // and round 1 keeps that card.
     setGolfRoundCount(t.id, multiRoundable ? roundCount : 1);
+    // Then each round the host assigned a course to gets it — all from this one
+    // save, no switch-and-reopen tour through the rounds.
+    if (multiRoundable && roundCount > 1) {
+      const fresh = useStore.getState().tournaments.find((x) => x.id === t.id)?.golf;
+      const rounds = fresh?.rounds ?? [];
+      const activeId = fresh?.roundId;
+      for (const [idxStr, courseId] of Object.entries(roundCourses)) {
+        const idx = Number(idxStr);
+        const round = rounds[idx];
+        const course = courses.find((c) => c.id === courseId);
+        // The round the form is standing in already got the form's course.
+        if (!round || !course || round.id === activeId) continue;
+        setGolfRoundCourse(t.id, round.id, course);
+      }
+    }
     // The Start button sits at the bottom of a long form; the scorecard that
     // replaces it inherits that scroll offset and opens at the page bottom.
     // Scroll now and once more after the re-render commits (not rAF — that
@@ -562,8 +581,57 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 <p className="mt-1.5 text-xs text-[var(--muted)]">
                   {roundCount === 1
                     ? "One round — the usual golf tournament."
-                    : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins. Every round starts on this course — switch to a round and re-open setup to give it its own.`}
+                    : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
                 </p>
+                {/* Every round's course, assigned right here — a three-course
+                    trip shouldn't take three trips through setup. */}
+                {roundCount > 1 && (
+                  <div className="mt-2 space-y-1.5">
+                    {Array.from({ length: roundCount }, (_, i) => i).map((i) => {
+                      const existing = t.golf?.rounds?.[i];
+                      const activeId = t.golf?.roundId;
+                      const isActive = existing ? existing.id === activeId : i === 0 && !t.golf?.rounds?.length;
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="w-16 shrink-0 text-xs font-medium text-[var(--muted)]">
+                            Round {i + 1}
+                          </span>
+                          {isActive ? (
+                            <span className="text-xs text-[var(--muted)]">
+                              {courseName.trim() || "the course below"}{" "}
+                              <span className="opacity-70">— set by the Course form</span>
+                            </span>
+                          ) : (
+                            <select
+                              value={roundCourses[i] ?? ""}
+                              onChange={(e) =>
+                                setRoundCourses((m) => ({ ...m, [i]: e.target.value }))
+                              }
+                              className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                            >
+                              <option value="">
+                                {existing
+                                  ? `Keep: ${existing.courseName?.trim() || "same course"}`
+                                  : "Same course as round 1"}
+                              </option>
+                              {courses.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name} ({c.holes})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {courses.length === 0 && (
+                      <p className="text-[10px] text-[var(--muted)]">
+                        Different course each day? Search it below and save it to your library —
+                        saved courses show up in these pickers.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {holes === 9 && (
