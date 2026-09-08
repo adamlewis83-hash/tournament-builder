@@ -8,7 +8,7 @@
 
 import { canonicalName } from "./aliases";
 import type { RoundScore } from "./handicap";
-import { getProfile, type StartingIndex } from "./profile";
+import { getProfile, PROFILE_EVENT, type StartingIndex } from "./profile";
 
 export interface PastRound {
   id: string;
@@ -39,6 +39,9 @@ function save(list: PastRound[]) {
   } catch {
     /* storage full or blocked — the round simply isn't kept */
   }
+  // Same signal a profile save sends: these rounds feed the index the same way
+  // the starting index does, and SeedIndexSync listens for it.
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PROFILE_EVENT));
 }
 
 export function addPastRound(r: Omit<PastRound, "id">): PastRound {
