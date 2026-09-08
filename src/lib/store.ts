@@ -223,6 +223,10 @@ interface State {
     },
     defaultTee?: string,
   ) => void;
+  /** Give one round its own game (stroke / stableford / skins…). On the round
+   *  in play it also becomes the event's live mode. Rounds with different games
+   *  score the event a point per round won. */
+  setGolfRoundMode: (id: string, roundId: string, mode: import("./types").GolfMode) => void;
   renameGolfRound: (id: string, roundId: string, name: string) => void;
   removeGolfRound: (id: string, roundId: string) => void;
   setGolfAward: (
@@ -1737,6 +1741,10 @@ export const useStore = create<State>()(
             if (!target) return t;
             return {
               ...t,
+              // The card in play and the game in play move together: a round
+              // that carries its own mode brings it along (rounds without one
+              // play the event's game and leave config alone).
+              config: target.mode ? { ...t.config, golfMode: target.mode } : t.config,
               golf: {
                 ...g,
                 rounds,
@@ -1755,6 +1763,24 @@ export const useStore = create<State>()(
                 wolf: undefined,
                 vegasPairs: undefined,
               },
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfRoundMode: (id, roundId, mode) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length) return t;
+            const g = t.golf;
+            const rounds = g.rounds!.map((r) => (r.id === roundId ? { ...r, mode } : r));
+            return {
+              ...t,
+              config: g.roundId === roundId ? { ...t.config, golfMode: mode } : t.config,
+              golf: { ...g, rounds },
               updatedAt: Date.now(),
             };
           }),

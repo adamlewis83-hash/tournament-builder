@@ -57,7 +57,7 @@ import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
 import { autoSummary, deriveHole, gameMetrics, gameTakeaway, roundInsights, roundStats, sumStats } from "./src/lib/golfStats";
-import { eventComplete, eventStandings, isMultiRound, roundCards } from "./src/lib/golfRounds";
+import { eventComplete, eventStandings, isMultiRound, mixedRoundModes, roundCards, roundPointsStandings } from "./src/lib/golfRounds";
 import {
   formatsForSport,
   SPORTS,
@@ -1141,6 +1141,70 @@ check("golf multi-round — every finished round feeds the index", () => {
   assert(cards.map((c) => c.gross).join(",") === "90,108,126", `grosses: ${cards.map((c) => c.gross)}`);
   // Three differentials is exactly the point where an index exists.
   assert(seedIndexForPlayer([t], "Scratch").index != null, "three rounds should produce an index");
+});
+
+// ---- Mixed-game rounds: stroke Friday, Stableford Saturday, skins Sunday ---
+check("golf multi-round — rounds with different games score a point per round won", () => {
+  const P: Participant[] = [
+    { id: "a", name: "P1", handicap: 0 },
+    { id: "b", name: "P2", handicap: 0 },
+  ];
+  const base = defaultGolf(9, ["a", "b"]);
+  const mk = (id: string, mode: string, sa: number[], sb: number[]) => ({
+    id,
+    name: id,
+    mode,
+    holes: 9,
+    pars: base.pars,
+    strokeIndex: base.strokeIndex,
+    scores: { a: sa, b: sb },
+  });
+  const pars = base.pars;
+  // R1 stroke: P1 shoots level, P2 two over → P1 wins the round.
+  const r1 = mk("r1", "stroke", pars.slice(), pars.map((p, i) => p + (i < 2 ? 1 : 0)));
+  // R2 stableford: P2 pars everything (18 pts), P1 bogeys everything (9) → P2.
+  const r2 = mk("r2", "stableford", pars.map((p) => p + 1), pars.slice());
+  // R3 skins (live card): all holes tied except hole 1 to P2 → P2 takes it.
+  const r3 = mk("r3", "skins", pars.slice(), pars.map((p, i) => (i === 0 ? p - 1 : p)));
+  const golf = {
+    ...base,
+    scores: r3.scores,
+    rounds: [r1, r2, { ...r3, scores: {} }],
+    roundId: "r3",
+  };
+  const t = tour({ format: "golf", participants: P, golf, config: cfg({ golfMode: "skins" }) }) as Tournament;
+
+  assert(mixedRoundModes(t), "three games should read as mixed rounds");
+  const rows = roundPointsStandings(t);
+  assert(rows[0].name === "P2" && rows[0].points === 2 && rows[0].roundsLed === 2, `P2 row ${JSON.stringify(rows[0])}`);
+  assert(rows[1].name === "P1" && rows[1].points === 1, `P1 row ${JSON.stringify(rows[1])}`);
+  assert(rows[0].rounds[1].won && rows[0].rounds[1].value === 18, "stableford round cell wrong");
+  assert(rows[0].rounds[2].won && rows[0].rounds[2].value >= 1, "skins round cell wrong");
+
+  const res = getResult(t);
+  assert(res.complete && res.winner === "P2", `mixed-rounds result ${JSON.stringify(res)}`);
+  const placements = getPlacements(t);
+  assert(placements[0].names[0] === "P2" && placements[0].medal === "gold", "placements should follow round points");
+
+  // An unfinished round pays out nothing — and holds the event open.
+  const openGolf = {
+    ...golf,
+    scores: { a: r3.scores.a, b: r3.scores.b.map((v: number, i: number) => (i === 8 ? null : v)) },
+  };
+  const t2 = tour({ format: "golf", participants: P, golf: openGolf, config: cfg({ golfMode: "skins" }) }) as Tournament;
+  const open = roundPointsStandings(t2);
+  const p2 = open.find((r) => r.name === "P2")!;
+  assert(p2.points === 1 && !p2.rounds[2].won, "an unfinished round must not award its point");
+  assert(!getResult(t2).complete, "event closed with a round unfinished");
+
+  // Uniform rounds stay a summed total, not points.
+  const uni = tour({
+    format: "golf",
+    participants: P,
+    golf: { ...golf, rounds: [ { ...r1 }, { ...mk("r2b", "stroke", r2.scores.a, r2.scores.b) }, { ...r3, mode: "stroke", scores: {} } ] },
+    config: cfg({ golfMode: "stroke" }),
+  }) as Tournament;
+  assert(!mixedRoundModes(uni), "same game everywhere is not mixed");
 });
 
 // ---- A nine is half a round, so it is half a handicap --------------------

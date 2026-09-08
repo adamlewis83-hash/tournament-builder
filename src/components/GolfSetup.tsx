@@ -40,7 +40,7 @@ const MODE_GROUPS: { label: string; hint: string; modes: GolfMode[] }[] = [
   },
   {
     label: "Mix it up",
-    hint: "A different game every few holes",
+    hint: "One round, a different game every few holes",
     modes: ["mixed"],
   },
 ];
@@ -78,6 +78,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const setGolfPlayers = useStore((s) => s.setGolfPlayers);
   const setGolfRoundCount = useStore((s) => s.setGolfRoundCount);
   const setGolfRoundCourse = useStore((s) => s.setGolfRoundCourse);
+  const setGolfRoundMode = useStore((s) => s.setGolfRoundMode);
   const courses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
   const saveFriend = useStore((s) => s.saveFriend);
@@ -98,6 +99,10 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const [roundCourses, setRoundCourses] = useState<Record<number, string>>({});
   // Per-round default tee (round index → tee-set name on that round's course).
   const [roundTees, setRoundTees] = useState<Record<number, string>>({});
+  // Per-round game (round index → GolfMode; "" = the event's game). Stroke
+  // Friday, stableford Saturday, skins Sunday — the event then scores a point
+  // per round won, the same rule Build Your Own uses across hole segments.
+  const [roundModes, setRoundModes] = useState<Record<number, string>>({});
   const [roundsHelp, setRoundsHelp] = useState(false);
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
@@ -403,6 +408,16 @@ export function GolfSetup({ t }: { t: Tournament }) {
         if (!round || !course || round.id === activeId) continue;
         setGolfRoundCourse(t.id, round.id, course, roundTees[idx] || undefined);
       }
+      // Per-round games. As long as every pick says "same game", modes stay
+      // unset and the whole event follows the Scoring picker like it always
+      // has. The moment one round differs, every round takes an explicit game
+      // so switching rounds always knows what it's walking into.
+      if (Object.values(roundModes).some((v) => v && v !== mode)) {
+        rounds.forEach((round, idx) => {
+          const m = round.id === activeId ? mode : roundModes[idx] || mode;
+          setGolfRoundMode(t.id, round.id, m as GolfMode);
+        });
+      }
     }
     // The Start button sits at the bottom of a long form; the scorecard that
     // replaces it inherits that scroll offset and opens at the page bottom.
@@ -565,6 +580,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                       <li><b>Round 1</b> plays the course in the Course section below.</li>
                       <li>Playing other courses? Search each one below and tap <b>Save course</b> — saved courses appear in the round pickers here, each with its tees.</li>
                       <li>The <b>tees</b> you pick for a round are its default: a player whose own tee pick exists on that course keeps it; everyone else plays the round&apos;s tees.</li>
+                      <li>Each round can play its <b>own game</b> — stroke Friday, Stableford Saturday, Skins Sunday. When games differ, winning a round earns a point (ties split it) and most points takes the event.</li>
                       <li>During the event, the <b>round bar</b> at the top switches rounds. Anything about the round you&apos;re standing in — course, tees, even mid-trip changes — is editable from <b>Edit setup</b>.</li>
                     </ol>
                   </div>
@@ -670,6 +686,22 @@ export function GolfSetup({ t }: { t: Tournament }) {
                                       {x.name} tees
                                     </option>
                                   ))}
+                                </select>
+                              )}
+                              {!isScramble && (
+                                <select
+                                  value={roundModes[i] ?? ""}
+                                  onChange={(e) =>
+                                    setRoundModes((m) => ({ ...m, [i]: e.target.value }))
+                                  }
+                                  aria-label={`Round ${i + 1} game`}
+                                  className="w-28 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                                >
+                                  <option value="">Same game</option>
+                                  <option value="stroke">Stroke Play</option>
+                                  <option value="stableford">Stableford</option>
+                                  <option value="skins">Skins</option>
+                                  <option value="nassau">Nassau</option>
                                 </select>
                               )}
                             </>

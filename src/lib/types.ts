@@ -81,7 +81,8 @@ export const GOLF_MODE_BLURBS: Record<GolfMode, string> = {
   nassau: "Three matches in one — front 9, back 9, and overall 18 — each scored as net match play.",
   bingo: "A point for first on the green (bingo), closest to the pin once all are on (bango), and first in the hole (bongo).",
   wolf: "Each hole one player is the 'Wolf' and picks a partner after the tee shots — or plays alone (Lone Wolf) for bigger points.",
-  mixed: "Build Your Own: assign a different game to each stretch of holes; the winner of each segment earns a point.",
+  mixed:
+    "Build Your Own: ONE round that changes games every few holes — e.g. 6 stroke, 6 Stableford, 6 skins. Each stretch's winner earns a point; most points wins the round. (Playing different games on different DAYS instead? Pick Stroke Play and add Rounds — each round can take its own game.)",
 };
 
 // How a golf card is read into a result. "match" needs exactly two sides on the card
@@ -283,6 +284,11 @@ export interface RaceData {
 export interface GolfRoundCard {
   id: string;
   name: string; // "Round 1", or whatever the host calls the day
+  /** This round's game (stroke, stableford, skins…). Absent = the event's own
+   *  mode — every round before per-round games existed plays uniform. When
+   *  rounds differ, the event is scored a point per round won, ties split —
+   *  the same rule Build Your Own uses across hole segments. */
+  mode?: GolfMode;
   holes: number;
   startHole?: number;
   courseName?: string;

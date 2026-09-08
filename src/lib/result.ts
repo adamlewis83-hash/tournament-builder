@@ -4,7 +4,7 @@ import { bracketChampion } from "./bracket";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { cupScore } from "./ryderGolf";
 import { computeBbb, computeGolf, computeMixedOverall, computeVegas, mixedComplete } from "./golf";
-import { eventComplete, eventStandings, isMultiRound } from "./golfRounds";
+import { eventComplete, eventStandings, isMultiRound, mixedRoundModes, roundPointsStandings } from "./golfRounds";
 import { raceResult } from "./race";
 
 export interface TournamentResult {
@@ -109,9 +109,18 @@ export function getResult(t: Tournament): TournamentResult {
     }
     // A multi-round event isn't over until the last hole of the last round, and
     // the winner is the lowest total across all of them — the round in play
-    // decides nothing on its own.
+    // decides nothing on its own. Rounds playing DIFFERENT games can't share a
+    // total, so that event is a point per round won: most points is champion,
+    // and an even split crowns everyone holding the top share.
     if (isMultiRound(t)) {
       if (!eventComplete(t)) return none;
+      if (mixedRoundModes(t)) {
+        const rows = roundPointsStandings(t);
+        const top = rows[0]?.points ?? 0;
+        if (top <= 0) return none;
+        const winners = rows.filter((r) => r.points === top).map((r) => r.name);
+        return { complete: true, winner: winners.join(" & ") };
+      }
       const rows = eventStandings(t, "net");
       return { complete: true, winner: rows[0]?.name ?? null };
     }

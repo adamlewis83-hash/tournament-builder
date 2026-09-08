@@ -28,7 +28,14 @@ import { colorFor, photoFor } from "@/lib/colors";
 import { autoSummary, deriveHole, roundInsights, roundStats } from "@/lib/golfStats";
 import { seedIndexForPlayer } from "@/lib/handicap";
 import { indexInputsFor } from "@/lib/pastRounds";
-import { eventStandings, isMultiRound, roundCards } from "@/lib/golfRounds";
+import {
+  eventStandings,
+  isMultiRound,
+  mixedRoundModes,
+  roundCards,
+  roundMode,
+  roundPointsStandings,
+} from "@/lib/golfRounds";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "./ui";
 import { Avatar } from "./Avatar";
@@ -1153,6 +1160,12 @@ function RoundBar({ t }: { t: Tournament }) {
                     ? `✓ ${c.courseName || "complete"}`
                     : `${Math.round((100 * done) / total)}% in`}
               </span>
+              {/* When rounds play different games, the chip says which. */}
+              {mixedRoundModes(t) && (
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  {GOLF_MODE_LABELS[roundMode(t, c)].replace(/\s*\(.*\)$/, "")}
+                </span>
+              )}
             </button>
           );
         })}
@@ -1167,6 +1180,103 @@ function RoundBar({ t }: { t: Tournament }) {
       <p className="mt-0.5 text-[11px] text-[var(--muted)]">
         Scoring {cards.find((c) => c.id === g.roundId)?.name ?? "this round"} — every round adds up
         into the event leaderboard below. Edit setup to give this round its own course.
+      </p>
+    </div>
+  );
+}
+
+// When rounds play different games (stroke Friday, Stableford Saturday, skins
+// Sunday), strokes and points can't share a total — so the event is a point
+// per round won, ties split, most points takes it. Same rule Build Your Own
+// applies to hole segments, lifted to rounds.
+function RoundPointsBoard({ t }: { t: Tournament }) {
+  const cards = roundCards(t);
+  const rows = roundPointsStandings(t);
+  const modeShort = (m: string) =>
+    m === "stableford" ? "Stbl" : m === "skins" ? "Skins" : m === "nassau" ? "Nassau" : "Stroke";
+  const cellText = (c: (typeof rows)[number]["rounds"][number]) => {
+    if (c.thru === 0) return "–";
+    if (c.mode === "stableford") return `${c.value}p`;
+    if (c.mode === "skins") return `${c.value}sk`;
+    return String(c.value);
+  };
+  const fmtPts = (p: number) => (Number.isInteger(p) ? String(p) : p.toFixed(1).replace(/\.0$/, ""));
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
+      <div className="border-b border-[var(--border)] px-4 py-2.5">
+        <span className="text-sm font-bold">
+          Event leaderboard{" "}
+          <span className="font-normal text-[var(--muted)]">
+            · {cards.length} rounds, each its own game
+          </span>
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--subtle)] text-left text-[var(--muted)]">
+              <th className="px-3 py-2 w-8">#</th>
+              <th className="px-2 py-2">Player</th>
+              {cards.map((c, i) => (
+                <th key={c.id} className="px-2 py-2 text-center w-14 font-medium" title={c.courseName ?? ""}>
+                  {c.name?.match(/^Round (\d+)$/) ? `R${i + 1}` : c.name || `R${i + 1}`}
+                  <span className="block text-[9px] font-normal opacity-80">
+                    {modeShort(roundMode(t, c))}
+                  </span>
+                </th>
+              ))}
+              <th className="px-2 py-2 text-center w-12">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr
+                key={r.participantId}
+                className={`border-b border-[var(--border)] last:border-0 ${
+                  i === 0 && r.points > 0 ? "bg-[var(--win-bg)]" : ""
+                }`}
+              >
+                <td className="px-3 py-2 font-bold text-[var(--muted)] tabular-nums">
+                  {r.thru ? i + 1 : "–"}
+                </td>
+                <td className="px-2 py-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Avatar
+                      name={r.name}
+                      color={colorFor(t.participants, r.participantId)}
+                      photo={photoFor(t.participants, r.participantId)}
+                      className="h-6 w-6 text-[10px]"
+                    />
+                    <span className="truncate">{r.name}</span>
+                  </span>
+                </td>
+                {r.rounds.map((c) => (
+                  <td
+                    key={c.roundId}
+                    className={`px-2 py-2 text-center tabular-nums ${
+                      c.won ? "font-bold text-[var(--brand)]" : "text-[var(--muted)]"
+                    }`}
+                  >
+                    {c.won ? "★ " : ""}
+                    {cellText(c)}
+                    {c.thru > 0 && c.thru < c.holes && (
+                      <span className="block text-[9px] leading-none">thru {c.thru}</span>
+                    )}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-center font-extrabold tabular-nums">
+                  {fmtPts(r.points)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="px-4 py-2 text-[11px] text-[var(--muted)]">
+        Each round is its own game — win the round (lowest net for stroke, most points for
+        Stableford, most skins for Skins), take the point; a tie splits it. Most points after the
+        last round is champion. A round pays out only once everyone has finished it.
       </p>
     </div>
   );
@@ -1751,7 +1861,12 @@ export function GolfView({ t }: { t: Tournament }) {
 
       {/* The event board first — in a multi-round tournament it is the one that
           decides the trip; the round board below is today's play. */}
-      {isMultiRound(t) && mode !== "stableford" && mode !== "skins" && <EventLeaderboard t={t} />}
+      {isMultiRound(t) &&
+        (mixedRoundModes(t) ? (
+          <RoundPointsBoard t={t} />
+        ) : (
+          mode !== "stableford" && mode !== "skins" && <EventLeaderboard t={t} />
+        ))}
 
       {/* Leaderboard — 7c live board (four lenses) for per-player rounds; team
           and Vegas cards keep their own tables, and Nassau keeps its totals. */}

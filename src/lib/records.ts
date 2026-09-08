@@ -1,7 +1,7 @@
 import { Match, Tournament } from "./types";
 import { computeStandings, pointsLeaderboard } from "./standings";
 import { computeBbb, computeGolf, computeMixedOverall } from "./golf";
-import { eventStandings, isMultiRound } from "./golfRounds";
+import { eventStandings, isMultiRound, mixedRoundModes, roundPointsStandings } from "./golfRounds";
 import { cupScore } from "./ryderGolf";
 import { bracketChampion } from "./bracket";
 import { getResult } from "./result";
@@ -119,9 +119,13 @@ function golfNames(t: Tournament): string[] {
   if (!g) return [];
   if (t.config.golfMode === "mixed") return computeMixedOverall(t, g.segments ?? []).map((r) => r.name);
   if (t.config.golfMode === "bingo") return computeBbb(t).map((r) => r.name);
-  // A multi-round event places on the event total, not on the round in play.
-  if (isMultiRound(t) && t.config.golfMode !== "stableford" && t.config.golfMode !== "skins")
-    return eventStandings(t, "net").map((r) => r.name);
+  // A multi-round event places on the event total, not on the round in play —
+  // and rounds playing different games place on round points won.
+  if (isMultiRound(t)) {
+    if (mixedRoundModes(t)) return roundPointsStandings(t).map((r) => r.name);
+    if (t.config.golfMode !== "stableford" && t.config.golfMode !== "skins")
+      return eventStandings(t, "net").map((r) => r.name);
+  }
   return computeGolf(t, t.config.golfMode).map((r) => r.name);
 }
 

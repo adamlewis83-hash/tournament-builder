@@ -7,13 +7,17 @@
 // top of it — the other rounds, the per-round splits, and the running total.
 
 import { computeGolf, type GolfRow } from "./golf";
-import type { GolfData, GolfRoundCard, Tournament } from "./types";
+import type { GolfData, GolfMode, GolfRoundCard, Tournament } from "./types";
 
-/** The live card, as a round. */
+/** The live card, as a round. The card itself doesn't know its game — that
+ *  lives on the rounds entry (and config.golfMode for the one in play), so
+ *  everywhere the live card is merged back over its round must keep r.mode. */
 export function liveCard(g: GolfData): GolfRoundCard {
+  const parked = g.rounds?.find((r) => r.id === g.roundId);
   return {
     id: g.roundId ?? "r1",
-    name: g.rounds?.find((r) => r.id === g.roundId)?.name ?? "Round 1",
+    name: parked?.name ?? "Round 1",
+    mode: parked?.mode,
     holes: g.holes,
     startHole: g.startHole,
     courseName: g.courseName,
@@ -167,11 +171,133 @@ export function eventComplete(t: Tournament): boolean {
   );
 }
 
+/** The game a round plays: its own, or the event's when it never picked one. */
+export const roundMode = (t: Tournament, card: GolfRoundCard): GolfMode =>
+  card.mode ?? t.config.golfMode;
+
+/** Do this event's rounds play different games (stroke Friday, stableford
+ *  Saturday, skins Sunday)? Different games can't share a stroke total, so the
+ *  event is scored a point per round won instead — Build Your Own's rule,
+ *  applied to rounds instead of hole segments. */
+export function mixedRoundModes(t: Tournament): boolean {
+  if (!isMultiRound(t)) return false;
+  const modes = new Set(roundCards(t).map((c) => roundMode(t, c)));
+  return modes.size > 1;
+}
+
+export interface RoundPointCell {
+  roundId: string;
+  mode: GolfMode;
+  thru: number;
+  holes: number;
+  /** The round's own number: strokes (net) for stroke/nassau, points for
+   *  stableford, skins for skins. */
+  value: number;
+  gross: number;
+  done: boolean; // the whole field has finished this round
+  won: boolean; // this player took (a share of) the round
+}
+
+export interface RoundPointsRow {
+  participantId: string;
+  name: string;
+  rounds: RoundPointCell[];
+  points: number; // 1 per round won, split on ties
+  roundsLed: number;
+  thru: number;
+}
+
+/** Has the whole field finished this round? A round only awards its point once
+ *  nobody can take it back. */
+const roundDone = (t: Tournament, c: GolfRoundCard): boolean =>
+  t.participants.length > 0 &&
+  t.participants.every((p) => {
+    const card = c.scores[p.id] ?? [];
+    for (let h = 0; h < c.holes; h++) if (card[h] == null) return false;
+    return true;
+  });
+
+/**
+ * The event board when rounds play different games: each finished round hands
+ * one point to its winner — highest stableford, most skins, lowest net for the
+ * stroke games — split on a tie, exactly as Build Your Own scores its hole
+ * segments. Most points takes the event.
+ */
+export function roundPointsStandings(t: Tournament): RoundPointsRow[] {
+  const cards = roundCards(t);
+  const points = new Map<string, number>();
+  const led = new Map<string, number>();
+  const cells = new Map<string, RoundPointCell[]>();
+  t.participants.forEach((p) => {
+    points.set(p.id, 0);
+    led.set(p.id, 0);
+    cells.set(p.id, []);
+  });
+
+  for (const c of cards) {
+    const mode = roundMode(t, c);
+    const engineMode = mode === "stableford" || mode === "skins" ? mode : "stroke";
+    const rows = new Map(
+      computeGolf(tournamentForRound(t, c), engineMode).map((r) => [r.participantId, r]),
+    );
+    const done = roundDone(t, c);
+
+    let winners: string[] = [];
+    if (done) {
+      const played = [...rows.values()].filter((r) => r.thru > 0);
+      if (mode === "stableford") {
+        const best = Math.max(...played.map((r) => r.stableford));
+        winners = played.filter((r) => r.stableford === best).map((r) => r.participantId);
+      } else if (mode === "skins") {
+        const best = Math.max(...played.map((r) => r.skins));
+        if (best > 0) winners = played.filter((r) => r.skins === best).map((r) => r.participantId);
+      } else {
+        const best = Math.min(...played.map((r) => r.net));
+        winners = played.filter((r) => r.net === best).map((r) => r.participantId);
+      }
+    }
+    const share = winners.length ? 1 / winners.length : 0;
+    for (const id of winners) {
+      points.set(id, (points.get(id) ?? 0) + share);
+      led.set(id, (led.get(id) ?? 0) + 1);
+    }
+    for (const p of t.participants) {
+      const r = rows.get(p.id);
+      cells.get(p.id)!.push({
+        roundId: c.id,
+        mode,
+        thru: r?.thru ?? 0,
+        holes: c.holes,
+        value:
+          mode === "stableford" ? (r?.stableford ?? 0) : mode === "skins" ? (r?.skins ?? 0) : (r?.net ?? 0),
+        gross: r?.gross ?? 0,
+        done,
+        won: winners.includes(p.id),
+      });
+    }
+  }
+
+  return t.participants
+    .map((p) => ({
+      participantId: p.id,
+      name: p.name,
+      rounds: cells.get(p.id) ?? [],
+      points: points.get(p.id) ?? 0,
+      roundsLed: led.get(p.id) ?? 0,
+      thru: (cells.get(p.id) ?? []).reduce((a, c) => a + c.thru, 0),
+    }))
+    .sort(
+      (a, b) =>
+        b.points - a.points || b.roundsLed - a.roundsLed || b.thru - a.thru || a.name.localeCompare(b.name),
+    );
+}
+
 /** A fresh round for an event: the same course as the round given, no scores. */
 export function blankRound(from: GolfRoundCard, id: string, name: string): GolfRoundCard {
   return {
     id,
     name,
+    mode: from.mode,
     holes: from.holes,
     startHole: from.startHole,
     courseName: from.courseName,
