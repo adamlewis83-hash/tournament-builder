@@ -70,21 +70,10 @@ function ProfileSetting() {
   }, []);
   const [pending, setPending] = useState<File | null>(null);
   const [choosing, setChoosing] = useState(false);
-  const tournaments = useStore((s) => s.tournaments);
   function save(next: Profile) {
     setProf(next);
     setProfile(next);
   }
-  // While auto-update owns the handicap, the box is a display, not an input —
-  // anything typed there would be snapped back after the next round anyway.
-  const autoOwnsHandicap =
-    prof.seedIndexAuto &&
-    !!prof.name.trim() &&
-    seedIndexForPlayer(
-      applyAliases(tournaments),
-      canonicalName(prof.name.trim()),
-      indexInputsFor(prof.name.trim()),
-    ).index != null;
   return (
     <div className="flex items-center gap-3">
       {choosing && (
@@ -128,28 +117,6 @@ function ProfileSetting() {
           placeholder="Your player name"
           className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm bg-[var(--surface)]"
         />
-        <div className="mt-2 flex items-center gap-2">
-          <span className="text-xs font-medium text-[var(--muted)]">Golf handicap</span>
-          <input
-            type="number"
-            step="0.1"
-            inputMode="decimal"
-            value={prof.golfHandicap ?? ""}
-            disabled={autoOwnsHandicap}
-            onChange={(e) =>
-              save({
-                ...prof,
-                golfHandicap: e.target.value === "" ? null : Number(e.target.value),
-              })
-            }
-            placeholder="—"
-            className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm text-center bg-[var(--surface)] disabled:opacity-60"
-          />
-          <span className="text-[10px] text-[var(--muted)]">
-            {autoOwnsHandicap ? "kept current by your Seed Index" : "auto-fills golf events"}
-          </span>
-        </div>
-        <SeedIndexAdopt prof={prof} save={save} />
         <p className="mt-1 text-xs text-[var(--muted)]">
           Tap the circle to pick your color or add a photo. Everything here auto-loads onto you
           (matched by this name) in tournaments you start, and pre-fills when you join by code.
@@ -228,15 +195,10 @@ export default function SettingsPage() {
         <ProfileSetting />
       </Card>
 
-      {/* The Seed Index lives with the handicap it feeds — this is a setting
-          about you, not a trophy. (It also renders on player trophy cases.) */}
-      <div className="mt-4">
-        <SeedIndexCard />
-      </div>
-
-      {/* What the index is built from: the number you arrived with, and any
-          rounds from before Sporos. Sits under the index it feeds. */}
-      <HandicapImportPanel />
+      {/* ONE golf-handicap home: the number in use, the Seed Index growing it,
+          and bringing an outside index or past rounds — three separate cards
+          read as three different handicaps, so they became one. */}
+      <GolfHandicapCard />
 
       <Card className="p-5 mt-4 space-y-3">
         <div>
@@ -336,5 +298,85 @@ function SeedIndexAdopt({ prof, save }: { prof: Profile; save: (p: Profile) => v
         </p>
       )}
     </div>
+  );
+}
+
+// The one golf-handicap home. The number in use sits at the top, the Seed
+// Index that grows it underneath, and bringing an outside index or pre-Sporos
+// rounds folds out below — one card instead of three that each looked like a
+// different handicap.
+function GolfHandicapCard() {
+  const [prof, setProf] = useState<Profile>(getProfile);
+  useEffect(() => {
+    const sync = () => setProf(getProfile());
+    window.addEventListener(PROFILE_EVENT, sync);
+    return () => window.removeEventListener(PROFILE_EVENT, sync);
+  }, []);
+  const tournaments = useStore((s) => s.tournaments);
+  // Folded away once a starting index exists — its job is done by then.
+  const [showImport, setShowImport] = useState<boolean>(() => !getProfile().startingIndex);
+  function save(next: Profile) {
+    setProf(next);
+    setProfile(next);
+  }
+  const name = canonicalName(prof.name.trim());
+  const autoOwns =
+    prof.seedIndexAuto &&
+    !!name &&
+    seedIndexForPlayer(applyAliases(tournaments), name, indexInputsFor(name)).index != null;
+
+  return (
+    <Card className="p-5 mt-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">⛳ Golf handicap</h2>
+          <p className="text-sm text-[var(--muted)]">
+            One number, one place — it auto-fills every golf event you play.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            step="0.1"
+            inputMode="decimal"
+            value={prof.golfHandicap ?? ""}
+            disabled={autoOwns}
+            onChange={(e) =>
+              save({
+                ...prof,
+                golfHandicap: e.target.value === "" ? null : Number(e.target.value),
+              })
+            }
+            placeholder="—"
+            aria-label="Golf handicap"
+            className="w-20 rounded-lg border border-[var(--border)] px-2 py-1.5 text-center text-sm bg-[var(--surface)] disabled:opacity-60"
+          />
+          {autoOwns && (
+            <span className="text-[10px] text-[var(--muted)]">kept current by your Seed Index</span>
+          )}
+        </div>
+      </div>
+
+      <SeedIndexAdopt prof={prof} save={save} />
+
+      <div className="border-t border-[var(--border)] pt-3">
+        <SeedIndexCard bare />
+      </div>
+
+      <div className="border-t border-[var(--border)] pt-3">
+        <button
+          type="button"
+          onClick={() => setShowImport((v) => !v)}
+          className="text-sm font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+        >
+          {showImport ? "▾" : "▸"} Bring a handicap from outside Sporos — GHIN, club, or past rounds
+        </button>
+        {showImport && (
+          <div className="mt-2">
+            <HandicapImportPanel bare />
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

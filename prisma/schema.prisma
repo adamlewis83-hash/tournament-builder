@@ -91,6 +91,19 @@ model OwnedCourses {
   @@map("owned_courses")
 }
 
+// The player's profile — name, photo, handicap, starting index — plus their
+// typed-in past rounds and name-merge aliases, as one blob under the library
+// key (mirrors OwnedFriends) so the person you are follows your account across
+// the app and the web instead of living on one device.
+model OwnedProfile {
+  ownerId   String   @id // anonymous library key
+  data      Json // { profile, pastRounds, aliases, savedAt }
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("owned_profile")
+}
+
 // Links an email to a library key so a user can recover their library on a new
 // device by entering their email + a one-time code (no password / account).
 model EmailLink {

@@ -18,6 +18,7 @@ import {
 } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
+import { canonicalName } from "@/lib/aliases";
 import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
 import { Save } from "@/components/icons";
@@ -173,7 +174,15 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // Friends: tap a saved friend to add a player row (with their handicap); save the current
   // named players back to your friends list (carrying whatever handicap is typed).
   const addFriendPlayer = (name: string, handicap?: number) => {
-    const row: PlayerRow = { name, handicap: handicap != null ? String(handicap) : "0" };
+    // Your own row takes the LIVE profile handicap — a friend record is a
+    // snapshot, and yours goes stale the moment the Seed Index moves (a 15.6
+    // index was landing as the 15.5 saved weeks earlier).
+    const prof = getProfile();
+    const mine =
+      !!prof.name.trim() &&
+      canonicalName(name).trim().toLowerCase() === canonicalName(prof.name.trim()).toLowerCase();
+    const h = mine && prof.golfHandicap != null ? prof.golfHandicap : handicap;
+    const row: PlayerRow = { name, handicap: h != null ? String(h) : "0" };
     setPlayers((prev) => {
       if (prev.some((r) => r.name.trim().toLowerCase() === name.trim().toLowerCase())) return prev;
       const idx = prev.findIndex((r) => !r.name.trim());
@@ -330,21 +339,20 @@ export function GolfSetup({ t }: { t: Tournament }) {
   }
 
   // Drop in sample players/teams with varied handicaps so a format can be tested quickly.
+  // Raw text so the box can be cleared while editing; clamped 2–64 when used.
+  const [sampleN, setSampleN] = useState("4");
+  const sampleCount = Math.max(2, Math.min(64, Math.round(Number(sampleN) || 2)));
   function fillSample() {
-    const sample: PlayerRow[] = teamsMode
-      ? [
-          { name: "Team 1", handicap: "2" },
-          { name: "Team 2", handicap: "6" },
-          { name: "Team 3", handicap: "9" },
-          { name: "Team 4", handicap: "13" },
-        ]
-      : [
-          { name: "Player 1", handicap: "4" },
-          { name: "Player 2", handicap: "10" },
-          { name: "Player 3", handicap: "16" },
-          { name: "Player 4", handicap: "22" },
-        ];
-    setPlayers(sample);
+    // Handicaps spread across the range so nets, strokes and tees all get
+    // exercised whatever the count.
+    const spread = [4, 10, 16, 22, 2, 8, 14, 20, 6, 12, 18, 24, 0, 5, 11, 17];
+    const label = teamsMode ? "Team" : "Player";
+    setPlayers(
+      Array.from({ length: sampleCount }, (_, i) => ({
+        name: `${label} ${i + 1}`,
+        handicap: String(spread[i % spread.length]),
+      })),
+    );
   }
 
   const valid = players.filter((p) => p.name.trim()).length >= 1;
@@ -982,13 +990,25 @@ export function GolfSetup({ t }: { t: Tournament }) {
               </Link>
             )}
           </div>
-          <button
-            type="button"
-            onClick={fillSample}
-            className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
-          >
-            Fill sample
-          </button>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min={2}
+              max={64}
+              value={sampleN}
+              onChange={(e) => setSampleN(e.target.value)}
+              onBlur={() => setSampleN(String(sampleCount))}
+              aria-label="Number of sample players"
+              className="w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1 text-xs text-center tabular-nums outline-none focus:border-[var(--brand)]"
+            />
+            <button
+              type="button"
+              onClick={fillSample}
+              className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)] font-medium"
+            >
+              Fill sample
+            </button>
+          </div>
         </div>
         <p className="text-sm text-[var(--muted)] mb-3">
           {mode === "vegas"

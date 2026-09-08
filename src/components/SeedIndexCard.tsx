@@ -50,7 +50,7 @@ const LIGHT_COLOR: Record<Light, string> = {
 // profile). Pass a name and it becomes that player's card, on their profile —
 // the index is derived from the rounds on this device, so anyone who has played
 // here has one.
-export function SeedIndexCard({ player }: { player?: string }) {
+export function SeedIndexCard({ player, bare }: { player?: string; bare?: boolean }) {
   const raw = useStore((s) => s.tournaments);
   // Read through the alias map so rounds logged under a second spelling of the
   // same person feed one index.
@@ -77,11 +77,14 @@ export function SeedIndexCard({ player }: { player?: string }) {
   const metrics = gameMetrics(agg);
   const takeaway = gameTakeaway(metrics);
 
+  // In Settings this renders inside the one Handicap card (bare); on a trophy
+  // case it stands alone as its own Card.
+  const Wrap = bare ? "div" : Card;
   return (
-    <Card className="p-5">
+    <Wrap className={bare ? "" : "p-5"}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-semibold flex items-center gap-2">⛳ Seed Index</h2>
+          {!bare && <h2 className="font-semibold flex items-center gap-2">⛳ Seed Index</h2>}
           <p className="text-xs text-[var(--muted)]">
             {mine ? "Your" : `${name}'s`} estimated handicap, grown from {r.rounds} finished round
             {r.rounds === 1 ? "" : "s"}
@@ -168,6 +171,6 @@ export function SeedIndexCard({ player }: { player?: string }) {
           : `the last ${Math.min(20, r.differentials.length)} differentials`}
         {r.adjustment ? ` (${r.adjustment} adjustment)` : ""}. Not an official index.
       </p>
-    </Card>
+    </Wrap>
   );
 }

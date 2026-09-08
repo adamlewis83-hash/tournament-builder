@@ -44,6 +44,15 @@ function save(list: PastRound[]) {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(PROFILE_EVENT));
 }
 
+/** Adopt a whole list (cloud restore) — no announce, the restorer batches it. */
+export function replacePastRounds(list: PastRound[]) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(list));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function addPastRound(r: Omit<PastRound, "id">): PastRound {
   const round: PastRound = { ...r, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
   save([...getPastRounds(), round]);

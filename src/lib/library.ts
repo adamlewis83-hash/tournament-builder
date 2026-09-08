@@ -160,6 +160,40 @@ export async function fetchCourses(owner: string): Promise<Course[]> {
   }
 }
 
+/** Everything about the PERSON, as one synced blob — see OwnedProfile. */
+export interface ProfileBlob {
+  profile: unknown; // Profile — typed loosely to keep library.ts dependency-light
+  pastRounds: unknown[];
+  aliases: Record<string, string>;
+  savedAt: number; // when a device last changed any of it (drives last-write-wins)
+}
+
+export async function fetchProfileBlob(owner: string): Promise<ProfileBlob | null> {
+  try {
+    const res = await fetch(`/api/profile?owner=${encodeURIComponent(owner)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? null) as ProfileBlob | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function putProfileBlob(owner: string, data: ProfileBlob): Promise<void> {
+  try {
+    await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner, data }),
+      keepalive: true,
+    });
+  } catch {
+    /* offline — local stays source of truth, will resync later */
+  }
+}
+
 export async function putCourses(owner: string, courses: Course[]): Promise<void> {
   try {
     await fetch("/api/saved-courses", {

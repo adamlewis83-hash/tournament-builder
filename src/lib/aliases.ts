@@ -4,8 +4,24 @@
 // entered (they're shared with everyone in the event), and this device's Trophy
 // Room, trophy cases, and Seed Index read through the map.
 import { Tournament } from "./types";
+import { PROFILE_EVENT } from "./profile";
 
 const KEY = "sporos-aliases";
+
+// Merges are part of who you are — announce them like a profile save so the
+// cloud backup (and anything else watching the profile) follows along.
+function announce() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PROFILE_EVENT));
+}
+
+/** Adopt a whole map (cloud restore). */
+export function replaceAliases(map: Record<string, string>) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** alias (lowercased) → canonical display name */
 export function getAliases(): Record<string, string> {
@@ -26,21 +42,15 @@ export function setAlias(alias: string, canonical: string) {
   map[a] = c;
   // Re-point anything that aliased TO the alias, so chains stay one hop deep.
   for (const k of Object.keys(map)) if (map[k].toLowerCase() === a) map[k] = c;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(map));
-  } catch {
-    /* ignore */
-  }
+  replaceAliases(map);
+  announce();
 }
 
 export function removeAlias(alias: string) {
   const map = getAliases();
   delete map[alias.trim().toLowerCase()];
-  try {
-    localStorage.setItem(KEY, JSON.stringify(map));
-  } catch {
-    /* ignore */
-  }
+  replaceAliases(map);
+  announce();
 }
 
 export function canonicalName(name: string, map: Record<string, string> = getAliases()): string {

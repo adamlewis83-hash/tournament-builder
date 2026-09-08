@@ -33,6 +33,14 @@ export function SeedIndexSync() {
     // shown there.
     const r = seedIndexForPlayer(applyAliases(tournaments), name, indexInputsFor(name));
     if (r.index == null) return;
+    // Your own saved-friend record follows too — a stale snapshot there ("Golf
+    // hcp 15.5" beside a 15.6 index) pre-fills events with the wrong number.
+    const st = useStore.getState();
+    const meFriend = st.friends?.find(
+      (f) => canonicalName(f.name).trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (meFriend && (meFriend.handicap == null || Math.abs(meFriend.handicap - r.index) >= 0.05))
+      st.saveFriend({ ...meFriend, handicap: r.index });
     if (prof.golfHandicap != null && Math.abs(prof.golfHandicap - r.index) < 0.05) return;
     setProfile({ ...prof, golfHandicap: r.index });
   }, [tournaments, profileRev]);

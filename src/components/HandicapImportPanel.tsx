@@ -25,7 +25,7 @@ const fromIso = (s: string) => {
 // from day one, and rounds they type in from before Sporos earn it outright.
 // No outside service is involved, and nothing here is ever presented as an
 // official index.
-export function HandicapImportPanel() {
+export function HandicapImportPanel({ bare }: { bare?: boolean }) {
   const courses = useStore((s) => s.courses);
   // Settings renders behind HydrationGate, so this only ever runs on the client
   // and the profile can be read straight into state.
@@ -112,10 +112,13 @@ export function HandicapImportPanel() {
       ? Math.round(differential(Number(gross), Number(rating), Number(slope)) * 10) / 10
       : null;
 
+  // Inside Settings' single Handicap card (bare) the disclosure supplies the
+  // heading; standalone it remains its own Card.
+  const Wrap = bare ? "div" : Card;
   return (
-    <Card className="p-5 mt-4 space-y-3">
+    <Wrap className={bare ? "space-y-3" : "p-5 mt-4 space-y-3"}>
       <div>
-        <h2 className="font-semibold">Bring your handicap</h2>
+        {!bare && <h2 className="font-semibold">Bring your handicap</h2>}
         <p className="text-sm text-[var(--muted)]">
           Already play off a handicap? Start there instead of from nothing. Sporos still keeps its
           own Seed Index — this gives it something to stand on.
@@ -344,6 +347,6 @@ export function HandicapImportPanel() {
           </div>
         )}
       </div>
-    </Card>
+    </Wrap>
   );
 }
