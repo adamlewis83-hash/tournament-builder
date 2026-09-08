@@ -1150,7 +1150,7 @@ check("golf multi-round — rounds with different games score a point per round 
     { id: "b", name: "P2", handicap: 0 },
   ];
   const base = defaultGolf(9, ["a", "b"]);
-  const mk = (id: string, mode: string, sa: number[], sb: number[]) => ({
+  const mk = (id: string, mode: GolfMode, sa: number[], sb: number[]) => ({
     id,
     name: id,
     mode,
@@ -1201,7 +1201,7 @@ check("golf multi-round — rounds with different games score a point per round 
   const uni = tour({
     format: "golf",
     participants: P,
-    golf: { ...golf, rounds: [ { ...r1 }, { ...mk("r2b", "stroke", r2.scores.a, r2.scores.b) }, { ...r3, mode: "stroke", scores: {} } ] },
+    golf: { ...golf, rounds: [ { ...r1 }, { ...mk("r2b", "stroke", r2.scores.a, r2.scores.b) }, { ...r3, mode: "stroke" as GolfMode, scores: {} } ] },
     config: cfg({ golfMode: "stroke" }),
   }) as Tournament;
   assert(!mixedRoundModes(uni), "same game everywhere is not mixed");
