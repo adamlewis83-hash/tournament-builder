@@ -207,7 +207,10 @@ interface State {
   switchGolfRound: (id: string, roundId: string) => void;
   /** Put a round on a course — its card takes the course's holes, pars, stroke
    *  index and tees (scores stay). Works on parked rounds, so setup can assign
-   *  every round's course up front instead of one switch-and-save at a time. */
+   *  every round's course up front instead of one switch-and-save at a time.
+   *  `defaultTee` moves that tee set first: the engine hands the first set to
+   *  any player whose own pick doesn't exist on this course, so first = the
+   *  round's default tee. */
   setGolfRoundCourse: (
     id: string,
     roundId: string,
@@ -218,6 +221,7 @@ interface State {
       strokeIndex: number[];
       tees?: import("./types").TeeSet[];
     },
+    defaultTee?: string,
   ) => void;
   renameGolfRound: (id: string, roundId: string, name: string) => void;
   removeGolfRound: (id: string, roundId: string) => void;
@@ -1632,7 +1636,7 @@ export const useStore = create<State>()(
         pushReplace(id);
       },
 
-      setGolfRoundCourse: (id, roundId, course) => {
+      setGolfRoundCourse: (id, roundId, course, defaultTee) => {
         if (blocked(id)) return;
         set((s) => ({
           tournaments: s.tournaments.map((t) => {
@@ -1640,6 +1644,11 @@ export const useStore = create<State>()(
             const g = t.golf;
             const live = liveCard(g);
             const withLive = g.rounds!.map((r) => (r.id === live.id ? { ...live, name: r.name } : r));
+            let tees = course.tees ? course.tees.map((x) => ({ ...x })) : undefined;
+            if (tees && defaultTee) {
+              const pick = tees.filter((x) => x.name === defaultTee);
+              if (pick.length) tees = [...pick, ...tees.filter((x) => x.name !== defaultTee)];
+            }
             const rounds = withLive.map((r) =>
               r.id === roundId
                 ? {
@@ -1649,7 +1658,7 @@ export const useStore = create<State>()(
                     courseName: course.name,
                     pars: [...course.pars],
                     strokeIndex: [...course.strokeIndex],
-                    tees: course.tees ? course.tees.map((x) => ({ ...x })) : undefined,
+                    tees,
                   }
                 : r,
             );

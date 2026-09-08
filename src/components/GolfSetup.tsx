@@ -96,6 +96,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // Per-round course picks (round index → saved-course id). "" = leave it: a
   // new round plays the course this form sets; an existing round keeps its own.
   const [roundCourses, setRoundCourses] = useState<Record<number, string>>({});
+  // Per-round default tee (round index → tee-set name on that round's course).
+  const [roundTees, setRoundTees] = useState<Record<number, string>>({});
+  const [roundsHelp, setRoundsHelp] = useState(false);
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
   );
@@ -398,7 +401,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
         const course = courses.find((c) => c.id === courseId);
         // The round the form is standing in already got the form's course.
         if (!round || !course || round.id === activeId) continue;
-        setGolfRoundCourse(t.id, round.id, course);
+        setGolfRoundCourse(t.id, round.id, course, roundTees[idx] || undefined);
       }
     }
     // The Start button sits at the bottom of a long form; the scorecard that
@@ -537,7 +540,35 @@ export function GolfSetup({ t }: { t: Tournament }) {
             {/* Rounds: a trip is one tournament with several cards. */}
             {multiRoundable && (
               <div className="mt-3">
-                <span className="text-sm font-medium">Rounds</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                  Rounds
+                  <button
+                    type="button"
+                    aria-label="How multi-round events work"
+                    onClick={() => setRoundsHelp((v) => !v)}
+                    className={`grid h-4.5 w-4.5 place-items-center rounded-full border text-[10px] font-bold transition ${
+                      roundsHelp
+                        ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                        : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    ?
+                  </button>
+                </span>
+                {roundsHelp && (
+                  <div className="mt-1.5 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
+                    <p className="mb-1 font-semibold text-[var(--foreground)]">
+                      Running a multi-round event (a golf trip, a club championship):
+                    </p>
+                    <ol className="list-decimal space-y-1 pl-4">
+                      <li>Set how many rounds with − / + . One leaderboard adds them all up — lowest total after the last round wins.</li>
+                      <li><b>Round 1</b> plays the course in the Course section below.</li>
+                      <li>Playing other courses? Search each one below and tap <b>Save course</b> — saved courses appear in the round pickers here, each with its tees.</li>
+                      <li>The <b>tees</b> you pick for a round are its default: a player whose own tee pick exists on that course keeps it; everyone else plays the round&apos;s tees.</li>
+                      <li>During the event, the <b>round bar</b> at the top switches rounds. Anything about the round you&apos;re standing in — course, tees, even mid-trip changes — is editable from <b>Edit setup</b>.</li>
+                    </ol>
+                  </div>
+                )}
                 {/* − / + stepper with a typeable middle, instead of a chip per
                     count — a row of numbers fills the screen and still caps the
                     trip. Clamped 1–10 on blur so the field can be emptied while
@@ -583,16 +614,18 @@ export function GolfSetup({ t }: { t: Tournament }) {
                     ? "One round — the usual golf tournament."
                     : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
                 </p>
-                {/* Every round's course, assigned right here — a three-course
-                    trip shouldn't take three trips through setup. */}
+                {/* Every round's course (and its default tee), assigned right
+                    here — a three-course trip shouldn't take three trips
+                    through setup. */}
                 {roundCount > 1 && (
                   <div className="mt-2 space-y-1.5">
                     {Array.from({ length: roundCount }, (_, i) => i).map((i) => {
                       const existing = t.golf?.rounds?.[i];
                       const activeId = t.golf?.roundId;
                       const isActive = existing ? existing.id === activeId : i === 0 && !t.golf?.rounds?.length;
+                      const picked = courses.find((c) => c.id === roundCourses[i]);
                       return (
-                        <div key={i} className="flex items-center gap-2">
+                        <div key={i} className="flex flex-wrap items-center gap-2">
                           <span className="w-16 shrink-0 text-xs font-medium text-[var(--muted)]">
                             Round {i + 1}
                           </span>
@@ -602,24 +635,44 @@ export function GolfSetup({ t }: { t: Tournament }) {
                               <span className="opacity-70">— set by the Course form</span>
                             </span>
                           ) : (
-                            <select
-                              value={roundCourses[i] ?? ""}
-                              onChange={(e) =>
-                                setRoundCourses((m) => ({ ...m, [i]: e.target.value }))
-                              }
-                              className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                            >
-                              <option value="">
-                                {existing
-                                  ? `Keep: ${existing.courseName?.trim() || "same course"}`
-                                  : "Same course as round 1"}
-                              </option>
-                              {courses.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name} ({c.holes})
+                            <>
+                              <select
+                                value={roundCourses[i] ?? ""}
+                                onChange={(e) => {
+                                  setRoundCourses((m) => ({ ...m, [i]: e.target.value }));
+                                  setRoundTees((m) => ({ ...m, [i]: "" }));
+                                }}
+                                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                              >
+                                <option value="">
+                                  {existing
+                                    ? `Keep: ${existing.courseName?.trim() || "same course"}`
+                                    : "Same course as round 1"}
                                 </option>
-                              ))}
-                            </select>
+                                {courses.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name} ({c.holes})
+                                  </option>
+                                ))}
+                              </select>
+                              {picked && (picked.tees?.length ?? 0) > 0 && (
+                                <select
+                                  value={roundTees[i] ?? ""}
+                                  onChange={(e) =>
+                                    setRoundTees((m) => ({ ...m, [i]: e.target.value }))
+                                  }
+                                  aria-label={`Round ${i + 1} tees`}
+                                  className="w-28 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                                >
+                                  <option value="">Tees…</option>
+                                  {picked.tees!.map((x) => (
+                                    <option key={x.name} value={x.name}>
+                                      {x.name} tees
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </>
                           )}
                         </div>
                       );
