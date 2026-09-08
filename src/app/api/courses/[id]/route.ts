@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cachedJson, DAY } from "@/lib/apiCache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,21 +35,24 @@ function allTees(tees: any): any[] {
 }
 
 // GET /api/courses/:id -> { name, holes, pars[], strokeIndex[], tees[] }
+// A course's pars, stroke index and tee ratings barely change, so once
+// imported it lives in the durable cache for half a year — each unique course
+// costs one of the day's 35 upstream calls, once.
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const key = process.env.GOLF_API_KEY;
   if (!key) return NextResponse.json({ error: "not-configured" }, { status: 503 });
   const { id } = await ctx.params;
 
-  try {
+  const hit = await cachedJson<object>(`course:${id}`, 180 * DAY, async () => {
     const r = await fetch(`https://api.golfcourseapi.com/v1/courses/${id}`, {
       headers: { Authorization: `Key ${key}` },
       cache: "no-store",
     });
-    if (!r.ok) return NextResponse.json({ error: "upstream" }, { status: r.status });
+    if (!r.ok) return null;
     const json = await r.json();
     const course = json.course ?? json; // /courses/{id} wraps in { course: {...} }
     const tee = pickTee(course.tees);
-    if (!tee) return NextResponse.json({ error: "no-hole-data" }, { status: 404 });
+    if (!tee) return null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const holes = tee.holes as any[];
@@ -59,15 +63,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         ? `${course.club_name} — ${course.course_name}`
         : course.club_name;
 
-    return NextResponse.json({
+    return {
       id: course.id,
       name,
       holes: holes.length,
       pars,
       strokeIndex,
       tees: allTees(course.tees),
-    });
-  } catch {
-    return NextResponse.json({ error: "fetch-failed" }, { status: 502 });
-  }
+    };
+  });
+
+  if (!hit) return NextResponse.json({ error: "upstream" }, { status: 502 });
+  return NextResponse.json(hit.data);
 }

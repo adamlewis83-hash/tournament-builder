@@ -104,6 +104,19 @@ model OwnedProfile {
   @@map("owned_profile")
 }
 
+// Cached answers from third-party APIs with hard daily quotas (GolfCourseAPI:
+// 35 calls/day across all of Sporos from 2026-09-10). Keys look like
+// "search:pinehurst" or "course:1234"; course data barely changes, so each
+// unique question costs one upstream call and then lives here.
+model GolfApiCache {
+  key       String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("golf_api_cache")
+}
+
 // Links an email to a library key so a user can recover their library on a new
 // device by entering their email + a one-time code (no password / account).
 model EmailLink {
