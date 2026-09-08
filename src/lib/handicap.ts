@@ -17,7 +17,21 @@ export interface IndexResult {
   adjustment: number; // small-sample adjustment applied (0 for 9+ rounds)
   rounds: number; // 18-hole-equivalent rounds counted
   pendingNine: boolean; // an unpaired 9-hole round waiting for its partner
+  seeded: number; // pool slots still held by a brought-in index, not by rounds
 }
+
+/** An index the player already had — GHIN, a club, or their own honest number. */
+export interface SeedPrior {
+  index: number;
+  source?: string;
+  at?: number;
+}
+
+// A brought-in index stands in for a full pool of rounds. Twenty is the WHS
+// window, so a player who arrives with an index starts where an established
+// golfer stands, and each round they actually play displaces one of them: after
+// twenty Sporos rounds the number is entirely their own.
+const PRIOR_SLOTS = 20;
 
 /** An 18-hole differential: (gross − rating) × 113 ÷ slope. */
 export const differential = (gross: number, rating: number, slope: number): number =>
@@ -53,7 +67,7 @@ const WHS_TABLE: Record<number, { use: number; adj: number }> = {
  * waits. Only the most recent 20 differentials form the pool; the WHS table
  * says how many of the lowest count and what adjustment applies.
  */
-export function sporosIndex(rounds: RoundScore[]): IndexResult {
+export function sporosIndex(rounds: RoundScore[], prior?: SeedPrior | null): IndexResult {
   const ordered = [...rounds].sort((a, b) => a.at - b.at);
   const diffs: { at: number; d: number }[] = [];
   let waiting: RoundScore | null = null;
@@ -72,19 +86,27 @@ export function sporosIndex(rounds: RoundScore[]): IndexResult {
     }
   }
 
-  const pool = diffs
+  const played = diffs
     .sort((a, b) => b.at - a.at)
     .slice(0, 20)
     .map((x) => Math.round(x.d * 10) / 10);
 
+  // A brought-in index fills the rest of the window at its own value. It sits
+  // behind every round actually played, so real rounds push it out one at a
+  // time and the index moves the way a handicap moves: gradually.
+  const seeded = prior ? Math.max(0, PRIOR_SLOTS - played.length) : 0;
+  const seedValue = prior ? Math.round(prior.index * 10) / 10 : 0;
+  const pool = seeded > 0 ? [...played, ...Array(seeded).fill(seedValue)] : played;
+
   if (pool.length < 3) {
     return {
       index: null,
-      differentials: pool,
+      differentials: played,
       used: 0,
       adjustment: 0,
       rounds: diffs.length,
       pendingNine: waiting !== null,
+      seeded,
     };
   }
 
@@ -93,11 +115,12 @@ export function sporosIndex(rounds: RoundScore[]): IndexResult {
   const avg = best.reduce((s, d) => s + d, 0) / best.length + adj;
   return {
     index: Math.round(Math.max(-10, Math.min(54, avg)) * 10) / 10,
-    differentials: pool,
+    differentials: played,
     used: use,
     adjustment: adj,
     rounds: diffs.length,
     pendingNine: waiting !== null,
+    seeded,
   };
 }
 
@@ -187,20 +210,37 @@ export function cardsForPlayer(tournaments: Tournament[], playerName: string): P
   return out.sort((a, b) => a.at - b.at);
 }
 
-/** The index-facing view of cardsForPlayer. */
-export function roundsForPlayer(tournaments: Tournament[], playerName: string): RoundScore[] {
-  return cardsForPlayer(tournaments, playerName).map((c) => ({
+/** Everything a player brought with them: rounds typed in from before Sporos,
+ *  and the index they arrived with. Empty for a player who brought nothing. */
+export interface IndexExtras {
+  extraRounds?: RoundScore[];
+  prior?: SeedPrior | null;
+}
+
+/** The index-facing view of cardsForPlayer, plus any history typed in by hand. */
+export function roundsForPlayer(
+  tournaments: Tournament[],
+  playerName: string,
+  extra?: IndexExtras,
+): RoundScore[] {
+  const played = cardsForPlayer(tournaments, playerName).map((c) => ({
     at: c.at,
     holes: c.holes,
     gross: c.gross,
     rating: c.rating,
     slope: c.slope,
   }));
+  return extra?.extraRounds?.length ? [...played, ...extra.extraRounds] : played;
 }
 
-/** The player's Seed Index straight from their tournament history. */
-export function seedIndexForPlayer(tournaments: Tournament[], playerName: string): IndexResult {
-  return sporosIndex(roundsForPlayer(tournaments, playerName));
+/** The player's Seed Index from their tournament history, the rounds they typed
+ *  in, and the index they arrived with. */
+export function seedIndexForPlayer(
+  tournaments: Tournament[],
+  playerName: string,
+  extra?: IndexExtras,
+): IndexResult {
+  return sporosIndex(roundsForPlayer(tournaments, playerName, extra), extra?.prior);
 }
 
 /**
@@ -208,11 +248,16 @@ export function seedIndexForPlayer(tournaments: Tournament[], playerName: string
  * Points only exist once enough rounds have accumulated for an index at all,
  * so the first entries of a young history are simply absent.
  */
-export function indexHistory(tournaments: Tournament[], playerName: string): number[] {
-  const rounds = roundsForPlayer(tournaments, playerName);
+export function indexHistory(
+  tournaments: Tournament[],
+  playerName: string,
+  extra?: IndexExtras,
+): number[] {
+  // Oldest first, so the trend replays the way the rounds were played.
+  const rounds = roundsForPlayer(tournaments, playerName, extra).sort((a, b) => a.at - b.at);
   const out: number[] = [];
   for (let i = 1; i <= rounds.length; i++) {
-    const idx = sporosIndex(rounds.slice(0, i)).index;
+    const idx = sporosIndex(rounds.slice(0, i), extra?.prior).index;
     if (idx != null) out.push(idx);
   }
   return out;

@@ -1,5 +1,15 @@
 // Your player profile — set once in Settings, auto-applied to every tournament
 // you start (matched by name) and pre-filled when you join one by code.
+/** An index the player already had before Sporos — from GHIN, a club, or their
+ *  own honest number. It seeds the Seed Index so a player who plays off 8
+ *  doesn't spend their first three rounds with no index at all. Sporos never
+ *  presents this as an official index; it is a starting position. */
+export interface StartingIndex {
+  index: number;
+  source: "GHIN" | "Club" | "Self";
+  at: number; // the date that index was current
+}
+
 export interface Profile {
   name: string;
   photo: string | null; // small square JPEG data-URL (see lib/image resizePhoto)
@@ -8,6 +18,7 @@ export interface Profile {
   // Keep golfHandicap tracking the Seed Index as rounds finish (default). Off =
   // the handicap is typed by hand and the index only moves in with a tap.
   seedIndexAuto: boolean;
+  startingIndex?: StartingIndex | null; // the index they arrived with, if any
 }
 
 const KEY = "sporos-profile";
@@ -17,6 +28,7 @@ const DEFAULTS: Profile = {
   color: null,
   golfHandicap: null,
   seedIndexAuto: true,
+  startingIndex: null,
 };
 
 export function getProfile(): Profile {
@@ -28,12 +40,17 @@ export function getProfile(): Profile {
   }
 }
 
+/** Fired after any save, so two cards editing the same profile on one screen
+ *  (your name here, your starting index there) never show each other stale. */
+export const PROFILE_EVENT = "sporos:profile";
+
 export function setProfile(p: Profile) {
   try {
     localStorage.setItem(KEY, JSON.stringify(p));
   } catch {
     /* ignore */
   }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PROFILE_EVENT));
 }
 
 // Stamp the saved profile photo/color (and, for golf events, handicap) onto any

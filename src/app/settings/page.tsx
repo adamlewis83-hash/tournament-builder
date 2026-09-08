@@ -5,11 +5,13 @@ import Link from "next/link";
 import { Sun, Moon, Settings as SettingsIcon } from "@/components/icons";
 import { Card } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
+import { HandicapImportPanel } from "@/components/HandicapImportPanel";
 import { SyncPanel } from "@/components/SyncPanel";
 import { FriendLinkPanel } from "@/components/FriendLinkPanel";
 import { getHomePrefs, setHomePrefs, type HomePrefs } from "@/lib/homePrefs";
-import { getProfile, setProfile, type Profile } from "@/lib/profile";
+import { getProfile, PROFILE_EVENT, setProfile, type Profile } from "@/lib/profile";
 import { seedIndexForPlayer } from "@/lib/handicap";
+import { indexInputsFor } from "@/lib/pastRounds";
 import { applyAliases, canonicalName } from "@/lib/aliases";
 import { SeedIndexCard } from "@/components/SeedIndexCard";
 import { useStore } from "@/lib/store";
@@ -60,6 +62,12 @@ function ThemeSetting() {
 
 function ProfileSetting() {
   const [prof, setProf] = useState<Profile>(getProfile);
+  // The handicap card below writes the same profile — follow it.
+  useEffect(() => {
+    const sync = () => setProf(getProfile());
+    window.addEventListener(PROFILE_EVENT, sync);
+    return () => window.removeEventListener(PROFILE_EVENT, sync);
+  }, []);
   const [pending, setPending] = useState<File | null>(null);
   const [choosing, setChoosing] = useState(false);
   const tournaments = useStore((s) => s.tournaments);
@@ -72,7 +80,11 @@ function ProfileSetting() {
   const autoOwnsHandicap =
     prof.seedIndexAuto &&
     !!prof.name.trim() &&
-    seedIndexForPlayer(applyAliases(tournaments), canonicalName(prof.name.trim())).index != null;
+    seedIndexForPlayer(
+      applyAliases(tournaments),
+      canonicalName(prof.name.trim()),
+      indexInputsFor(prof.name.trim()),
+    ).index != null;
   return (
     <div className="flex items-center gap-3">
       {choosing && (
@@ -222,6 +234,10 @@ export default function SettingsPage() {
         <SeedIndexCard />
       </div>
 
+      {/* What the index is built from: the number you arrived with, and any
+          rounds from before Sporos. Sits under the index it feeds. */}
+      <HandicapImportPanel />
+
       <Card className="p-5 mt-4 space-y-3">
         <div>
           <h2 className="font-semibold">Your library</h2>
@@ -276,7 +292,7 @@ function SeedIndexAdopt({ prof, save }: { prof: Profile; save: (p: Profile) => v
   const tournaments = useStore((s) => s.tournaments);
   const name = canonicalName(prof.name.trim());
   if (!name) return null;
-  const r = seedIndexForPlayer(applyAliases(tournaments), name);
+  const r = seedIndexForPlayer(applyAliases(tournaments), name, indexInputsFor(name));
   if (r.index == null) return null;
   const current = prof.golfHandicap;
   const same = current != null && Math.abs(current - r.index) < 0.05;

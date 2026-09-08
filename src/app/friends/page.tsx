@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { colorForName } from "@/lib/colors";
 import { seedIndexForPlayer } from "@/lib/handicap";
+import { indexInputsFor } from "@/lib/pastRounds";
 import type { Friend } from "@/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { Button, Card } from "@/components/ui";
@@ -118,7 +119,7 @@ function FriendCard({
   onRemove: () => void;
 }) {
   const tournaments = useStore((s) => s.tournaments);
-  const seed = seedIndexForPlayer(tournaments, f.name);
+  const seed = seedIndexForPlayer(tournaments, f.name, indexInputsFor(f.name));
   const inUse = seed.index != null && f.handicap != null && Math.abs(f.handicap - seed.index) < 0.05;
 
   return (

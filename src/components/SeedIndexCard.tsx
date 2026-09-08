@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { getProfile } from "@/lib/profile";
 import { applyAliases, canonicalName } from "@/lib/aliases";
 import { cardsForPlayer, indexHistory, seedIndexForPlayer } from "@/lib/handicap";
+import { indexInputsFor } from "@/lib/pastRounds";
 import { gameMetrics, gameTakeaway, roundStats, sumStats, type Light } from "@/lib/golfStats";
 import { Card } from "./ui";
 
@@ -60,9 +61,13 @@ export function SeedIndexCard({ player }: { player?: string }) {
   const mine = !player;
   if (!name) return null;
 
-  const r = seedIndexForPlayer(tournaments, name);
-  if (r.rounds === 0 && !r.pendingNine) return null;
-  const trend = r.index != null ? indexHistory(tournaments, name) : [];
+  // Rounds typed in from before Sporos, and the index they arrived with.
+  const extras = indexInputsFor(name);
+  const r = seedIndexForPlayer(tournaments, name, extras);
+  // A player who brought an index has one from day one, so the card shows even
+  // before their first Sporos round.
+  if (r.rounds === 0 && !r.pendingNine && !r.seeded) return null;
+  const trend = r.index != null ? indexHistory(tournaments, name, extras) : [];
   const bestEver = trend.length ? Math.min(...trend) : null;
   const delta = trend.length >= 2 ? trend[trend.length - 1] - trend[trend.length - 2] : null;
 
@@ -79,7 +84,10 @@ export function SeedIndexCard({ player }: { player?: string }) {
           <h2 className="font-semibold flex items-center gap-2">⛳ Seed Index</h2>
           <p className="text-xs text-[var(--muted)]">
             {mine ? "Your" : `${name}'s`} estimated handicap, grown from {r.rounds} finished round
-            {r.rounds === 1 ? "" : "s"} in Sporos
+            {r.rounds === 1 ? "" : "s"}
+            {r.seeded > 0
+              ? ` on top of the index you started with (${r.seeded} of the 20 still held by it)`
+              : " in Sporos"}
             {r.pendingNine ? " · one 9-hole round is waiting for a partner nine" : ""}.
           </p>
         </div>
@@ -154,8 +162,11 @@ export function SeedIndexCard({ player }: { player?: string }) {
       )}
 
       <p className="mt-2 text-[10px] text-[var(--muted)]">
-        WHS-style estimate — best {r.used || "—"} of the last {Math.min(20, r.differentials.length)}{" "}
-        differentials{r.adjustment ? ` (${r.adjustment} adjustment)` : ""}. Not an official index.
+        WHS-style estimate — best {r.used || "—"} of{" "}
+        {r.seeded > 0
+          ? `${r.differentials.length} played differential${r.differentials.length === 1 ? "" : "s"} plus ${r.seeded} from the index you brought`
+          : `the last ${Math.min(20, r.differentials.length)} differentials`}
+        {r.adjustment ? ` (${r.adjustment} adjustment)` : ""}. Not an official index.
       </p>
     </Card>
   );

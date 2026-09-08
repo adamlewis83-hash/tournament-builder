@@ -1174,6 +1174,50 @@ check("golf handicap — a nine halves the strokes, tees or no tees", () => {
   assert(row.net === row.gross - 9, `nine-hole net: gross ${row.gross} net ${row.net}`);
 });
 
+// ---- A brought-in index seeds the Seed Index ------------------------------
+check("golf index — an index you arrive with stands in until rounds replace it", () => {
+  const round = (at: number, gross: number): RoundScore => ({
+    at,
+    holes: 18,
+    gross,
+    rating: 72,
+    slope: 113,
+  });
+  const prior = { index: 8.4, source: "GHIN", at: 0 };
+
+  // Day one: no rounds at all, but the index is the one they brought.
+  const fresh = sporosIndex([], prior);
+  assert(fresh.index === 8.4, `day one: ${fresh.index}`);
+  assert(fresh.seeded === 20 && fresh.rounds === 0, `seeded ${fresh.seeded} rounds ${fresh.rounds}`);
+  assert(fresh.differentials.length === 0, "a seeded pool must not invent played differentials");
+  // Without the prior the same player has nothing yet — the old behaviour.
+  assert(sporosIndex([]).index === null, "an empty history produced an index");
+
+  // One round played takes one of the twenty slots.
+  const one = sporosIndex([round(10, 76)], prior); // differential 4.0
+  assert(one.seeded === 19 && one.rounds === 1, `after one round: ${JSON.stringify(one)}`);
+  // It enters the best 8 and pulls the average down, but only by its eighth
+  // share — one round never swings an established index, here or in real life.
+  assert(one.index === 7.9, `one good round: ${one.index}`);
+  assert(sporosIndex([round(10, 80)], prior).index === 8.4, "a round near the index shifted it");
+
+  // A round worse than the index doesn't move it, exactly as a handicap behaves.
+  const bad = sporosIndex([round(10, 95)], prior);
+  assert(bad.index === 8.4, `a bad round moved the index: ${bad.index}`);
+
+  // Twenty played rounds leave nothing of the prior behind.
+  const many = Array.from({ length: 20 }, (_, i) => round(100 + i, 90));
+  const own = sporosIndex(many, prior);
+  assert(own.seeded === 0, `prior still held ${own.seeded} slots after 20 rounds`);
+  assert(own.index === sporosIndex(many).index, "a spent prior still moved the index");
+
+  // Eight rounds better than the prior own the whole average.
+  const eight = Array.from({ length: 8 }, (_, i) => round(200 + i, 76)); // differential 4.0
+  const mixed = sporosIndex(eight, prior);
+  assert(mixed.index === 4, `best-8 should be all played rounds: ${mixed.index}`);
+  assert(mixed.seeded === 12, `seeded slots: ${mixed.seeded}`);
+});
+
 // ---- Format × play-style: only valid combinations are offered, and each one
 //      the create screen exposes actually produces correctly-shaped matches. ----
 // Rotating-partner "doubles" can only be honored where partners are re-drawn
