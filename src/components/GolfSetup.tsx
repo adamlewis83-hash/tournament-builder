@@ -635,7 +635,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 </div>
                 <p className="mt-1.5 text-xs text-[var(--muted)]">
                   {roundCount === 1
-                    ? "One round — the usual golf tournament."
+                    ? "Everyone plays this course once and that card decides it. Playing more than one day — a trip, a club championship? Tap + to add rounds."
                     : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
                 </p>
                 {/* Every round's course (and its default tee), assigned right
