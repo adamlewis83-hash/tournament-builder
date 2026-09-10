@@ -7,7 +7,7 @@ import { fetchLive, registerPlayer } from "@/lib/live";
 import { getProfile } from "@/lib/profile";
 import { PhotoCropper } from "@/components/PhotoCropper";
 import { Button, Card } from "@/components/ui";
-import { Tournament } from "@/lib/types";
+import { registrationOpen, Tournament } from "@/lib/types";
 
 export default function JoinPage() {
   const params = useParams<{ code: string }>();
@@ -82,6 +82,25 @@ export default function JoinPage() {
         <p className="text-sm text-[var(--muted)] mt-1">
           Double-check the code <span className="font-mono font-bold">{code}</span> with the host.
         </p>
+      </Card>
+    );
+
+  // The lobby isn't open — this link can still watch, but joining the roster
+  // is the host's call. (The server refuses too; this is the polite version.)
+  if (!registrationOpen(tourney))
+    return (
+      <Card className="p-6 text-center space-y-3 max-w-md mx-auto">
+        <h1 className="text-xl font-display font-bold">{tourney.name}</h1>
+        <p className="text-sm text-[var(--muted)]">
+          Registration isn&apos;t open for this event — ask the host to add you, or to open
+          registration in setup.
+        </p>
+        <Link
+          href={`/live/${code}`}
+          className="inline-block rounded-xl bg-[var(--brand)] px-5 py-2.5 font-semibold text-[var(--on-brand)] hover:opacity-90"
+        >
+          Watch it live →
+        </Link>
       </Card>
     );
 

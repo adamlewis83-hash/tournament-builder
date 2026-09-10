@@ -74,6 +74,7 @@ import {
   CUP_VEGAS_DEFAULTS,
   VEGAS_BASIC,
   VEGAS_DEFAULTS,
+  registrationOpen,
 } from "./src/lib/types";
 import { cardsForPlayer, differential, RoundScore, seedIndexForPlayer, sporosIndex } from "./src/lib/handicap";
 import { sportEmoji } from "./src/lib/sportEmoji";
@@ -2502,6 +2503,18 @@ for (const sport of SPORTS.filter((s) => formatsForSport(s).includes("ryder")))
     assert(w.get("s2") === 1, `eighteen worth ${w.get("s2")}, want 1`);
   });
 }
+
+// ---- Watching and joining are different permissions ------------------------
+check("registration — the roster only opens when the host opens it", () => {
+  // The host's explicit flag always wins, both ways.
+  assert(registrationOpen({ regOpen: true, generated: true }), "host reopened mid-event — allow");
+  assert(!registrationOpen({ regOpen: false, generated: false }), "host closed it — refuse");
+  // Blobs from before the flag: the old rule (open until the event starts), so
+  // a lobby already collecting players keeps working, but a live in-play event
+  // (e.g. one surfaced by the friends feed) does not accept walk-ins.
+  assert(registrationOpen({ generated: false }), "legacy lobby should stay open");
+  assert(!registrationOpen({ generated: true }), "legacy in-play event must refuse walk-ins");
+});
 
 // ---- A sport is only offered formats that suit it ---------------------------
 check("formats by sport — golf gets golf formats, and not Score Challenge", () => {

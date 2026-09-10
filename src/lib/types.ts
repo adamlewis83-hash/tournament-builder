@@ -281,6 +281,16 @@ export interface RaceData {
 // One round of a multi-round event — its own course, its own card, its own
 // stats. A tournament plays these in order and adds them up, the way a PGA
 // event runs four individual rounds and crowns the lowest total.
+/** Is this event's self-registration lobby open? True only while the host has
+ *  the registration panel open. Absent on blobs from before the flag existed —
+ *  those follow the old rule (open until the event starts), so a lobby that was
+ *  already collecting players keeps working. Going live to SHARE scores no
+ *  longer opens the roster: watching and joining are different permissions. */
+export function registrationOpen(t: { regOpen?: boolean; generated?: boolean }): boolean {
+  if (t.regOpen !== undefined) return t.regOpen;
+  return !t.generated;
+}
+
 export interface GolfRoundCard {
   id: string;
   name: string; // "Round 1", or whatever the host calls the day
@@ -477,6 +487,9 @@ export interface Tournament {
   createdAt: number;
   updatedAt: number;
   generated: boolean; // schedule/bracket built
+  /** Self-registration lobby state — see registrationOpen(). Only the host's
+   *  explicit "Open registration" sets this true; starting the event closes it. */
+  regOpen?: boolean;
   liveCode?: string; // when set, this tournament is synced to a live session
   liveVersion?: number; // last server version this device has applied
   spectator?: boolean; // joined via live code as a viewer — read-only, can't edit scores

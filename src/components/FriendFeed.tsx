@@ -64,8 +64,9 @@ export function FriendFeed() {
               </span>
             </span>
             {it.status === "live" && it.liveCode ? (
+              // Watch means WATCH: the live board, not the registration form.
               <Link
-                href={`/join/${it.liveCode}`}
+                href={`/live/${it.liveCode}`}
                 className="shrink-0 rounded-full bg-[var(--brand)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--on-brand)] hover:opacity-90"
               >
                 ● Watch

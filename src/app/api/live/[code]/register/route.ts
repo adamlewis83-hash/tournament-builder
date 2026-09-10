@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { registrationOpen } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,9 +43,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
     photo = body.photo.length <= MAX_PHOTO ? body.photo : null;
   }
 
-  // Only allow registering against a real live session.
+  // Only allow registering against a real live session — and only while the
+  // host actually has the lobby open. Going live to share scores used to open
+  // the roster to anyone holding the code (the friends feed hands the code to
+  // every friend); watching and joining are different permissions.
   const live = await prisma.liveTournament.findUnique({ where: { code: upper } });
   if (!live) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const data = (live.data ?? {}) as { regOpen?: boolean; generated?: boolean };
+  if (!registrationOpen(data))
+    return NextResponse.json({ error: "registration-closed" }, { status: 403 });
 
   const registration = await prisma.liveRegistration.create({
     data: { code: upper, name, handicap, photo },

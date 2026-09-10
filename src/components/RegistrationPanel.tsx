@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Tournament } from "@/lib/types";
+import { registrationOpen, Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Avatar } from "./Avatar";
 import { Button, Card } from "./ui";
@@ -13,6 +13,7 @@ import { fetchRegistrations, removeRegistration } from "@/lib/live";
 // self-register into the pool. Players appear as "reg-*" participants.
 export function RegistrationPanel({ t }: { t: Tournament }) {
   const publishLive = useStore((s) => s.publishLive);
+  const setRegOpen = useStore((s) => s.setRegOpen);
   const syncRegistrations = useStore((s) => s.syncRegistrations);
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,6 +52,9 @@ export function RegistrationPanel({ t }: { t: Tournament }) {
   async function openRegistration() {
     setBusy(true);
     await publishLive(t.id);
+    // Publishing shares the board; this is the separate act that opens the
+    // roster — the register API refuses names while it's false.
+    setRegOpen(t.id, true);
     setBusy(false);
   }
 
@@ -64,9 +68,11 @@ export function RegistrationPanel({ t }: { t: Tournament }) {
     );
   }
 
-  if (!code) {
+  if (!code || !registrationOpen(t)) {
     // One quiet row until it's wanted — typing names is the simpler first-timer
-    // path, and this card used to shout over it.
+    // path, and this card used to shout over it. Also the way BACK IN once a
+    // lobby has closed (starting the event closes it): re-opening from Edit
+    // setup lets a latecomer register.
     return (
       <Card className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <span className="text-sm">
@@ -78,7 +84,7 @@ export function RegistrationPanel({ t }: { t: Tournament }) {
           </span>
         </span>
         <Button variant="outline" className="px-3 py-1.5 text-sm" onClick={openRegistration} disabled={busy}>
-          {busy ? "Opening…" : "Open registration →"}
+          {busy ? "Opening…" : code ? "Reopen registration →" : "Open registration →"}
         </Button>
       </Card>
     );

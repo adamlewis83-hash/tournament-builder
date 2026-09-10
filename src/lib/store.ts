@@ -267,6 +267,9 @@ interface State {
   publishLive: (id: string) => Promise<string | null>;
   joinLive: (code: string) => Promise<string | null>;
   goOffline: (id: string) => void;
+  /** Open/close the self-registration lobby. Joining a roster and watching a
+   *  live board are different permissions — only this flips the roster one. */
+  setRegOpen: (id: string, open: boolean) => void;
   applyRemote: (id: string, data: Tournament, version: number) => void;
 }
 
@@ -1113,6 +1116,7 @@ export const useStore = create<State>()(
               ...t,
               matches,
               generated: true,
+              regOpen: false,
               ...(t.ryderGolf ? { ryderGolf: { ...t.ryderGolf, scores } } : {}),
               config: { ...t.config, ryderProgram: ryderProgramOf(matches) },
               updatedAt: Date.now(),
@@ -1336,7 +1340,7 @@ export const useStore = create<State>()(
             if (input.tees?.length) golf.tees = input.tees;
             if (input.segments?.length) golf.segments = input.segments;
             if (input.teams) golf.teams = true;
-            return { ...t, participants, golf, matches: [], generated: true, updatedAt: Date.now() };
+            return { ...t, participants, golf, matches: [], generated: true, regOpen: false, updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);
@@ -1928,6 +1932,7 @@ export const useStore = create<State>()(
                       }
                     : {}),
                   generated: true,
+                  regOpen: false,
                   updatedAt: Date.now(),
                 }
               : t,
@@ -2181,6 +2186,18 @@ export const useStore = create<State>()(
             x.id === id ? { ...x, liveCode: undefined, liveVersion: undefined } : x,
           ),
         })),
+
+      setRegOpen: (id, open) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) =>
+            t.id === id ? { ...t, regOpen: open, updatedAt: Date.now() } : t,
+          ),
+        }));
+        // Full replace: the server's copy of the blob is what the register API
+        // checks, so the flag must land there, not just in a settings patch.
+        pushReplace(id);
+      },
 
       applyRemote: (id, data, version) =>
         set((s) => ({
