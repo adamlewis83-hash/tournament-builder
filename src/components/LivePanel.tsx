@@ -6,6 +6,7 @@ import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { Button } from "./ui";
 import { CollapsibleCard } from "./CollapsibleCard";
+import { InfoTip } from "./InfoTip";
 
 export function LivePanel({ t }: { t: Tournament }) {
   const publishLive = useStore((s) => s.publishLive);
@@ -128,18 +129,24 @@ export function LivePanel({ t }: { t: Tournament }) {
         </button>
         {showScorers && (
           <div className="mt-2">
-            <p className="text-xs text-[var(--muted)] mb-2">
-              By default only you enter scores. Tap a player below — or add someone who isn&apos;t in
-              the tournament (a spouse, a friend) — to let them keep score from their own phone once
-              they join the link. Entries sync to everyone.
-            </p>
-            <p className="text-xs text-[var(--muted)] mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2">
-              <span className="font-semibold text-[var(--foreground)]">How they&apos;re recognized:</span>{" "}
-              by the profile name set on <em>their</em> phone — not by the name on the matchup. If it
-              doesn&apos;t match what you type here, their screen shows a{" "}
-              <span className="font-medium text-[var(--foreground)]">&ldquo;That&apos;s me&rdquo;</span>{" "}
-              prompt listing these names, and one tap claims it. Tell them to look for it.
-            </p>
+            <div className="mb-2 text-xs text-[var(--muted)]">
+              <span className="mr-1.5">
+                Tap a player — or add anyone by name — and they can keep score from their own phone.
+              </span>
+              <InfoTip
+                className="inline-block align-middle"
+                label="How scorekeepers work"
+                title="How scorekeepers work:"
+              >
+                <ol className="list-decimal space-y-1 pl-4">
+                  <li>By default only you enter scores. Everything a scorekeeper enters syncs live to everyone.</li>
+                  <li>They must <b>join your live link or code</b> on their phone first — the grant upgrades them from watching to scoring.</li>
+                  <li>They&apos;re recognized by the <b>profile name on their phone</b> (Settings → Your profile), not the name on the matchup. If it doesn&apos;t match what you tapped here, their screen shows a <b>&ldquo;That&apos;s me&rdquo;</b> prompt listing these names — one tap claims it. If someone says it won&apos;t let them score, that prompt is the answer.</li>
+                  <li>Scorekeepers can enter and fix scores — nothing else. No adding players, changing setup, or reseeding. Tap a name off here to revoke anytime.</li>
+                  <li>Anyone can be one — a spouse or friend who isn&apos;t playing keeps book just fine.</li>
+                </ol>
+              </InfoTip>
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {t.participants.map((p) => {
                 const on = isScorer(p.name);
