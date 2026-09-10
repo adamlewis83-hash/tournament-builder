@@ -141,9 +141,9 @@ export function LivePanel({ t }: { t: Tournament }) {
                 <ol className="list-decimal space-y-1 pl-4">
                   <li>By default only you enter scores. Everything a scorekeeper enters syncs live to everyone.</li>
                   <li>They must <b>join your live link or code</b> on their phone first — the grant upgrades them from watching to scoring.</li>
-                  <li>They&apos;re recognized by the <b>profile name on their phone</b> (Settings → Your profile), not the name on the matchup. If it doesn&apos;t match what you tapped here, their screen shows a <b>&ldquo;That&apos;s me&rdquo;</b> prompt listing these names — one tap claims it. If someone says it won&apos;t let them score, that prompt is the answer.</li>
+                  <li>They&apos;re recognized by the <b>profile name on their phone</b> (Settings → Your profile), not the name on the matchup. If it doesn&apos;t match the name you picked here, their screen shows a <b>&ldquo;That&apos;s me&rdquo;</b> prompt listing these names — one tap claims it. If someone says it won&apos;t let them score, that prompt is the answer.</li>
                   <li>Scorekeepers can enter and fix scores — nothing else. No adding players, changing setup, or reseeding. Tap a name off here to revoke anytime.</li>
-                  <li>Anyone can be one — a spouse or friend who isn&apos;t playing keeps book just fine.</li>
+                  <li>Anyone can be a scorekeeper — a spouse or friend who isn&apos;t playing keeps book just fine.</li>
                 </ol>
               </InfoTip>
             </div>
