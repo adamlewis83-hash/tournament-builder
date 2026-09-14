@@ -22,6 +22,7 @@ import { canonicalName } from "@/lib/aliases";
 import { InfoTip } from "./InfoTip";
 import { courseHandicap, defaultCourse } from "@/lib/golf";
 import { CourseSearchResult, ImportedCourse, importCourse, searchCourses } from "@/lib/courseApi";
+import { metersBetween } from "@/lib/greens";
 import { Save } from "@/components/icons";
 import { Button, Card } from "./ui";
 import { FriendPicker } from "./FriendPicker";
@@ -118,6 +119,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // The Course card folds to one line once a course is in hand — the longest
   // stretch of the longest form, gone until someone taps Change.
   const [courseOpen, setCourseOpen] = useState<boolean>(() => !(t.golf?.courseName ?? "").trim());
+  // Where the loaded course is (from search import or a saved course) — rides
+  // along into Save course.
+  const [courseCoords, setCourseCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [teeFinding, setTeeFinding] = useState(false);
   const [teeFindMsg, setTeeFindMsg] = useState<string | null>(null);
   const [showCourse, setShowCourse] = useState(false);
@@ -297,6 +301,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
+    setCourseCoords(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null);
     setSegments(defaultSegments(c.holes, teamMode));
     setCourseOpen(false);
   }
@@ -307,8 +312,38 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setHoles(c.holes);
     setPars(c.pars);
     setSi(c.strokeIndex);
+    setCourseCoords(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null);
     setSegments(defaultSegments(c.holes, teamMode));
     setCourseOpen(false);
+  }
+
+  // Distance labels on search hits, only when location permission was ALREADY
+  // granted — a course search must never pop a permission prompt.
+  function annotateDistances(hits: CourseSearchResult[]) {
+    try {
+      navigator.permissions
+        ?.query({ name: "geolocation" as PermissionName })
+        .then((perm) => {
+          if (perm.state !== "granted") return;
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const here: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+              const withMi = hits.map((h) =>
+                h.latitude != null && h.longitude != null
+                  ? { ...h, distanceMi: Math.round(metersBetween(here, [h.longitude, h.latitude]) * 0.000621371) }
+                  : h,
+              );
+              withMi.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
+              setResults((cur) => (cur.length === hits.length ? withMi : cur));
+            },
+            () => {},
+            { maximumAge: 600_000, timeout: 4000 },
+          );
+        })
+        .catch(() => {});
+    } catch {
+      /* no permissions API — skip quietly */
+    }
   }
 
   async function runSearch() {
@@ -317,6 +352,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     const r = await searchCourses(query.trim());
     setNotConfigured(!!r.notConfigured);
     setResults(r.courses);
+    annotateDistances(r.courses);
     setSearching(false);
   }
 
@@ -349,6 +385,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       pars: pars.slice(0, Math.min(pars.length, 18)),
       strokeIndex: si.slice(0, Math.min(si.length, 18)),
       tees: tees.length ? tees : undefined,
+      ...(courseCoords ? { lat: courseCoords.lat, lng: courseCoords.lng } : {}),
     });
     setCourseSaved(true);
     setTimeout(() => setCourseSaved(false), 1800);
@@ -544,7 +581,12 @@ export function GolfSetup({ t }: { t: Tournament }) {
                   className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--hover)]"
                 >
                   <div className="font-medium">{r.name}</div>
-                  {r.location && <div className="text-xs text-[var(--muted)]">{r.location}</div>}
+                  {(r.location || r.distanceMi != null) && (
+                    <div className="text-xs text-[var(--muted)]">
+                      {r.location}
+                      {r.distanceMi != null ? ` · ${r.distanceMi} mi` : ""}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>

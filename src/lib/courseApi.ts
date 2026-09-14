@@ -2,6 +2,11 @@ export interface CourseSearchResult {
   id: number;
   name: string;
   location: string;
+  latitude?: number; // optional — a few courses have no coordinates
+  longitude?: number;
+  /** Miles from the device, filled in client-side when location permission was
+   *  already granted — never prompts. */
+  distanceMi?: number;
 }
 
 import type { TeeSet } from "./types";
@@ -13,6 +18,8 @@ export interface ImportedCourse {
   pars: number[];
   strokeIndex: number[];
   tees?: TeeSet[]; // rating/slope per tee set (drives course-handicap math)
+  lat?: number; // where the course is (optional) — saved with the course
+  lng?: number;
 }
 
 export async function searchCourses(

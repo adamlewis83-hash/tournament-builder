@@ -43,7 +43,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!key) return NextResponse.json({ error: "not-configured" }, { status: 503 });
   const { id } = await ctx.params;
 
-  const hit = await cachedJson<object>(`course:${id}`, 180 * DAY, async () => {
+  // v2 key: v1 rows predate coordinates.
+  const hit = await cachedJson<object>(`coursev2:${id}`, 180 * DAY, async () => {
     const r = await fetch(`https://api.golfcourseapi.com/v1/courses/${id}`, {
       headers: { Authorization: `Key ${key}` },
       cache: "no-store",
@@ -70,6 +71,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       pars,
       strokeIndex,
       tees: allTees(course.tees),
+      // Where the course IS (v1.1.0) — saved with the course so the greens/GPS
+      // fetch can one day anchor to it instead of to the phone's position.
+      ...(typeof course.location?.latitude === "number" &&
+      typeof course.location?.longitude === "number"
+        ? { lat: course.location.latitude, lng: course.location.longitude }
+        : {}),
     };
   });
 

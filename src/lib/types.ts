@@ -232,6 +232,8 @@ export interface Course {
   pars: number[];
   strokeIndex: number[];
   tees?: TeeSet[]; // available tee sets (for course-handicap adjustment)
+  lat?: number; // where the course is — for distance labels and, later, an
+  lng?: number; // OSM greens fetch anchored to the course, not the phone
 }
 
 // A saved player you compete with often — pick them into a tournament instead of retyping.

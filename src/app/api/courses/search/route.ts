@@ -8,6 +8,11 @@ interface SearchHit {
   id: number;
   name: string;
   location: string;
+  // v1.1.0 added coordinates to course locations; optional — a few courses
+  // don't have them. They power distance labels and, later, anchoring the OSM
+  // greens fetch to the course instead of the phone.
+  latitude?: number;
+  longitude?: number;
 }
 
 // GET /api/courses/search?q=pinehurst -> proxy to GolfCourseAPI search,
@@ -22,7 +27,8 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("q")?.trim();
   if (!q || q.length < 2) return NextResponse.json({ courses: [] });
 
-  const hit = await cachedJson<SearchHit[]>(`search:${q.toLowerCase()}`, 30 * DAY, async () => {
+  // v2 key: v1 rows predate coordinates and would hold them back for a month.
+  const hit = await cachedJson<SearchHit[]>(`searchv2:${q.toLowerCase()}`, 30 * DAY, async () => {
     const r = await fetch(
       `https://api.golfcourseapi.com/v1/search?search_query=${encodeURIComponent(q)}`,
       { headers: { Authorization: `Key ${key}` }, cache: "no-store" },
@@ -37,6 +43,9 @@ export async function GET(req: Request) {
           ? `${c.club_name} — ${c.course_name}`
           : c.club_name,
       location: [c.location?.city, c.location?.state].filter(Boolean).join(", "),
+      ...(typeof c.location?.latitude === "number" && typeof c.location?.longitude === "number"
+        ? { latitude: c.location.latitude, longitude: c.location.longitude }
+        : {}),
     }));
   });
 
