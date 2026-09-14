@@ -119,7 +119,7 @@ function SignedInHome() {
         <div className="pt-2">{heading}</div>
       )}
       {prefs.join && <JoinByCode />}
-      <FriendFeed />
+      {prefs.feed && <FriendFeed />}
       <TournamentList />
     </div>
   );

@@ -145,6 +145,7 @@ function HomeLayoutSetting() {
   const rows: [keyof HomePrefs, string, string][] = [
     ["banner", "Sports photo banner", "The rotating sports photos at the top of Home."],
     ["join", "Join a live tournament", "The join-by-code card for hopping into live events."],
+    ["feed", "Friends' rounds & results", "What your linked friends are playing, for two weeks after."],
   ];
   return (
     <div className="divide-y divide-[var(--border)]">

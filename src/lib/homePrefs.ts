@@ -2,10 +2,11 @@
 export interface HomePrefs {
   banner: boolean; // rotating sports-photo banner
   join: boolean; // "Join a live tournament" card
+  feed: boolean; // friends' rounds & results
 }
 
 const KEY = "sporos-home-prefs";
-const DEFAULTS: HomePrefs = { banner: true, join: true };
+const DEFAULTS: HomePrefs = { banner: true, join: true, feed: true };
 
 export function getHomePrefs(): HomePrefs {
   if (typeof window === "undefined") return DEFAULTS;
