@@ -25,7 +25,7 @@ import {
   holeStrokes,
 } from "@/lib/golf";
 import { colorFor, photoFor } from "@/lib/colors";
-import { autoSummary, deriveHole, roundInsights, roundStats } from "@/lib/golfStats";
+import { autoSummary, deriveHole, penaltyStrokes, roundInsights, roundStats } from "@/lib/golfStats";
 import { seedIndexForPlayer } from "@/lib/handicap";
 import { indexInputsFor } from "@/lib/pastRounds";
 import {
@@ -317,6 +317,161 @@ function VegasLedgerView({
 // placing), three headline stat tiles, written insight cards generated from
 // the round's derived stats, a hole-by-hole color strip, and the Seed Index
 // movement this round just caused. Appears once your card is complete.
+// Grint-style hole-by-hole stats card: SCORE / PUTTS / PEN / TEE rows per
+// nine, with the nine's totals and TOT — built from the same three taps the
+// hole screen collects. Renders nothing until at least one hole has a tap.
+function StatsGrid({
+  pars,
+  scores,
+  entries,
+  startAt,
+}: {
+  pars: number[];
+  scores: (number | null)[];
+  entries: (import("@/lib/types").HoleEntry | null)[] | undefined;
+  startAt: number;
+}) {
+  const holes = pars.length;
+  if (!entries?.some((e) => e && (e.putts != null || e.tee || penaltyStrokes(e)))) return null;
+
+  const nines: { label: string; from: number }[] =
+    holes === 18
+      ? [
+          { label: "OUT", from: 0 },
+          { label: "IN", from: 9 },
+        ]
+      : [{ label: startAt > 1 ? "IN" : "OUT", from: 0 }];
+
+  const teeMark = (h: number) => {
+    const e = entries[h];
+    if (pars[h] === 3) return { txt: "·", cls: "text-[var(--muted)] opacity-50" };
+    if (!e?.tee) return { txt: "–", cls: "text-[var(--muted)] opacity-50" };
+    if (e.tee === "F") return { txt: "✓", cls: "text-[var(--win)] font-bold" };
+    return { txt: e.tee === "L" ? "←" : "→", cls: "text-rose-400 font-semibold" };
+  };
+  const cell = "px-0.5 py-1 text-center tabular-nums";
+  const label = "px-1.5 py-1 text-left text-[9px] font-bold uppercase tracking-wide text-[var(--muted)] whitespace-nowrap";
+
+  const sum = (from: number, count: number, f: (h: number) => number | null) => {
+    let total = 0;
+    let any = false;
+    for (let h = from; h < from + count; h++) {
+      const v = f(h);
+      if (v != null) {
+        total += v;
+        any = true;
+      }
+    }
+    return any ? total : null;
+  };
+  const fw = (from: number, count: number) => {
+    let hit = 0;
+    let opps = 0;
+    for (let h = from; h < from + count; h++) {
+      const e = entries[h];
+      if (pars[h] !== 3 && e?.tee) {
+        opps++;
+        if (e.tee === "F") hit++;
+      }
+    }
+    return opps ? `${hit}/${opps}` : "–";
+  };
+  const fmt = (v: number | null) => (v == null ? "–" : v);
+
+  return (
+    <div className="space-y-1.5 border-b border-[var(--border)] bg-[var(--surface)]/60 px-4 py-3">
+      {nines.map(({ label: nineLabel, from }) => {
+        const count = Math.min(9, holes - from);
+        const idx = Array.from({ length: count }, (_, i) => from + i);
+        const isLast = from + count >= holes;
+        return (
+          <div key={nineLabel} className="overflow-hidden rounded-lg border border-[var(--border)]">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="bg-[var(--subtle)] text-[9px] font-bold text-[var(--muted)]">
+                  <th className={label}>HOLE</th>
+                  {idx.map((h) => (
+                    <th key={h} className={cell}>
+                      {startAt + h}
+                    </th>
+                  ))}
+                  <th className={cell}>{nineLabel}</th>
+                  {isLast && holes === 18 && <th className={cell}>TOT</th>}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-[var(--border)]">
+                  <td className={label}>Score</td>
+                  {idx.map((h) => (
+                    <td key={h} className={`${cell} font-semibold`}>
+                      {scores[h] ?? "–"}
+                    </td>
+                  ))}
+                  <td className={`${cell} font-bold`}>{fmt(sum(from, count, (h) => scores[h]))}</td>
+                  {isLast && holes === 18 && (
+                    <td className={`${cell} font-extrabold`}>{fmt(sum(0, holes, (h) => scores[h]))}</td>
+                  )}
+                </tr>
+                <tr className="border-t border-[var(--border)]">
+                  <td className={label}>Putts</td>
+                  {idx.map((h) => (
+                    <td key={h} className={cell}>
+                      {entries[h]?.putts ?? "–"}
+                    </td>
+                  ))}
+                  <td className={`${cell} font-bold`}>
+                    {fmt(sum(from, count, (h) => entries[h]?.putts ?? null))}
+                  </td>
+                  {isLast && holes === 18 && (
+                    <td className={`${cell} font-extrabold`}>
+                      {fmt(sum(0, holes, (h) => entries[h]?.putts ?? null))}
+                    </td>
+                  )}
+                </tr>
+                <tr className="border-t border-[var(--border)]">
+                  <td className={label}>Pen</td>
+                  {idx.map((h) => {
+                    const p = penaltyStrokes(entries[h]);
+                    return (
+                      <td key={h} className={`${cell} ${p ? "font-semibold text-rose-400" : "text-[var(--muted)] opacity-60"}`}>
+                        {p || "–"}
+                      </td>
+                    );
+                  })}
+                  <td className={`${cell} font-bold`}>
+                    {sum(from, count, (h) => penaltyStrokes(entries[h]) || null) ?? 0}
+                  </td>
+                  {isLast && holes === 18 && (
+                    <td className={`${cell} font-extrabold`}>
+                      {sum(0, holes, (h) => penaltyStrokes(entries[h]) || null) ?? 0}
+                    </td>
+                  )}
+                </tr>
+                <tr className="border-t border-[var(--border)]">
+                  <td className={label}>Tee</td>
+                  {idx.map((h) => {
+                    const m = teeMark(h);
+                    return (
+                      <td key={h} className={`${cell} ${m.cls}`}>
+                        {m.txt}
+                      </td>
+                    );
+                  })}
+                  <td className={`${cell} font-bold`}>{fw(from, count)}</td>
+                  {isLast && holes === 18 && <td className={`${cell} font-extrabold`}>{fw(0, holes)}</td>}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+      <p className="text-[10px] text-[var(--muted)]">
+        Tee: ✓ fairway, ← → miss side, · par 3. From your putts/tee/trouble taps on each hole.
+      </p>
+    </div>
+  );
+}
+
 function RoundSummary({ t, player }: { t: Tournament; player: Tournament["participants"][number] }) {
   const tournaments = useStore((s) => s.tournaments);
   const g = t.golf!;
@@ -404,6 +559,9 @@ function RoundSummary({ t, player }: { t: Tournament; player: Tournament["partic
           </div>
         ))}
       </div>
+
+      {/* The Grint-style card: score, putts, penalties, tee accuracy by hole. */}
+      <StatsGrid pars={g.pars} scores={scores} entries={entries} startAt={startAt} />
 
       {insights.length > 0 && (
         <div className="space-y-1.5 border-b border-[var(--border)] bg-[var(--surface)]/60 px-4 py-3">
