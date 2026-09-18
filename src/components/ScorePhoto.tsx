@@ -16,6 +16,124 @@ function rankStyle(i: number): { background: string; color: string } {
   return { background: "#eef2f6", color: "#64748b" };
 }
 
+// The actual scorecard, drawn into the shareable photo for golf: one block per
+// nine (holes across, players down, nine total at the end), par row on top,
+// under-par scores in green. This is what a golfer means by "send the card".
+function GolfCardGrid({ t }: { t: Tournament }) {
+  const g = t.golf;
+  if (!g) return null;
+  const players = t.participants.slice(0, 8);
+  const start = g.startHole ?? 1;
+  const nines: { label: string; from: number }[] =
+    g.holes === 18
+      ? [
+          { label: "OUT", from: 0 },
+          { label: "IN", from: 9 },
+        ]
+      : [{ label: start > 1 ? "IN" : "OUT", from: 0 }];
+  const first = (name: string) => name.trim().split(/\s+/)[0].slice(0, 8);
+
+  const cell: React.CSSProperties = {
+    padding: "3px 0",
+    textAlign: "center",
+    fontVariantNumeric: "tabular-nums",
+    fontSize: 10,
+  };
+  const nameCell: React.CSSProperties = {
+    ...cell,
+    textAlign: "left",
+    paddingLeft: 6,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: 62,
+  };
+
+  return (
+    <div className="mt-4 space-y-2">
+      {nines.map(({ label, from }) => {
+        const count = Math.min(9, g.holes - from);
+        const idx = Array.from({ length: count }, (_, i) => from + i);
+        const isLast = from + count >= g.holes;
+        return (
+          <div
+            key={label}
+            style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}
+          >
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
+                  <th style={{ ...nameCell, fontWeight: 700, fontSize: 9 }}>HOLE</th>
+                  {idx.map((h) => (
+                    <th key={h} style={{ ...cell, fontWeight: 700 }}>
+                      {start + h}
+                    </th>
+                  ))}
+                  <th style={{ ...cell, fontWeight: 800 }}>{label}</th>
+                  {isLast && g.holes === 18 && <th style={{ ...cell, fontWeight: 800 }}>TOT</th>}
+                </tr>
+                <tr style={{ color: "#94a3b8", borderTop: "1px solid #e2e8f0" }}>
+                  <td style={{ ...nameCell, fontWeight: 500 }}>Par</td>
+                  {idx.map((h) => (
+                    <td key={h} style={cell}>
+                      {g.pars[h]}
+                    </td>
+                  ))}
+                  <td style={{ ...cell, fontWeight: 600 }}>
+                    {idx.reduce((a, h) => a + g.pars[h], 0)}
+                  </td>
+                  {isLast && g.holes === 18 && (
+                    <td style={{ ...cell, fontWeight: 600 }}>
+                      {g.pars.reduce((a, b) => a + b, 0)}
+                    </td>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((p) => {
+                  const card = g.scores[p.id] ?? [];
+                  const nine = idx.reduce((a, h) => a + (card[h] ?? 0), 0);
+                  const nineDone = idx.every((h) => card[h] != null);
+                  const tot = card.slice(0, g.holes).reduce((a: number, v) => a + (v ?? 0), 0);
+                  const totDone = Array.from({ length: g.holes }, (_, h) => card[h]).every(
+                    (v) => v != null,
+                  );
+                  return (
+                    <tr key={p.id} style={{ borderTop: "1px solid #eef2f6" }}>
+                      <td style={nameCell}>{first(p.name)}</td>
+                      {idx.map((h) => {
+                        const s = card[h];
+                        const under = s != null && s < g.pars[h];
+                        return (
+                          <td
+                            key={h}
+                            style={{
+                              ...cell,
+                              color: under ? "#16a34a" : "#0f172a",
+                              fontWeight: under ? 700 : 400,
+                            }}
+                          >
+                            {s ?? "–"}
+                          </td>
+                        );
+                      })}
+                      <td style={{ ...cell, fontWeight: 700 }}>{nineDone ? nine : "–"}</td>
+                      {isLast && g.holes === 18 && (
+                        <td style={{ ...cell, fontWeight: 800 }}>{totDone ? tot : "–"}</td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ScorePhoto({ t }: { t: Tournament }) {
   const res = getResult(t);
   const rows = getFinalRows(t).slice(0, 8);
@@ -80,6 +198,9 @@ export function ScorePhoto({ t }: { t: Tournament }) {
             <div className="text-lg font-extrabold">{res.winner}</div>
           </div>
         )}
+
+        {/* Golf: the card itself, both nines — the thing you'd photograph. */}
+        {t.format === "golf" && t.golf && <GolfCardGrid t={t} />}
 
         <div className="mt-4 space-y-1.5">
           {rows.map((r, i) => {

@@ -1647,13 +1647,14 @@ export function GolfView({ t }: { t: Tournament }) {
               >
                 ‹ Prev
               </Button>
+              {/* The hole number is the one thing you check mid-fairway — it
+                  gets the headline; par and SI ride underneath. */}
               <div className="text-center">
-                <div className="text-xs text-[var(--muted)]">
-                  {g.courseName ? `${g.courseName} · ` : ""}Hole {holeNo(h)}
-                  {startHole > 1 ? "" : ` of ${g.holes}`}
+                <div className="text-3xl font-extrabold leading-none tabular-nums">
+                  Hole {holeNo(h)}
                 </div>
-                <div className="text-lg font-bold">
-                  Par {g.pars[h]} <span className="text-[var(--muted)] font-normal text-sm">· SI {g.strokeIndex[h]}</span>
+                <div className="mt-1 text-xs text-[var(--muted)]">
+                  {startHole > 1 ? "" : `of ${g.holes} · `}Par {g.pars[h]} · SI {g.strokeIndex[h]}
                 </div>
               </div>
               <Button
