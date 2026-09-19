@@ -223,6 +223,11 @@ interface State {
     },
     defaultTee?: string,
   ) => void;
+  /** Move one tee set to the front of a round's list. The engine hands the
+   *  first set to any player whose own pick doesn't exist on the course, so
+   *  first = the round's default tee. Course, holes and scores stay put —
+   *  this is the "same course, different boxes today" change. */
+  setGolfRoundTee: (id: string, roundId: string, tee: string) => void;
   /** Give one round its own game (stroke / stableford / skins…). On the round
    *  in play it also becomes the event's live mode. Rounds with different games
    *  score the event a point per round won. */
@@ -1769,6 +1774,27 @@ export const useStore = create<State>()(
               },
               updatedAt: Date.now(),
             };
+          }),
+        }));
+        pushReplace(id);
+      },
+
+      setGolfRoundTee: (id, roundId, tee) => {
+        if (blocked(id)) return;
+        set((s) => ({
+          tournaments: s.tournaments.map((t) => {
+            if (t.id !== id || !t.golf?.rounds?.length) return t;
+            const g = t.golf;
+            const live = liveCard(g);
+            const withLive = g.rounds!.map((r) => (r.id === live.id ? { ...live, name: r.name } : r));
+            const rounds = withLive.map((r) => {
+              if (r.id !== roundId || !r.tees?.length) return r;
+              const pick = r.tees.filter((x) => x.name === tee);
+              if (!pick.length) return r;
+              return { ...r, tees: [...pick, ...r.tees.filter((x) => x.name !== tee)] };
+            });
+            const active = rounds.find((r) => r.id === g.roundId) ?? rounds[0];
+            return { ...t, golf: { ...g, rounds, tees: active.tees }, updatedAt: Date.now() };
           }),
         }));
         pushReplace(id);
