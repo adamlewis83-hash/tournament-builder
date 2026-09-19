@@ -82,9 +82,18 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const setGolfRoundCount = useStore((s) => s.setGolfRoundCount);
   const setGolfRoundCourse = useStore((s) => s.setGolfRoundCourse);
   const setGolfRoundMode = useStore((s) => s.setGolfRoundMode);
+  const setGolfRoundTee = useStore((s) => s.setGolfRoundTee);
   const courses = useStore((s) => s.courses);
   const saveCourse = useStore((s) => s.saveCourse);
   const saveFriend = useStore((s) => s.saveFriend);
+
+  // The rounds this event already has, and the one the Course card is editing:
+  // the round being played, or round 1 on an event that hasn't started.
+  const existingRounds = t.golf?.rounds ?? [];
+  const activeRoundIdx = Math.max(
+    0,
+    existingRounds.length ? existingRounds.findIndex((r) => r.id === t.golf?.roundId) : 0,
+  );
 
   const [mode, setMode] = useState<GolfMode>(
     MODES.includes(t.config.golfMode) ? t.config.golfMode : "stroke",
@@ -92,7 +101,11 @@ export function GolfSetup({ t }: { t: Tournament }) {
   const isScramble = TEAM_ROW_MODES.includes(mode);
   // Multi-round events are stroke play added up. Points games (Stableford,
   // Skins) and the side games are single-round affairs, so they don't offer it.
-  const multiRoundable = mode === "stroke" || mode === "nassau" || isScramble;
+  // ...and a trip that already has rounds stays one whatever today's game is:
+  // standing in a round that plays Skins must not fold the other rounds away on
+  // save — the trip belongs to the event, the game belongs to the round.
+  const multiRoundable =
+    mode === "stroke" || mode === "nassau" || isScramble || existingRounds.length > 1;
   const [holes, setHoles] = useState<number>(t.golf?.holes ?? 18);
   // A multi-round event: several rounds, each its own card and course, added up
   // into one leaderboard. One round is the ordinary golf tournament.
@@ -107,6 +120,14 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // per round won, the same rule Build Your Own uses across hole segments.
   const [roundModes, setRoundModes] = useState<Record<number, string>>({});
   const [roundsHelp, setRoundsHelp] = useState(false);
+  // Which round has its course picker open (index), and that picker's own
+  // search — kept apart from the Course card's search so one never clears the
+  // other out from under you.
+  const [roundPicker, setRoundPicker] = useState<number | null>(null);
+  const [roundQuery, setRoundQuery] = useState("");
+  const [roundResults, setRoundResults] = useState<CourseSearchResult[]>([]);
+  const [roundSearching, setRoundSearching] = useState(false);
+  const [roundSearchMsg, setRoundSearchMsg] = useState<string | null>(null);
   const [nine, setNine] = useState<"front" | "back">(
     (t.golf?.startHole ?? 1) > 1 ? "back" : "front",
   );
@@ -375,6 +396,97 @@ export function GolfSetup({ t }: { t: Tournament }) {
     }
   }
 
+  // ——— Rounds: every round picks its own course, right in the rounds list ———
+
+  // What round i will actually play, in words — so a three-course trip reads
+  // back before it starts instead of halfway through day two.
+  function roundPlan(i: number): { name: string; inherited: boolean; tees: TeeSet[] } {
+    if (i === activeRoundIdx) return { name: courseName.trim(), inherited: false, tees };
+    const picked = courses.find((c) => c.id === roundCourses[i]);
+    if (picked) return { name: picked.name, inherited: false, tees: picked.tees ?? [] };
+    const existing = existingRounds[i];
+    if (existing?.courseName?.trim())
+      return { name: existing.courseName.trim(), inherited: false, tees: existing.tees ?? [] };
+    return { name: courseName.trim(), inherited: true, tees };
+  }
+
+  function closeRoundPicker() {
+    setRoundPicker(null);
+    setRoundQuery("");
+    setRoundResults([]);
+    setRoundSearchMsg(null);
+  }
+
+  function toggleRoundPicker(i: number) {
+    if (roundPicker === i) closeRoundPicker();
+    else {
+      setRoundPicker(i);
+      setRoundQuery("");
+      setRoundResults([]);
+      setRoundSearchMsg(null);
+    }
+  }
+
+  // Put a course on a round. The round the Course card is editing takes it
+  // through that card (pars, stroke index and tees all follow); every other
+  // round just remembers the pick until Start. Either way the course lands in
+  // the library, which is what offers it to the next round and the next trip.
+  function assignRoundCourse(i: number, c: Omit<Course, "id"> & { id?: string }) {
+    const id = saveCourse(c);
+    if (i === activeRoundIdx) loadCourse({ ...c, id });
+    else {
+      setRoundCourses((m) => ({ ...m, [i]: id }));
+      setRoundTees((m) => ({ ...m, [i]: "" }));
+    }
+    closeRoundPicker();
+  }
+
+  function clearRoundCourse(i: number) {
+    setRoundCourses((m) => ({ ...m, [i]: "" }));
+    setRoundTees((m) => ({ ...m, [i]: "" }));
+    closeRoundPicker();
+  }
+
+  async function runRoundSearch() {
+    const q = roundQuery.trim();
+    if (q.length < 2) return;
+    setRoundSearching(true);
+    setRoundSearchMsg(null);
+    const r = await searchCourses(q);
+    setRoundResults(r.courses);
+    annotateDistances(r.courses);
+    setRoundSearchMsg(
+      r.notConfigured
+        ? "Course search is temporarily unavailable — pick a saved course, or build this one in the Course card."
+        : r.courses.length
+          ? null
+          : "No courses matched that name.",
+    );
+    setRoundSearching(false);
+  }
+
+  async function pickRoundResult(i: number, id: number) {
+    const c = await importCourse(id);
+    if (!c) {
+      setRoundSearchMsg("That course wouldn't load — try another.");
+      return;
+    }
+    assignRoundCourse(i, {
+      name: c.name,
+      holes: Math.min(c.pars.length, 18),
+      pars: c.pars.slice(0, 18),
+      strokeIndex: c.strokeIndex.slice(0, 18),
+      tees: c.tees?.length ? c.tees : undefined,
+      ...(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : {}),
+    });
+  }
+
+  // One tee set for everyone on the card the form is editing.
+  function pickDefaultTee(name: string) {
+    setDefaultTee(name || undefined);
+    setPlayers((prev) => prev.map((r) => ({ ...r, tee: name || undefined })));
+  }
+
   function saveCurrentCourse() {
     if (!courseName.trim()) return;
     // Save the whole course (up to 18 holes) even when playing a 9-hole round —
@@ -469,14 +581,21 @@ export function GolfSetup({ t }: { t: Tournament }) {
         if (!round || !course || round.id === activeId) continue;
         setGolfRoundCourse(t.id, round.id, course, roundTees[idx] || undefined);
       }
+      // A round can also just move to different boxes on the course it already
+      // has — no re-pick needed, and its start hole and scores stay put.
+      for (const [idxStr, tee] of Object.entries(roundTees)) {
+        const idx = Number(idxStr);
+        const round = rounds[idx];
+        if (!tee || roundCourses[idx] || !round || round.id === activeId) continue;
+        setGolfRoundTee(t.id, round.id, tee);
+      }
       // Per-round games. As long as every pick says "same game", modes stay
       // unset and the whole event follows the Scoring picker like it always
       // has. The moment one round differs, every round takes an explicit game
       // so switching rounds always knows what it's walking into.
       if (Object.values(roundModes).some((v) => v && v !== mode)) {
         rounds.forEach((round, idx) => {
-          const m = round.id === activeId ? mode : roundModes[idx] || mode;
-          setGolfRoundMode(t.id, round.id, m as GolfMode);
+          setGolfRoundMode(t.id, round.id, (roundModes[idx] || mode) as GolfMode);
         });
       }
     }
@@ -499,12 +618,19 @@ export function GolfSetup({ t }: { t: Tournament }) {
     <div className="flex flex-col gap-5">
       {/* Course */}
       <Card className="p-5 order-2">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <h2 className="font-semibold">Course</h2>
           <Link href="/courses" className="text-xs text-[var(--brand)] hover:underline">
             Manage courses
           </Link>
         </div>
+        {/* In a trip this card is one round's course, not the whole event's —
+            say so, because the rounds list below is where the others live. */}
+        <p className="mb-3 text-xs text-[var(--muted)]">
+          {multiRoundable && roundCount > 1
+            ? `Round ${activeRoundIdx + 1}'s course. Every round is listed under Rounds below — each one can play somewhere else.`
+            : "Where this one is played — search it, load a saved one, or enter it by hand."}
+        </p>
 
         {/* Folded: one line says everything that matters; Change reopens. */}
         {!courseOpen && (
@@ -515,7 +641,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 {" "}
                 · {holes} holes
                 {tees.length ? ` · ${tees.length} tee set${tees.length === 1 ? "" : "s"}` : ""}
-                {multiRoundable && roundCount > 1 ? ` · ${roundCount} rounds` : ""}
+                {multiRoundable && roundCount > 1 ? ` · round ${activeRoundIdx + 1}` : ""}
               </span>
             </span>
             <button
@@ -643,173 +769,6 @@ export function GolfSetup({ t }: { t: Tournament }) {
                 </button>
               ))}
             </div>
-            {/* Rounds: a trip is one tournament with several cards. */}
-            {multiRoundable && (
-              <div className="mt-3">
-                <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                  Rounds
-                  <button
-                    type="button"
-                    aria-label="How multi-round events work"
-                    onClick={() => setRoundsHelp((v) => !v)}
-                    className={`grid h-4.5 w-4.5 place-items-center rounded-full border text-[10px] font-bold transition ${
-                      roundsHelp
-                        ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
-                        : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
-                    }`}
-                  >
-                    ?
-                  </button>
-                </span>
-                {roundsHelp && (
-                  <div className="mt-1.5 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
-                    <p className="mb-1 font-semibold text-[var(--foreground)]">
-                      Running a multi-round event (a golf trip, a club championship):
-                    </p>
-                    <ol className="list-decimal space-y-1 pl-4">
-                      <li>Set how many rounds with − / + . One leaderboard adds them all up — lowest total after the last round wins.</li>
-                      <li><b>Round 1</b> plays the course in the Course section below.</li>
-                      <li>Playing other courses? Search each one below and tap <b>Save course</b> — saved courses appear in the round pickers here, each with its tees.</li>
-                      <li>The <b>tees</b> you pick for a round are its default: a player whose own tee pick exists on that course keeps it; everyone else plays the round&apos;s tees.</li>
-                      <li>Each round can play its <b>own game</b> — stroke Friday, Stableford Saturday, Skins Sunday. When games differ, winning a round earns a point (ties split it) and most points takes the event.</li>
-                      <li>During the event, the <b>round bar</b> at the top switches rounds. Anything about the round you&apos;re standing in — course, tees, even mid-trip changes — is editable from <b>Edit setup</b>.</li>
-                    </ol>
-                  </div>
-                )}
-                {/* − / + stepper with a typeable middle, instead of a chip per
-                    count — a row of numbers fills the screen and still caps the
-                    trip. Clamped 1–10 on blur so the field can be emptied while
-                    editing. */}
-                <div className="mt-1 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-                  <button
-                    type="button"
-                    aria-label="Fewer rounds"
-                    onClick={() => setRoundCount(Math.max(1, roundCount - 1))}
-                    disabled={roundCount <= 1}
-                    className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={10}
-                    value={roundCount}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      if (!Number.isNaN(v)) setRoundCount(Math.max(1, Math.min(10, v)));
-                    }}
-                    onBlur={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      setRoundCount(Number.isNaN(v) ? 1 : Math.max(1, Math.min(10, v)));
-                    }}
-                    className="w-12 border-x border-[var(--border)] bg-transparent py-2 text-center text-sm font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    aria-label="More rounds"
-                    onClick={() => setRoundCount(Math.min(10, roundCount + 1))}
-                    disabled={roundCount >= 10}
-                    className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="mt-1.5 text-xs text-[var(--muted)]">
-                  {roundCount === 1
-                    ? "Everyone plays this course once and that card decides it. Playing more than one day — a trip, a club championship? Tap + to add rounds."
-                    : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
-                </p>
-                {/* Every round's course (and its default tee), assigned right
-                    here — a three-course trip shouldn't take three trips
-                    through setup. */}
-                {roundCount > 1 && (
-                  <div className="mt-2 space-y-1.5">
-                    {Array.from({ length: roundCount }, (_, i) => i).map((i) => {
-                      const existing = t.golf?.rounds?.[i];
-                      const activeId = t.golf?.roundId;
-                      const isActive = existing ? existing.id === activeId : i === 0 && !t.golf?.rounds?.length;
-                      const picked = courses.find((c) => c.id === roundCourses[i]);
-                      return (
-                        <div key={i} className="flex flex-wrap items-center gap-2">
-                          <span className="w-16 shrink-0 text-xs font-medium text-[var(--muted)]">
-                            Round {i + 1}
-                          </span>
-                          {isActive ? (
-                            <span className="text-xs text-[var(--muted)]">
-                              {courseName.trim() || "the course below"}{" "}
-                              <span className="opacity-70">— set by the Course form</span>
-                            </span>
-                          ) : (
-                            <>
-                              <select
-                                value={roundCourses[i] ?? ""}
-                                onChange={(e) => {
-                                  setRoundCourses((m) => ({ ...m, [i]: e.target.value }));
-                                  setRoundTees((m) => ({ ...m, [i]: "" }));
-                                }}
-                                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                              >
-                                <option value="">
-                                  {existing
-                                    ? `Keep: ${existing.courseName?.trim() || "same course"}`
-                                    : "Same course as round 1"}
-                                </option>
-                                {courses.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name} ({c.holes})
-                                  </option>
-                                ))}
-                              </select>
-                              {picked && (picked.tees?.length ?? 0) > 0 && (
-                                <select
-                                  value={roundTees[i] ?? ""}
-                                  onChange={(e) =>
-                                    setRoundTees((m) => ({ ...m, [i]: e.target.value }))
-                                  }
-                                  aria-label={`Round ${i + 1} tees`}
-                                  className="w-28 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                                >
-                                  <option value="">Tees…</option>
-                                  {picked.tees!.map((x) => (
-                                    <option key={x.name} value={x.name}>
-                                      {x.name} tees
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                              {!isScramble && (
-                                <select
-                                  value={roundModes[i] ?? ""}
-                                  onChange={(e) =>
-                                    setRoundModes((m) => ({ ...m, [i]: e.target.value }))
-                                  }
-                                  aria-label={`Round ${i + 1} game`}
-                                  className="w-28 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                                >
-                                  <option value="">Same game</option>
-                                  <option value="stroke">Stroke Play</option>
-                                  <option value="stableford">Stableford</option>
-                                  <option value="skins">Skins</option>
-                                  <option value="nassau">Nassau</option>
-                                </select>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {courses.length === 0 && (
-                      <p className="text-[10px] text-[var(--muted)]">
-                        Different course each day? Search it below and save it to your library —
-                        saved courses show up in these pickers.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
             {holes === 9 && (
               <div className="mt-2">
                 <div className="flex gap-2">
@@ -894,10 +853,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
                   >
                     <button
                       type="button"
-                      onClick={() => {
-                        setDefaultTee(tee.name);
-                        setPlayers((prev) => prev.map((r) => ({ ...r, tee: tee.name })));
-                      }}
+                      onClick={() => pickDefaultTee(tee.name)}
                       className="inline-flex items-center gap-1.5"
                       title={`Play ${tee.name} for everyone`}
                     >
@@ -1042,8 +998,298 @@ export function GolfSetup({ t }: { t: Tournament }) {
         )}
       </Card>
 
+      {/* Rounds — its own card on purpose: picking a course folds the Course
+          form away, and the round list must never fold with it. Every round is
+          set right here, round 1 included, each with its own course search. */}
+      {multiRoundable && (
+        <Card className="p-5 order-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="inline-flex items-center gap-1.5 font-semibold">
+              Rounds
+              <button
+                type="button"
+                aria-label="How multi-round events work"
+                onClick={() => setRoundsHelp((v) => !v)}
+                className={`grid h-4.5 w-4.5 place-items-center rounded-full border text-[10px] font-bold transition ${
+                  roundsHelp
+                    ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                ?
+              </button>
+            </h2>
+            {/* − / + stepper with a typeable middle, instead of a chip per
+                count — a row of numbers fills the screen and still caps the
+                trip. Clamped 1–8 on blur so the field can be emptied while
+                editing. */}
+            <div className="inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+              <button
+                type="button"
+                aria-label="Fewer rounds"
+                onClick={() => setRoundCount(Math.max(1, roundCount - 1))}
+                disabled={roundCount <= 1}
+                className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={8}
+                value={roundCount}
+                aria-label="Number of rounds"
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(v)) setRoundCount(Math.max(1, Math.min(8, v)));
+                }}
+                onBlur={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setRoundCount(Number.isNaN(v) ? 1 : Math.max(1, Math.min(8, v)));
+                }}
+                className="w-12 border-x border-[var(--border)] bg-transparent py-2 text-center text-sm font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <button
+                type="button"
+                aria-label="More rounds"
+                onClick={() => setRoundCount(Math.min(8, roundCount + 1))}
+                disabled={roundCount >= 8}
+                className="px-3.5 py-2 text-lg leading-none text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {roundsHelp && (
+            <div className="mb-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
+              <p className="mb-1 font-semibold text-[var(--foreground)]">
+                Running a multi-round event (a golf trip, a club championship):
+              </p>
+              <ol className="list-decimal space-y-1 pl-4">
+                <li>Set how many rounds with − / + . One leaderboard adds them all up — lowest total after the last round wins.</li>
+                <li>Give each round its own course right here — search it or tap one you&apos;ve saved. Rounds you don&apos;t touch play round {activeRoundIdx + 1}&apos;s course.</li>
+                <li>Every course you pick is saved to your library, so the next round and the next trip can reuse it.</li>
+                <li>Round {activeRoundIdx + 1} is the course in the <b>Course</b> card — pick it here or there, it&apos;s the same course. Pars, stroke index and hand-built courses live in that card.</li>
+                <li>The <b>tees</b> you pick for a round are its default: a player whose own tee pick exists on that course keeps it; everyone else plays the round&apos;s tees.</li>
+                <li>Each round can play its <b>own game</b> — stroke Friday, Stableford Saturday, Skins Sunday. When games differ, winning a round earns a point (ties split it) and most points takes the event.</li>
+                <li>During the event, the <b>round bar</b> at the top switches rounds. Anything about the round you&apos;re standing in is editable from <b>Edit setup</b>.</li>
+              </ol>
+            </div>
+          )}
+
+          <p className="text-xs text-[var(--muted)]">
+            {roundCount === 1
+              ? "One round: everyone plays the course above and that card decides it. Playing more than one day — a trip, a club championship? Tap + to add rounds."
+              : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
+          </p>
+
+          {roundCount > 1 && (
+            <div className="mt-3 space-y-2">
+              {Array.from({ length: roundCount }, (_, i) => i).map((i) => {
+                const plan = roundPlan(i);
+                const isActive = i === activeRoundIdx;
+                const open = roundPicker === i;
+                const picked = courses.find((c) => c.id === roundCourses[i]);
+                const existingName = existingRounds[i]?.courseName?.trim();
+                const teeOptions = isActive
+                  ? tees
+                  : (picked?.tees ?? existingRounds[i]?.tees ?? []);
+                // An untouched round shows the default it already has (the
+                // engine plays a round's first tee set), not an empty box.
+                const teeValue = isActive
+                  ? (defaultTee ?? "")
+                  : (roundTees[i] ?? (picked ? "" : (existingRounds[i]?.tees?.[0]?.name ?? "")));
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--subtle)] px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="w-[4.5rem] shrink-0 text-xs font-semibold">
+                        Round {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm">
+                        {plan.name ? (
+                          <span className="font-medium">{plan.name}</span>
+                        ) : (
+                          <span className="text-[var(--muted)]">No course yet</span>
+                        )}
+                        {plan.inherited && plan.name && (
+                          <span className="text-[var(--muted)]">
+                            {" "}
+                            · same as round {activeRoundIdx + 1}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleRoundPicker(i)}
+                        className="shrink-0 text-xs font-medium text-[var(--brand)] hover:text-[var(--brand-strong)]"
+                      >
+                        {open ? "Close" : plan.name && !plan.inherited ? "Change" : "Pick course"}
+                      </button>
+                    </div>
+
+                    {(teeOptions.length > 0 || !isScramble) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        {teeOptions.length > 0 && (
+                          <select
+                            value={teeValue}
+                            onChange={(e) =>
+                              isActive
+                                ? pickDefaultTee(e.target.value)
+                                : setRoundTees((m) => ({ ...m, [i]: e.target.value }))
+                            }
+                            aria-label={`Round ${i + 1} tees`}
+                            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                          >
+                            <option value="">Tees…</option>
+                            {teeOptions.map((x) => (
+                              <option key={x.name} value={x.name}>
+                                {x.name} tees
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {!isScramble &&
+                          (isActive ? (
+                            <span className="text-xs text-[var(--muted)]">
+                              {shortLabel(mode)} — from Scoring
+                            </span>
+                          ) : (
+                            <select
+                              value={roundModes[i] ?? ""}
+                              onChange={(e) =>
+                                setRoundModes((m) => ({ ...m, [i]: e.target.value }))
+                              }
+                              aria-label={`Round ${i + 1} game`}
+                              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
+                            >
+                              <option value="">Same game</option>
+                              <option value="stroke">Stroke Play</option>
+                              <option value="stableford">Stableford</option>
+                              <option value="skins">Skins</option>
+                              <option value="nassau">Nassau</option>
+                            </select>
+                          ))}
+                      </div>
+                    )}
+
+                    {open && (
+                      <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                          Search a course
+                        </span>
+                        <div className="mt-1 flex gap-2">
+                          <input
+                            value={roundQuery}
+                            onChange={(e) => setRoundQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                runRoundSearch();
+                              }
+                            }}
+                            placeholder="e.g. Torrey Pines"
+                            className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                          />
+                          <Button
+                            variant="outline"
+                            className="px-3 py-2"
+                            onClick={runRoundSearch}
+                            disabled={roundSearching || roundQuery.trim().length < 2}
+                          >
+                            {roundSearching ? "…" : "Search"}
+                          </Button>
+                        </div>
+                        {roundSearchMsg && (
+                          <p className="mt-1 text-xs text-[var(--muted)]">{roundSearchMsg}</p>
+                        )}
+                        {roundResults.length > 0 && (
+                          <div className="mt-2 max-h-52 divide-y divide-[var(--border)] overflow-auto rounded-lg border border-[var(--border)]">
+                            {roundResults.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => pickRoundResult(i, r.id)}
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--hover)]"
+                              >
+                                <div className="font-medium">{r.name}</div>
+                                {(r.location || r.distanceMi != null) && (
+                                  <div className="text-xs text-[var(--muted)]">
+                                    {r.location}
+                                    {r.distanceMi != null ? ` · ${r.distanceMi} mi` : ""}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {courses.length > 0 && (
+                          <div className="mt-2.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                              Saved courses
+                            </span>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {courses.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => assignRoundCourse(i, c)}
+                                  className="rounded-full border border-[var(--border)] bg-[var(--subtle)] px-2.5 py-1 text-xs transition hover:bg-[var(--hover)]"
+                                >
+                                  {c.name} <span className="text-[var(--muted)]">({c.holes})</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-2">
+                          {!isActive && roundCourses[i] && (
+                            <button
+                              type="button"
+                              onClick={() => clearRoundCourse(i)}
+                              className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+                            >
+                              {existingName
+                                ? `Keep ${existingName}`
+                                : `Same as round ${activeRoundIdx + 1}`}
+                            </button>
+                          )}
+                          {isActive && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCourseOpen(true);
+                                closeRoundPicker();
+                              }}
+                              className="text-xs text-[var(--brand)] hover:text-[var(--brand-strong)]"
+                            >
+                              Edit pars, tees &amp; more in Course
+                            </button>
+                          )}
+                          <Link href="/courses" className="text-xs text-[var(--muted)] hover:underline">
+                            Manage courses
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-[var(--muted)]">
+                Every course you pick here is saved to your library — the other rounds and your
+                next event can reuse it.
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Players + handicaps */}
-      <Card className="p-5 order-3">
+      <Card className="p-5 order-4">
         <div className="flex items-center justify-between mb-1 gap-2">
           <div className="flex items-center gap-2">
             <h2 className="flex items-center gap-1.5 font-semibold">
@@ -1376,7 +1622,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       </Card>
 
       {/* Sticky: the way out of a long form rides along instead of hiding at the bottom. */}
-      <div className="sticky bottom-0 z-10 order-4 -mx-1 flex justify-end bg-[var(--background)]/90 px-1 py-2.5 backdrop-blur">
+      <div className="sticky bottom-0 z-10 order-5 -mx-1 flex justify-end bg-[var(--background)]/90 px-1 py-2.5 backdrop-blur">
         <Button onClick={handleGenerate} disabled={!valid} className="px-6 py-3">
           Start scorecard →
         </Button>

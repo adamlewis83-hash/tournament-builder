@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   GOLF_MODE_BLURBS,
@@ -1563,6 +1563,13 @@ export function GolfView({ t }: { t: Tournament }) {
   const setGolfGreens = useStore((s) => s.setGolfGreens);
   const setGolfHoleStat = useStore((s) => s.setGolfHoleStat);
   const [hole, setHole] = useState(0);
+  // Which round that hole number belongs to. Tapping round 2 after finishing
+  // round 1 has to open on its first hole, not leave you standing on 18 of a
+  // card nobody has played.
+  const [holeRound, setHoleRound] = useState<string | undefined>(t.golf?.roundId);
+  // The hole card is kept in view by Next hole only when it has scrolled off
+  // screen — see the sticky bar below.
+  const holeCardRef = useRef<HTMLDivElement | null>(null);
   const [showCard, setShowCard] = useState(true);
   const [gpsOpen, setGpsOpen] = useState(false);
   // "You" on the hole screen — the profile owner's row gets the big stepper
@@ -1571,6 +1578,15 @@ export function GolfView({ t }: { t: Tournament }) {
   useEffect(() => setProfileName(getProfile().name.trim()), []);
   const g = t.golf;
   if (!g) return null;
+
+  // A different round than the hole number was set on: back to its first hole.
+  // Adjusted during render (not in an effect) so the round opens on hole 1
+  // instead of flashing the old hole first.
+  const switchedRound = g.roundId !== holeRound;
+  if (switchedRound) {
+    setHoleRound(g.roundId);
+    setHole(0);
+  }
 
   if (t.config.golfMode === "bingo") return <BbbView t={t} />;
   if (t.config.golfMode === "wolf") return <WolfView t={t} />;
@@ -1746,7 +1762,7 @@ export function GolfView({ t }: { t: Tournament }) {
 
       {/* Hole-by-hole entry */}
       {(() => {
-        const h = Math.min(hole, g.holes - 1);
+        const h = switchedRound ? 0 : Math.min(hole, g.holes - 1);
         const adj = (pid: string, delta: number) => {
           const cur = g.scores[pid]?.[h];
           // Vegas cards hold the pair's combined number, so a fresh hole starts
@@ -1786,7 +1802,7 @@ export function GolfView({ t }: { t: Tournament }) {
         return (
           <>
           {heroP && myCardComplete && <RoundSummary t={t} player={heroP} />}
-          <Card className="p-4">
+          <Card className="p-4" ref={holeCardRef}>
             <GpsBand
               holeNo={holeNo(h)}
               par={g.pars[h]}
@@ -2007,7 +2023,15 @@ export function GolfView({ t }: { t: Tournament }) {
                 disabled={h >= g.holes - 1}
                 onClick={() => {
                   setHole(h + 1);
-                  window.scrollTo(0, 0);
+                  // Stay where your thumb is: the next hole's score rows land
+                  // where the last hole's were, the same as the Next › arrow
+                  // above the card. Only a card that has scrolled out of sight
+                  // (you were reading a leaderboard) is brought back.
+                  const card = holeCardRef.current;
+                  if (!card) return;
+                  const box = card.getBoundingClientRect();
+                  if (box.bottom < 0 || box.top > window.innerHeight)
+                    card.scrollIntoView({ block: "start" });
                 }}
               >
                 Next hole →
