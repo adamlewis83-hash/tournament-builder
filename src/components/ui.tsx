@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import type { TournamentStatus } from "@/lib/status";
 
 const VARIANTS: Record<string, string> = {
@@ -34,13 +34,19 @@ export function Card({
   children,
   className = "",
   bare = false,
+  ref,
 }: {
   children: ReactNode;
   className?: string;
   bare?: boolean;
+  /** For the rare card that has to measure or scroll itself into view. */
+  ref?: Ref<HTMLDivElement>;
 }) {
   return (
-    <div className={`${bare ? "rounded-2xl" : "glass rounded-2xl shadow-xl shadow-black/20"} ${className}`}>
+    <div
+      ref={ref}
+      className={`${bare ? "rounded-2xl" : "glass rounded-2xl shadow-xl shadow-black/20"} ${className}`}
+    >
       {children}
     </div>
   );
