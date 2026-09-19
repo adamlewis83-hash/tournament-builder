@@ -52,6 +52,8 @@ export async function GET(req: Request) {
     if (status === "in-play" && !hasScores) continue;
 
     const item: FeedItem = {
+      // Stable identity so a viewer can hide THIS event and stay linked.
+      tournamentId: t.id,
       friendKey: row.ownerId,
       friendName: nameOf.get(row.ownerId) ?? "A friend",
       tournamentName: t.name,

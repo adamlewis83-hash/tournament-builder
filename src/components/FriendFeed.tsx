@@ -14,10 +14,25 @@ import { Card } from "./ui";
 // friends are up to: live rounds first (with a Watch link into the live
 // session), then recent results. Renders nothing until there's something
 // to show, so an unlinked account never sees an empty box.
+// Per-item hides live on this device: hiding a friend's Tuesday round isn't a
+// statement about the friendship, so it touches nothing shared.
+const HIDDEN_KEY = "sporos-feed-hidden";
+const itemKey = (it: FeedItem) => it.tournamentId ?? `${it.friendKey}:${it.tournamentName}`;
+const readHidden = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
+
 export function FriendFeed() {
   const [items, setItems] = useState<FeedItem[] | null>(null);
+  const [hidden, setHidden] = useState<string[]>([]);
   useEffect(() => {
     let alive = true;
+    setHidden(readHidden());
     fetchFeed(getLibraryKey()).then((list) => {
       if (alive) setItems(list);
     });
@@ -25,7 +40,17 @@ export function FriendFeed() {
       alive = false;
     };
   }, []);
-  if (!items || items.length === 0) return null;
+  const hide = (it: FeedItem) => {
+    const next = [...new Set([itemKey(it), ...hidden])].slice(0, 200);
+    setHidden(next);
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
+  const shown = (items ?? []).filter((it) => !hidden.includes(itemKey(it)));
+  if (!items || shown.length === 0) return null;
 
   const ago = (at: number) => {
     const mins = Math.max(1, Math.round((Date.now() - at) / 60000));
@@ -41,7 +66,7 @@ export function FriendFeed() {
         👥 Friends are playing
       </h2>
       <ul className="divide-y divide-[var(--border)]">
-        {items.map((it, i) => (
+        {shown.map((it, i) => (
           <li key={i} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
             <Avatar name={it.friendName} color={colorForName(it.friendName)} className="h-7 w-7 text-[10px]" />
             <span
@@ -76,6 +101,15 @@ export function FriendFeed() {
                 Final
               </span>
             ) : null}
+            <button
+              type="button"
+              onClick={() => hide(it)}
+              aria-label={`Hide ${it.tournamentName} from your feed`}
+              title="Hide this one — your friend stays linked"
+              className="shrink-0 px-1 text-sm leading-none text-[var(--muted)] transition hover:text-[var(--foreground)]"
+            >
+              ×
+            </button>
           </li>
         ))}
       </ul>

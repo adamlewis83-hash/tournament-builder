@@ -4,6 +4,7 @@
 // in Settings (Adam's call).
 
 export interface FeedItem {
+  tournamentId?: string; // absent only on payloads from before the field existed
   friendKey: string;
   friendName: string;
   tournamentName: string;
