@@ -617,7 +617,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
     // sequence off the same DOM.
     <div className="flex flex-col gap-5">
       {/* Course */}
-      <Card className="p-5 order-2">
+      {/* Displays AFTER Rounds (order-3): you say how many days you're playing
+          first, then where — the order a trip is actually planned in. */}
+      <Card className="p-5 order-3">
         <div className="flex items-center justify-between mb-1">
           <h2 className="font-semibold">Course</h2>
           <Link href="/courses" className="text-xs text-[var(--brand)] hover:underline">
@@ -625,10 +627,10 @@ export function GolfSetup({ t }: { t: Tournament }) {
           </Link>
         </div>
         {/* In a trip this card is one round's course, not the whole event's —
-            say so, because the rounds list below is where the others live. */}
+            say so, because the rounds list above is where the others live. */}
         <p className="mb-3 text-xs text-[var(--muted)]">
           {multiRoundable && roundCount > 1
-            ? `Round ${activeRoundIdx + 1}'s course. Every round is listed under Rounds below — each one can play somewhere else.`
+            ? `Round ${activeRoundIdx + 1}'s course. Every round is listed under Rounds above — each one can play somewhere else.`
             : "Where this one is played — search it, load a saved one, or enter it by hand."}
         </p>
 
@@ -1002,7 +1004,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
           form away, and the round list must never fold with it. Every round is
           set right here, round 1 included, each with its own course search. */}
       {multiRoundable && (
-        <Card className="p-5 order-3">
+        <Card className="p-5 order-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="inline-flex items-center gap-1.5 font-semibold">
               Rounds
@@ -1081,7 +1083,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
           <p className="text-xs text-[var(--muted)]">
             {roundCount === 1
-              ? "One round: everyone plays the course above and that card decides it. Playing more than one day — a trip, a club championship? Tap + to add rounds."
+              ? "One round: everyone plays the course below and that card decides it. Playing more than one day — a trip, a club championship? Tap + to add rounds."
               : `${roundCount} rounds in one tournament, like a PGA event: each round keeps its own scorecard and stats, and the lowest total across all ${roundCount} wins.`}
           </p>
 
@@ -1470,7 +1472,22 @@ export function GolfSetup({ t }: { t: Tournament }) {
 
       {/* Scoring mode */}
       <Card className="p-5 order-1">
-        <h2 className="font-semibold mb-3">Scoring — pick your game</h2>
+        <h2 className="mb-3 inline-flex items-center gap-1.5 font-semibold">
+          Scoring — pick your game
+          <InfoTip label="How to set up a golf event" title="Setting up a golf event, top to bottom:">
+            <ol className="list-decimal space-y-1 pl-4">
+              <li><b>Scoring</b> — the game you&apos;re playing. Stroke Play is standard golf; Build Your Own changes games every few holes inside one round.</li>
+              <li><b>Rounds</b> — how many days. One round is a normal outing; tap + for a trip or club championship, and give each round its own course, tees, and even its own game.</li>
+              <li><b>Course</b> — search the real course and the pars, stroke index, and tee ratings fill themselves in. Anything you pick is saved for next time.</li>
+              <li><b>Players & handicaps</b> — type names, tap saved friends (their handicaps come along), or Open registration and let everyone add themselves by QR.</li>
+              <li><b>Start</b> — the scorecard opens. Go Live shares it to every phone, the hole screen has GPS yardages, and three optional taps per hole (putts · tee · trouble) grow your stats and Seed Index.</li>
+            </ol>
+            <p className="mt-1.5">
+              Playing <b>teams trading match-play points</b> — a Ryder Cup weekend? That&apos;s the
+              other golf format: back out and pick <b>Ryder Cup Style</b> instead.
+            </p>
+          </InfoTip>
+        </h2>
         <div className="space-y-3">
           {MODE_GROUPS.map((g) => (
             <div key={g.label}>

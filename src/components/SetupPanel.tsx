@@ -990,11 +990,17 @@ function FormatSwitcher({
   const styles = playStylesForFormat(t.format);
   const options = formatsForSport(t.sport);
 
-  // Same primary-8-plus-More shape as the create form; a custom-typed sport
-  // gets its own chip up front so the current pick is always visible.
-  const primary = SPORTS.slice(0, 8);
-  const base = moreSports || (SPORTS.includes(t.sport) && !primary.includes(t.sport)) ? SPORTS : primary;
+  // Only sports that PLAY this event's format get chips — offering Pickleball
+  // on a Traditional golf card just teed up a "doesn't play Traditional"
+  // dialog. Sports that would force a format change live behind "Change sport
+  // & format…", which says what it costs before anyone taps a chip.
+  const fits = SPORTS.filter((s) => formatsForSport(s).includes(t.format));
+  const base = moreSports ? SPORTS : fits.slice(0, 8);
   const sportChips = base.includes(t.sport) ? base : [t.sport, ...base];
+  const hiddenCount = SPORTS.length - new Set(sportChips).size;
+  // "More…" while fitting sports are still folded; once only format-changers
+  // remain hidden, the button says what tapping one of those costs.
+  const moreLabel = fits.length > 8 && !moreSports ? "More…" : "Change sport & format…";
 
   function setSport(s: string) {
     if (s === t.sport) return;
@@ -1055,13 +1061,14 @@ function FormatSwitcher({
             {s}
           </button>
         ))}
-        {!moreSports && sportChips.length < SPORTS.length && (
+        {!moreSports && hiddenCount > 0 && (
           <button
             type="button"
             onClick={() => setMoreSports(true)}
+            title="Sports that play a different format — switching resets the schedule"
             className="rounded-lg border border-dashed border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] hover:bg-[var(--hover)]"
           >
-            More…
+            {moreLabel}
           </button>
         )}
       </div>

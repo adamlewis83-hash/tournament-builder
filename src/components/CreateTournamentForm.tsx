@@ -16,6 +16,7 @@ import {
   SPORTS,
 } from "@/lib/types";
 import { Button } from "./ui";
+import { InfoTip } from "./InfoTip";
 import { SportIcon } from "./SportIcon";
 import { sportAccent } from "@/lib/colors";
 import {
@@ -228,7 +229,30 @@ export function CreateTournamentForm({ onDone }: { onDone?: () => void }) {
 
       {/* Step 2 — format (icon+label tiles + one blurb strip) */}
       <section>
-        <StepHeader n={2} title="Format" />
+        <div className="flex items-center gap-1.5">
+          <StepHeader n={2} title="Format" />
+          {/* The one golf decision people stall on — answered where it's asked. */}
+          {isGolfSport && (
+            <span className="-mt-2">
+              <InfoTip label="Traditional or Ryder Cup Style?" title="Which one?">
+                <p className="mb-1">
+                  <b>Traditional</b> — everyone posts their own score. Stroke play, Stableford,
+                  skins, scrambles, handicaps, 1–8 rounds. Your Saturday game, your club
+                  championship, your golf trip.
+                </p>
+                <p className="mb-1">
+                  <b>Ryder Cup Style</b> — two <b>teams</b> trade match-play points across sessions
+                  (foursomes, fourball, singles…). Nobody totals a personal score; the cup does.
+                  Us-versus-them weekends.
+                </p>
+                <p>
+                  Rule of thumb: if you care what each person shot, Traditional. If you only care
+                  which side won, Ryder Cup Style.
+                </p>
+              </InfoTip>
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {shownFormats.map((f) => {
             const Icon = FORMAT_ICON[f] ?? Trophy;
