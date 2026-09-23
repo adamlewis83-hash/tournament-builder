@@ -143,6 +143,9 @@ export function GolfSetup({ t }: { t: Tournament }) {
   // Where the loaded course is (from search import or a saved course) — rides
   // along into Save course.
   const [courseCoords, setCourseCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // Basket/pin positions carried by a saved course (disc golf) — written onto
+  // golf.pins at start so the GPS band knows the targets.
+  const [coursePins, setCoursePins] = useState<([number, number] | null)[] | null>(null);
   const [teeFinding, setTeeFinding] = useState(false);
   const [teeFindMsg, setTeeFindMsg] = useState<string | null>(null);
   const [showCourse, setShowCourse] = useState(false);
@@ -323,6 +326,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
     setPars(c.pars);
     setSi(c.strokeIndex);
     setCourseCoords(c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null);
+    setCoursePins(c.pins?.some(Boolean) ? c.pins : null);
     setSegments(defaultSegments(c.holes, teamMode));
     setCourseOpen(false);
   }
@@ -563,6 +567,7 @@ export function GolfSetup({ t }: { t: Tournament }) {
       tees: tees.length ? tees : undefined,
       segments: mode === "mixed" ? segments : undefined,
       teams: mode === "mixed" && teamMode,
+      pins: coursePins ?? undefined,
     });
     // Rounds last: it reshapes the event around the card that was just saved,
     // and round 1 keeps that card.

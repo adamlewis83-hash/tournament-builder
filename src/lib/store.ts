@@ -184,6 +184,8 @@ interface State {
       tees?: import("./types").TeeSet[];
       segments?: import("./types").GolfSegment[];
       teams?: boolean;
+      /** Basket/pin positions per hole (disc golf) — lands on golf.pins. */
+      pins?: ([number, number] | null)[];
     },
   ) => void;
   setParticipantPhoto: (id: string, participantId: string, photo: string | null) => void;
@@ -639,6 +641,11 @@ export const useStore = create<State>()(
             pars: input.pars,
             strokeIndex: input.strokeIndex,
             tees: input.tees,
+            // Location and basket positions survive a save (a re-save without
+            // them keeps what the library already knew).
+            lat: input.lat ?? match?.lat,
+            lng: input.lng ?? match?.lng,
+            pins: input.pins ?? match?.pins,
           };
           id = course.id;
           return match
@@ -1344,6 +1351,9 @@ export const useStore = create<State>()(
             if (input.courseName?.trim()) golf.courseName = input.courseName.trim();
             if (input.tees?.length) golf.tees = input.tees;
             if (input.segments?.length) golf.segments = input.segments;
+            // Disc golf baskets ride the saved course into the GPS band.
+            if (input.pins?.length)
+              golf.pins = Array.from({ length: golf.holes }, (_, i) => input.pins![i] ?? null);
             if (input.teams) golf.teams = true;
             return { ...t, participants, golf, matches: [], generated: true, regOpen: false, updatedAt: Date.now() };
           }),

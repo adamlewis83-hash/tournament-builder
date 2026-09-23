@@ -234,6 +234,9 @@ export interface Course {
   tees?: TeeSet[]; // available tee sets (for course-handicap adjustment)
   lat?: number; // where the course is — for distance labels and, later, an
   lng?: number; // OSM greens fetch anchored to the course, not the phone
+  /** Target position per hole — disc golf baskets from OSM. Loaded into
+   *  golf.pins at generate, which lights up the GPS band's distance readout. */
+  pins?: ([number, number] | null)[];
 }
 
 // A saved player you compete with often — pick them into a tournament instead of retyping.

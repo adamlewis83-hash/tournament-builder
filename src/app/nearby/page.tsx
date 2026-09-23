@@ -5,7 +5,11 @@ import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { SportIcon } from "@/components/SportIcon";
 import { fetchDiscGolfCourses, Venue } from "@/lib/osmVenues";
+import { fetchOsmDiscCourse } from "@/lib/osmDiscGolf";
+import { useStore } from "@/lib/store";
 import { GeoFailure, getPosition, hasNativeGeo } from "@/lib/geo";
+
+const IN_LIBRARY = "in your library";
 
 // iOS home-screen web apps can hang geolocation with no callback; detect so we
 // can point the user to Safari instead of spinning forever (see GolfGps).
@@ -27,6 +31,48 @@ export default function NearbyPage() {
   const [searchedAt, setSearchedAt] = useState<{ label: string } | null>(null);
   const [place, setPlace] = useState("");
   const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveCourse = useStore((s) => s.saveCourse);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [savedMsg, setSavedMsg] = useState<Record<string, string>>({});
+
+  // Pull the course's per-hole nodes (tees/baskets with hole number and par)
+  // and save a ready-to-play scorecard to the library. Courses without
+  // per-hole mapping still save fine — disc golf's default is par 3s.
+  async function importVenue(v: Venue) {
+    setSaving((m) => ({ ...m, [v.id]: true }));
+    try {
+      let detail = {
+        holes: v.holes ?? 18,
+        pars: Array.from({ length: v.holes ?? 18 }, () => 3),
+        pins: [] as ([number, number] | null)[],
+        mappedHoles: 0,
+      };
+      try {
+        detail = await fetchOsmDiscCourse([v.lng, v.lat], v.holes);
+      } catch {
+        /* Overpass busy — save with defaults; details can refresh another day */
+      }
+      saveCourse({
+        name: v.name,
+        holes: detail.holes,
+        pars: detail.pars,
+        strokeIndex: Array.from({ length: detail.holes }, (_, i) => i + 1),
+        lat: v.lat,
+        lng: v.lng,
+        pins: detail.pins.some(Boolean) ? detail.pins : undefined,
+      });
+      setSavedMsg((m) => ({
+        ...m,
+        [v.id]: detail.pins.some(Boolean)
+          ? `${IN_LIBRARY} · baskets mapped`
+          : detail.mappedHoles > 0
+            ? `${IN_LIBRARY} · pars from OSM`
+            : IN_LIBRARY,
+      }));
+    } finally {
+      setSaving((m) => ({ ...m, [v.id]: false }));
+    }
+  }
 
   async function search(center: [number, number]) {
     setStatus("searching");
@@ -198,18 +244,34 @@ export default function NearbyPage() {
                 <div className="text-xs text-[var(--muted)]">
                   {miles(v.meters).toFixed(1)} mi
                   {v.holes ? ` · ${v.holes} holes` : ""}
+                  {savedMsg[v.id] ? ` · ${savedMsg[v.id]}` : ""}
                 </div>
               </div>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${v.lat},${v.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--hover)]"
-              >
-                Open in Maps
-              </a>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={!!saving[v.id] || !!savedMsg[v.id]}
+                  onClick={() => importVenue(v)}
+                  className="rounded-lg border border-[var(--brand)]/50 px-3 py-1.5 text-xs font-semibold text-[var(--brand)] transition hover:bg-[var(--brand-soft)] disabled:opacity-60"
+                >
+                  {saving[v.id] ? "Importing…" : savedMsg[v.id] ? "✓ Saved" : "Save course"}
+                </button>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${v.lat},${v.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--hover)]"
+                >
+                  Maps
+                </a>
+              </div>
             </Card>
           ))}
+          <p className="text-[11px] text-[var(--muted)]">
+            Save a course and it&apos;s ready in golf setup under &ldquo;Load a saved course&rdquo; —
+            hole count and pars come from OpenStreetMap where mapped (par 3s otherwise), and mapped
+            basket positions light up distance-to-basket on the hole screen.
+          </p>
         </div>
       )}
     </div>

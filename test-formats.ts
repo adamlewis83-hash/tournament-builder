@@ -56,6 +56,7 @@ import { applyPatch } from "./src/lib/live";
 import { scoreCount, scoreSummary } from "./src/lib/snapshot";
 import { sportAccent } from "./src/lib/colors";
 import { centroidOf, fcbYards, metersBetween } from "./src/lib/greens";
+import { parseDiscCourse } from "./src/lib/osmDiscGolf";
 import { autoSummary, deriveHole, gameMetrics, gameTakeaway, roundInsights, roundStats, sumStats } from "./src/lib/golfStats";
 import { eventComplete, eventStandings, isMultiRound, mixedRoundModes, roundCards, roundPointsStandings } from "./src/lib/golfRounds";
 import {
@@ -850,6 +851,53 @@ check("trophy room — an alias folds two spellings into one player", () => {
   assert(!!me && me.firsts === 2 && me.events === 2, `merged record ${JSON.stringify(me)}`);
   assert(applyAliases(ts, {}) === ts, "an empty map is a no-op passthrough");
   assert(ts[0].participants[0].name === "Adam", "aliasing must not mutate the source");
+});
+
+// ---- Disc golf from OSM: tees/baskets/pars into a scorecard -----------------
+check("disc golf — OSM tee/basket nodes parse into holes, pars, and pins", () => {
+  const el = (kind: string, ref: string | undefined, par?: string, lat?: number, lon?: number) => ({
+    type: "node",
+    id: Math.random(),
+    tags: { disc_golf: kind, ...(ref ? { ref } : {}), ...(par ? { par } : {}) },
+    ...(lat != null ? { lat, lon } : {}),
+  });
+  // 9 mapped holes: tees carry pars (hole 3 par 4), baskets carry positions.
+  const els = [
+    ...Array.from({ length: 9 }, (_, i) => el("tee", String(i + 1), i === 2 ? "4" : "3")),
+    ...Array.from({ length: 9 }, (_, i) => el("basket", String(i + 1), undefined, 40 + i * 0.001, -105)),
+    el("tee", undefined, "3"), // no ref — ignored
+    el("basket", "99"), // out-of-range ref — ignored
+    { type: "node", id: 1, tags: { amenity: "bench" } }, // unrelated
+  ];
+  const d = parseDiscCourse(els as never, null);
+  assert(d.holes === 9, `holes ${d.holes}`);
+  assert(d.pars.join(",") === "3,3,4,3,3,3,3,3,3", `pars ${d.pars}`);
+  assert(d.pins.filter(Boolean).length === 9, "all baskets should place");
+  assert(d.pins[4]?.[1] === 40.004, `pin 5 lat ${d.pins[4]?.[1]}`);
+  assert(d.mappedHoles === 9, "mapped count");
+
+  // No per-hole nodes: fall back to the venue's holes tag, then to 18 par-3s.
+  const bare = parseDiscCourse([], 21);
+  assert(bare.holes === 21 && bare.pars.every((p) => p === 3) && bare.mappedHoles === 0, "venue-tag fallback");
+  const std = parseDiscCourse([], null);
+  assert(std.holes === 18, "default 18");
+
+  // The common real-world case (Austin/Portland probe): bare tee/basket nodes,
+  // no refs, no pars — the node COUNT is the hole count.
+  const bareNodes = [
+    ...Array.from({ length: 12 }, (_, i) => el("basket", undefined, undefined, 40 + i * 0.001, -105)),
+    ...Array.from({ length: 11 }, () => el("tee", undefined)),
+  ];
+  const counted = parseDiscCourse(bareNodes as never, 18);
+  assert(counted.holes === 12 && counted.mappedHoles === 0, `bare-node count ${counted.holes}`);
+  assert(counted.pins.every((p) => p === null), "unnumbered baskets must not claim holes");
+
+  // A basket's par fills in only where no tee spoke.
+  const mixed = parseDiscCourse(
+    [el("tee", "1"), el("basket", "1", "4", 40, -105), el("tee", "2", "3"), el("basket", "2", "5", 40, -105), el("tee", "3", "3")] as never,
+    null,
+  );
+  assert(mixed.pars[0] === 4 && mixed.pars[1] === 3, `basket-par fallback ${mixed.pars}`);
 });
 
 // ---- Green geometry: front/center/back from a green polygon ----------------
