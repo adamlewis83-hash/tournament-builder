@@ -240,11 +240,13 @@ export function ScorePhoto({ t }: { t: Tournament }) {
           })}
         </div>
 
+        {/* The one line every group chat sees — it should say where to get it. */}
         <div
           className="mt-4 flex items-center justify-center gap-1 text-[11px] font-medium"
           style={{ color: "#94a3b8" }}
         >
-          <SporosMark className="h-3.5 w-3.5" /> Made with Sporos
+          <SporosMark className="h-3.5 w-3.5" /> Made with Sporos ·{" "}
+          <span style={{ color: "#16a34a", fontWeight: 700 }}>sporos.app</span>
         </div>
       </div>
     </div>

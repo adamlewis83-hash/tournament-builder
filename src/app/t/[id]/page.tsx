@@ -10,6 +10,7 @@ import { Badge, Button, Card, StatusPill } from "@/components/ui";
 import { Settings } from "@/components/icons";
 import { isFinal } from "@/lib/score";
 import { getResult } from "@/lib/result";
+import { ScorePhotoButton } from "@/components/ScorePhotoButton";
 import { bracketChampion } from "@/lib/bracket";
 import { Tournament } from "@/lib/types";
 import { tournamentStatus } from "@/lib/status";
@@ -137,6 +138,18 @@ function TournamentDetail({ id }: { id: string }) {
       {t.spectator && <ScorerClaim t={t} />}
 
       <RestoreScores t={t} />
+
+      {/* The crowning moment is peak host pride — the exact second the
+          scorephoto (with the champion on it) wants to hit the group chat. */}
+      {shown && !t.spectator && getResult(t).complete && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-400/10 to-transparent px-4 py-2.5">
+          <span className="text-sm">
+            <span className="font-semibold">🏆 Champion crowned</span>
+            <span className="text-[var(--muted)]"> — send the card to the group chat.</span>
+          </span>
+          <ScorePhotoButton t={t} label="Share the scorephoto →" variant="primary" />
+        </div>
+      )}
 
       {shown && !t.spectator && <LivePanel t={t} />}
 

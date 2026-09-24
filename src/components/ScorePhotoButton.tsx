@@ -7,7 +7,15 @@ import { Tournament } from "@/lib/types";
 import { ScorePhoto } from "./ScorePhoto";
 import { Button } from "./ui";
 
-export function ScorePhotoButton({ t }: { t: Tournament }) {
+export function ScorePhotoButton({
+  t,
+  label,
+  variant = "outline",
+}: {
+  t: Tournament;
+  label?: string;
+  variant?: "outline" | "primary";
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -46,11 +54,11 @@ export function ScorePhotoButton({ t }: { t: Tournament }) {
   return (
     <>
       <Button
-        variant="outline"
+        variant={variant}
         className="px-2.5 py-1.5 inline-flex items-center gap-1.5"
         onClick={() => setOpen(true)}
       >
-        <ImageIcon className="h-4 w-4" /> Scorephoto
+        <ImageIcon className="h-4 w-4" /> {label ?? "Scorephoto"}
       </Button>
       {open && (
         <div
