@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Radio } from "@/components/icons";
 import { Tournament } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { fetchLinks } from "@/lib/feed";
+import { getLibraryKey } from "@/lib/library";
 import { Button } from "./ui";
 import { CollapsibleCard } from "./CollapsibleCard";
 import { InfoTip } from "./InfoTip";
@@ -16,6 +18,21 @@ export function LivePanel({ t }: { t: Tournament }) {
   const [copied, setCopied] = useState("");
   const [showScorers, setShowScorers] = useState(false);
   const [newScorer, setNewScorer] = useState("");
+  const friends = useStore((s) => s.friends);
+  // Linked friends' names are the profile names on their own phones, which is
+  // exactly what a scorekeeper grant is checked against. Picking one of those
+  // can't miss the way a hand typed "Collin" misses a phone set to "Collin L".
+  const [linkedNames, setLinkedNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!showScorers) return;
+    let live = true;
+    fetchLinks(getLibraryKey()).then((list) => {
+      if (live) setLinkedNames(list.flatMap((f) => (f.name?.trim() ? [f.name.trim()] : [])));
+    });
+    return () => {
+      live = false;
+    };
+  }, [showScorers]);
 
   const scorers = t.scorers ?? [];
   const isScorer = (name: string) => scorers.some((n) => n.toLowerCase() === name.toLowerCase());
@@ -28,6 +45,20 @@ export function LivePanel({ t }: { t: Tournament }) {
   const extraScorers = scorers.filter(
     (n) => !t.participants.some((p) => p.name.trim().toLowerCase() === n.trim().toLowerCase()),
   );
+  // Friends who could keep score but aren't players or scorekeepers yet: linked
+  // accounts first (their names are sure to match), then the saved friends list.
+  const taken = (name: string) =>
+    isScorer(name) ||
+    t.participants.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const suggestions: { name: string; linked: boolean }[] = [];
+  for (const name of linkedNames)
+    if (!taken(name) && !suggestions.some((x) => x.name.toLowerCase() === name.toLowerCase()))
+      suggestions.push({ name, linked: true });
+  for (const f of friends) {
+    const name = f.name.trim();
+    if (name && !taken(name) && !suggestions.some((x) => x.name.toLowerCase() === name.toLowerCase()))
+      suggestions.push({ name, linked: false });
+  }
   const addScorerByName = () => {
     const v = newScorer.trim();
     if (!v || isScorer(v)) {
@@ -173,7 +204,12 @@ export function LivePanel({ t }: { t: Tournament }) {
                   className="inline-flex items-center gap-1 rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] pl-2.5 pr-1.5 py-1 text-xs font-medium text-[var(--brand)]"
                 >
                   ✓ {n}
-                  <span className="text-[10px] opacity-70">(not playing)</span>
+                  {/* A linked name may be a player whose phone spells it differently. */}
+                  <span className="text-[10px] opacity-70">
+                    {linkedNames.some((x) => x.toLowerCase() === n.trim().toLowerCase())
+                      ? "🔗 linked"
+                      : "(not playing)"}
+                  </span>
                   <button
                     type="button"
                     onClick={() => toggleScorer(n)}
@@ -185,6 +221,25 @@ export function LivePanel({ t }: { t: Tournament }) {
                 </span>
               ))}
             </div>
+            {suggestions.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[11px] text-[var(--muted)]">From your friends</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {suggestions.map((f) => (
+                    <button
+                      key={`friend-${f.name}`}
+                      type="button"
+                      onClick={() => setScorers(t.id, [...scorers, f.name])}
+                      title={f.linked ? "Linked account: matches the name on their phone" : undefined}
+                      className="rounded-full border border-dashed border-[var(--border)] px-2.5 py-1 text-xs font-medium transition hover:bg-[var(--hover)]"
+                    >
+                      + {f.name}
+                      {f.linked && <span className="ml-1 text-[10px] opacity-70">🔗 linked</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-2 flex gap-2">
               <input
                 value={newScorer}
