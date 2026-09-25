@@ -9,6 +9,7 @@ import { getProfile, setProfile } from "@/lib/profile";
 import { registrationOpen, Tournament } from "@/lib/types";
 import { Card, Button } from "@/components/ui";
 import { HydrationGate } from "@/components/HydrationGate";
+import { OpenInApp } from "@/components/OpenInApp";
 
 export default function JoinLivePage() {
   const params = useParams<{ code: string }>();
@@ -117,6 +118,8 @@ function Joiner({ code }: { code: string }) {
             {event.sport} · {event.participants.length} playing
           </p>
         </div>
+
+        <OpenInApp path={`/live/${upper}`} />
 
         {!picking ? (
           <div className="space-y-2">

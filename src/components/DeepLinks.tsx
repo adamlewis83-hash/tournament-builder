@@ -33,8 +33,14 @@ export function DeepLinks() {
     const go = (url: string) => {
       try {
         const u = new URL(url);
-        if (u.hostname !== "sporos.app" && u.hostname !== "www.sporos.app") return;
-        const path = u.pathname + u.search;
+        let path: string;
+        // sporos://live/CODE, from the web page's "Open in the Sporos app"
+        // button. It works even when iOS isn't treating sporos.app links as
+        // app links.
+        if (u.protocol === "sporos:") path = `/${u.hostname}${u.pathname}${u.search}`;
+        else if (u.hostname === "sporos.app" || u.hostname === "www.sporos.app")
+          path = u.pathname + u.search;
+        else return;
         if (path !== window.location.pathname + window.location.search) router.push(path);
       } catch {
         /* not a URL we know */
