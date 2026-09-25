@@ -411,12 +411,19 @@ export function playersOf(t: Tournament): string[] {
 }
 
 /**
- * Whether a completed tournament is a CONTEST — someone beat someone. A solo
- * golf round logged for the Seed Index is a practice card, not a championship:
- * it mints no medal, no streak, no reigning champion. (The round still feeds
- * the Seed Index and the player's own history — those aren't competitions.)
+ * Whether a completed event is a TOURNAMENT — the kind that crowns a champion
+ * in the records. Two lines drawn on purpose (Adam's call, 2026-09-25):
+ *  - one player is practice, never a contest;
+ *  - a SINGLE golf round is just a round unless it's a real outing (5+
+ *    players) — a Tuesday foursome logs its scores and feeds the Seed Index,
+ *    but doesn't mint medals. Multi-round events and Ryder cups always count.
  */
-export const hasCompetition = (t: Tournament): boolean => playersOf(t).length >= 2;
+export const hasCompetition = (t: Tournament): boolean => {
+  const n = playersOf(t).length;
+  if (n < 2) return false;
+  if (t.format === "golf" && !isMultiRound(t)) return n >= 5;
+  return true;
+};
 
 const completedByDate = (tournaments: Tournament[]): Tournament[] =>
   tournaments

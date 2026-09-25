@@ -4,20 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { Tournament, FORMAT_LABELS } from "@/lib/types";
-import {
-  aggregateRecords,
-  competitionRanks,
-  getPlacements,
-  hasCompetition,
-  headToHead,
-  playersOf,
-  titleStreaks,
-} from "@/lib/records";
+import { getPlacements, hasCompetition, playersOf } from "@/lib/records";
 import { applyAliases, canonicalName } from "@/lib/aliases";
-import { ago, ordinal } from "@/lib/format";
+import { ago } from "@/lib/format";
 import { getProfile } from "@/lib/profile";
 import { getResult } from "@/lib/result";
-import { Crown, Trophy } from "@/components/icons";
+import { computeGolf } from "@/lib/golf";
+import { Trophy } from "@/components/icons";
 import { Emoji } from "@/components/Emoji";
 import { SportIcon } from "@/components/SportIcon";
 import { colorForName, sportAccent } from "@/lib/colors";
@@ -25,6 +18,11 @@ import { Card } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { HydrationGate } from "@/components/HydrationGate";
 
+// Records is an ARCHIVE first (Adam's call after the trophy-room experiments):
+// every finished event logs here, newest on top, and opens to its full
+// results. Champions show on the events that actually crowned one — a casual
+// golf round is a round, not a tournament — and the career layer (medals,
+// rates, streaks, rivalries) lives on each player's own page, one tap away.
 export default function RecordsPage() {
   return (
     <HydrationGate>
@@ -35,408 +33,28 @@ export default function RecordsPage() {
 
 const MEDAL_EMOJI: Record<string, string> = { gold: "🥇", silver: "🥈", bronze: "🥉" };
 
-type Medalist = { name: string; firsts: number; seconds: number; thirds: number };
-
-// One step of the podium — shows EVERY player on that step, so a doubles duo
-// (two co-champions, or two runners-up) both appear instead of being cut off.
-// The riser says the RANK ("1st"), never a medal: this podium orders career
-// records, and a step full of gold-winners under a 🥈 read as nonsense.
-function PodiumTier({ players, tier }: { players: Medalist[]; tier: 1 | 2 | 3 }) {
-  // Render nothing for an absent tier (e.g. no bronze/3rd-place match). The parent
-  // centers whatever tiers exist, so a 1- or 1-2-place podium stays balanced instead
-  // of leaving a detached empty column with a gap.
-  if (!players.length) return null;
-  const barH = tier === 1 ? "h-16" : tier === 2 ? "h-11" : "h-8";
-  const barBg =
-    tier === 1
-      ? "border-amber-400 bg-amber-400/25"
-      : tier === 2
-        ? "border-slate-400 bg-slate-400/20"
-        : "border-orange-400 bg-orange-400/20";
-  const show = players.slice(0, 4);
-  const extra = players.length - show.length;
-  // What this step's record actually is, in medals: "1🥇 1🥈", zeros dropped.
-  const tally = (
-    [
-      [players[0].firsts, "🥇"],
-      [players[0].seconds, "🥈"],
-      [players[0].thirds, "🥉"],
-    ] as const
-  ).filter(([n]) => n > 0);
-  return (
-    <div className="flex w-24 flex-col items-center sm:w-28">
-      {/* The champion wears the crown. */}
-      {tier === 1 ? <Crown className="h-5 w-5 text-amber-500" /> : <div className="h-5" />}
-      <div className="mt-1 flex flex-wrap items-end justify-center gap-1">
-        {show.map((p) => (
-          <Avatar
-            key={p.name}
-            name={p.name}
-            color={colorForName(p.name)}
-            className={
-              tier === 1
-                ? "h-10 w-10 text-sm ring-2 ring-amber-400/60 ring-offset-1 ring-offset-[var(--surface)]"
-                : "h-8 w-8 text-[10px]"
-            }
-          />
-        ))}
-      </div>
-      <div className="mt-1 text-center text-[11px] font-semibold leading-tight">
-        {show.map((p, i) => (
-          <span key={p.name}>
-            {i > 0 && " & "}
-            <Link href={playerHref(p.name)} className="hover:underline">
-              {p.name}
-            </Link>
-          </span>
-        ))}
-        {extra > 0 ? ` +${extra}` : ""}
-      </div>
-      {/* The step's shared record, as the medals themselves. */}
-      <div className="flex items-center gap-1 text-[10px] text-[var(--muted)] tabular-nums">
-        {tally.map(([n, e]) => (
-          <span key={e} className="inline-flex items-center gap-0.5">
-            {n}
-            <Emoji e={e} className="h-3 w-3" />
-          </span>
-        ))}
-      </div>
-      <div
-        className={`mt-1.5 flex w-full items-start justify-center rounded-t-md border-t-2 pt-1 text-[11px] font-extrabold text-[var(--muted)] ${barBg} ${barH}`}
-      >
-        {tier === 1 ? "1st" : tier === 2 ? "2nd" : "3rd"}
-      </div>
-    </div>
-  );
-}
-
-// The address of a player's trophy case (8c).
+// The address of a player's trophy case.
 const playerHref = (name: string) => `/records/p/${encodeURIComponent(name)}`;
-
-// Under three completed events a ranked podium is theater — this lists who won
-// what, plainly, until there's a body of work to rank.
-function ChampionsSoFar({ completed }: { completed: Tournament[] }) {
-  const rows = [...completed].sort((a, b) => b.updatedAt - a.updatedAt);
-  if (!rows.length) return null;
-  return (
-    <Card className="p-4">
-      <h2 className="mb-2 text-sm font-bold">Champions so far</h2>
-      <ul className="space-y-2">
-        {rows.map((t) => {
-          const champs = getPlacements(t).find((pl) => pl.medal === "gold")?.names ?? [];
-          if (!champs.length) return null;
-          return (
-            <li key={t.id} className="flex items-center gap-2.5 text-sm">
-              <Avatar name={champs[0]} color={colorForName(champs[0])} className="h-7 w-7 text-[10px]" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">
-                  {champs.slice(0, 3).join(" & ")}
-                  {champs.length > 3 ? ` +${champs.length - 3}` : ""}
-                </span>
-                <span className="block truncate text-[11px] text-[var(--muted)]">
-                  {t.name} · {ago(t.updatedAt)}
-                </span>
-              </span>
-              <Emoji e="🥇" className="h-4.5 w-4.5 shrink-0" />
-            </li>
-          );
-        })}
-      </ul>
-      <p className="mt-2.5 text-[10px] text-[var(--muted)]">
-        The ranked podium opens after 3 completed events.
-      </p>
-    </Card>
-  );
-}
-
-// 8a — the reigning champion hero: the most recently completed event's winner,
-// crowned, above the sport chips. Gives the room a focal point instead of
-// opening on counters. Tapping it opens that tournament.
-function ReigningChampion({ completed }: { completed: Tournament[] }) {
-  const latest = [...completed].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-  if (!latest) return null;
-  const champs = getPlacements(latest).find((pl) => pl.medal === "gold")?.names ?? [];
-  if (!champs.length) return null;
-  return (
-    <Link
-      href={`/t/${latest.id}`}
-      className="block overflow-hidden rounded-2xl border border-amber-400/45 bg-gradient-to-br from-amber-400/15 via-amber-400/5 to-transparent transition hover:border-amber-400/70"
-    >
-      <div className="flex items-center gap-4 px-4 py-3.5">
-        <div className="relative shrink-0">
-          <Avatar
-            name={champs[0]}
-            color={colorForName(champs[0])}
-            className="h-14 w-14 text-lg ring-[3px] ring-amber-400/60"
-          />
-          <Crown className="absolute -top-2.5 left-1/2 h-5 w-5 -translate-x-1/2 text-amber-500" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
-            Reigning champion
-          </div>
-          <div className="truncate text-xl font-bold leading-tight">{champs.join(" & ")}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--muted)]">
-            <SportIcon
-              sport={latest.sport}
-              className="h-3.5 w-3.5 shrink-0"
-              style={{ color: sportAccent(latest.sport) }}
-            />
-            <span className="truncate">
-              {latest.name} · {ago(latest.updatedAt)}
-            </span>
-          </div>
-        </div>
-        <span className="shrink-0 text-[var(--muted)]">›</span>
-      </div>
-    </Link>
-  );
-}
-
-// 8a — "Your record": the signed-in player's standing, right under the podium.
-function YourRecord({
-  records,
-  rankOf,
-  name,
-  streaks,
-  tournaments,
-}: {
-  records: ReturnType<typeof aggregateRecords>;
-  rankOf: number[];
-  name: string;
-  streaks: ReturnType<typeof titleStreaks>;
-  tournaments: Tournament[];
-}) {
-  const idx = records.findIndex((r) => r.name.toLowerCase() === name.toLowerCase());
-  if (idx < 0) return null;
-  const me = records[idx];
-  const streak = streaks.find((s) => s.name.toLowerCase() === name.toLowerCase());
-  const pct = (n: number) => `${Math.round((100 * n) / Math.max(1, me.events))}%`;
-  // Best sport = where the most golds live (falling back to most events played).
-  let bestSport: string | null = null;
-  {
-    let bestScore = -1;
-    for (const s of [...new Set(tournaments.map((t) => t.sport))]) {
-      const mine = aggregateRecords(tournaments.filter((t) => t.sport === s)).find(
-        (r) => r.name.toLowerCase() === name.toLowerCase(),
-      );
-      if (!mine) continue;
-      const score = mine.firsts * 1000 + mine.events;
-      if (score > bestScore) {
-        bestScore = score;
-        bestSport = s;
-      }
-    }
-  }
-  return (
-    <div className="rounded-2xl border border-[var(--brand)]/60 bg-[var(--brand-soft)]/50 p-4">
-      <div className="flex items-center gap-3">
-        <Avatar name={me.name} color={colorForName(me.name)} className="h-9 w-9 text-xs" />
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--brand)]">
-            Your record
-          </div>
-          <div className="text-[15px] font-bold">
-            {ordinal(rankOf[idx])} overall · {me.firsts} title{me.firsts === 1 ? "" : "s"}
-          </div>
-        </div>
-        {streak && streak.current >= 2 && (
-          <span className="shrink-0 rounded-full bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold text-amber-600">
-            🔥 {streak.current} in a row
-          </span>
-        )}
-      </div>
-      <div className="mt-3 flex justify-between border-t border-[var(--brand)]/25 pt-3 text-center">
-        {(
-          [
-            [String(me.events), me.events === 1 ? "event" : "events"],
-            [pct(me.firsts), "titles"],
-            [pct(me.firsts + me.seconds + me.thirds), "podium"],
-            [bestSport ?? "—", "best sport"],
-          ] as const
-        ).map(([big, label]) => (
-          <div key={label}>
-            <div className="text-base font-extrabold leading-none">{big}</div>
-            <div className="mt-0.5 text-[9px] uppercase tracking-wide text-[var(--muted)]">
-              {label}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// 8b — the Hall of Fame with rates, not just counts. Title rate = wins ÷
-// events with a thin amber bar (muted under 3 events, where a lucky one-timer
-// would out-bar a proven winner); a secondary line carries event count and the
-// sports they've played. Season chips rescope everything in this card by
-// updatedAt. Tapping any row opens the player's trophy case.
-function HallOfFame({ tournaments }: { tournaments: Tournament[] }) {
-  const [season, setSeason] = useState<"all" | "year" | "90d">("all");
-  const year = new Date().getFullYear();
-  const cutoff =
-    season === "year"
-      ? new Date(year, 0, 1).getTime()
-      : season === "90d"
-        ? Date.now() - 90 * 86400000
-        : 0;
-  const pool = cutoff ? tournaments.filter((t) => t.updatedAt >= cutoff) : tournaments;
-  const records = aggregateRecords(pool);
-  const rankOf = competitionRanks(records);
-  const sportsBy = new Map<string, Set<string>>();
-  for (const t of pool) {
-    if (!getResult(t).complete) continue;
-    for (const n of playersOf(t)) {
-      const k = n.toLowerCase();
-      if (!sportsBy.has(k)) sportsBy.set(k, new Set());
-      sportsBy.get(k)!.add(t.sport);
-    }
-  }
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-2.5">
-        <span className="text-sm font-bold">Hall of Fame</span>
-        <div className="flex gap-1.5">
-          {(
-            [
-              ["all", "All time"],
-              ["year", String(year)],
-              ["90d", "Last 90d"],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setSeason(v)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                season === v
-                  ? "bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] text-[var(--on-brand)]"
-                  : "border border-[var(--border)] text-[var(--muted)] hover:bg-[var(--hover)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {records.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-[var(--muted)]">
-          No completed events in this window.
-        </p>
-      ) : (
-        <ul className="divide-y divide-[var(--border)]">
-          {records.map((r, i) => {
-            const rate = r.events ? r.firsts / r.events : 0;
-            const proven = r.events >= 3;
-            const sports = [...(sportsBy.get(r.name.toLowerCase()) ?? [])]
-              .map((s) => s.toLowerCase())
-              .join(", ");
-            return (
-              <li key={r.name}>
-                <Link
-                  href={playerHref(r.name)}
-                  className={`flex items-center gap-2.5 px-4 py-2.5 transition hover:bg-[var(--hover)] ${
-                    rankOf[i] === 1 && r.firsts > 0 ? "bg-[var(--win-bg)]" : ""
-                  }`}
-                >
-                  <span className="w-4 text-sm font-bold text-[var(--muted)] tabular-nums">
-                    {rankOf[i]}
-                  </span>
-                  <Avatar name={r.name} color={colorForName(r.name)} className="h-7 w-7 text-[10px]" />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-sm font-semibold">
-                      <span className="truncate">{r.name}</span>
-                      {rankOf[i] === 1 && r.firsts > 0 && (
-                        <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                      )}
-                    </span>
-                    <span className="block truncate text-[10px] text-[var(--muted)]">
-                      {r.events} event{r.events === 1 ? "" : "s"}
-                      {sports ? ` · ${sports}` : ""}
-                    </span>
-                  </span>
-                  <span className="w-14 text-center text-xs font-bold tabular-nums">
-                    <span className={r.firsts ? "text-amber-500" : "text-[var(--muted)]"}>
-                      {r.firsts || "—"}
-                    </span>{" "}
-                    <span className="text-[var(--muted)]">{r.seconds || "—"}</span>{" "}
-                    <span className="text-[var(--muted)]">{r.thirds || "—"}</span>
-                  </span>
-                  <span className="w-16 text-right">
-                    {/* A rate needs a denominator: under 3 events 100% just means
-                        "won once", so the figure waits until it can mean something. */}
-                    {proven ? (
-                      <>
-                        <span
-                          className={`text-sm font-extrabold tabular-nums ${
-                            r.firsts ? "" : "text-[var(--muted)]"
-                          }`}
-                        >
-                          {Math.round(rate * 100)}%
-                        </span>
-                        <span className="mt-1 ml-auto block h-1 w-12 overflow-hidden rounded-full bg-[var(--subtle)]">
-                          <span
-                            className="block h-full rounded-full bg-amber-400"
-                            style={{ width: `${Math.round(rate * 100)}%` }}
-                          />
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-sm font-bold text-[var(--muted)]">—</span>
-                    )}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      <p className="border-t border-[var(--border)] px-4 py-2 text-[10px] text-[var(--muted)]">
-        Counts reward showing up — title rate (wins ÷ events) shows who converts, once someone has
-        3 events behind it. Tap a row for their trophy case.
-      </p>
-    </div>
-  );
-}
 
 function RecordBook() {
   const raw = useStore((s) => s.tournaments);
-  // Names read through this device's alias map ("Adam" folded into "Adam
-  // Lewis"), and only CONTESTS count as events here — a solo round logged for
-  // the Seed Index is practice, not a championship.
+  // Names read through this device's alias map ("Adam" folded into "Adam Lewis").
   const tournaments = applyAliases(raw);
-  const allCompleted = tournaments.filter((t) => getResult(t).complete && hasCompetition(t));
-  // Everything below the header narrows to one sport when a chip is picked.
   const [sport, setSport] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [profileName, setProfileName] = useState("");
   useEffect(() => setProfileName(canonicalName(getProfile().name.trim())), []);
 
-  const sports = [...new Set(allCompleted.map((t) => t.sport))];
-  const completed = sport ? allCompleted.filter((t) => t.sport === sport) : allCompleted;
-  const scoped = sport ? tournaments.filter((t) => t.sport === sport) : tournaments;
-  const records = aggregateRecords(scoped);
-  const rankOf = competitionRanks(records);
-  const allStreaks = titleStreaks(scoped);
-  const streaks = allStreaks.slice(0, 5);
-  const rivalries = profileName
-    ? headToHead(scoped, profileName)
-        .filter((r) => r.wins + r.losses > 0)
-        .slice(0, 5)
-    : [];
-  const playerCount = new Set(records.map((r) => r.name.toLowerCase())).size;
-  // Podium = the TOP THREE RANKS of the hall, straight off rankOf — not "everyone
-  // who ever medaled" (with 8 one-time winners that put 4 avatars and a +4 on the
-  // gold riser). Ties still share a step: rankOf gives tied players the same rank
-  // precisely because their records match.
-  const golds = records.filter((_, i) => rankOf[i] === 1);
-  const silvers = records.filter((_, i) => rankOf[i] === 2);
-  const bronzes = records.filter((_, i) => rankOf[i] === 3);
+  // EVERYTHING finished belongs in the log — rounds included.
+  const allDone = tournaments.filter((t) => getResult(t).complete);
+  const sports = [...new Set(allDone.map((t) => t.sport))];
+  const done = sport ? allDone.filter((t) => t.sport === sport) : allDone;
+  const events = done.filter(hasCompetition);
+  const rounds = done.length - events.length;
+  const playerCount = new Set(done.flatMap(playersOf).map((n) => n.toLowerCase())).size;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <Link href="/" className="text-sm text-[var(--muted)] hover:underline">
           ← All tournaments
@@ -444,10 +62,10 @@ function RecordBook() {
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-amber-500" /> Trophy Room
+              <Trophy className="h-6 w-6 text-amber-500" /> Records
               <button
                 type="button"
-                aria-label="How the Trophy Room works"
+                aria-label="How Records works"
                 onClick={() => setShowHelp((v) => !v)}
                 className={`grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold transition ${
                   showHelp
@@ -459,17 +77,17 @@ function RecordBook() {
               </button>
             </h1>
             <p className="text-sm text-[var(--muted)]">
-              Every champion, streak, and rivalry you&apos;ve crowned.
+              Everything you&apos;ve finished — tap one for the full results.
             </p>
           </div>
-          {allCompleted.length > 0 && (
+          {allDone.length > 0 && (
             <div className="flex gap-4 text-center">
               {(
                 [
-                  [completed.length, completed.length === 1 ? "event" : "events"],
+                  [events.length, events.length === 1 ? "event" : "events"],
+                  ...(rounds > 0 ? ([[rounds, rounds === 1 ? "round" : "rounds"]] as const) : []),
                   [playerCount, playerCount === 1 ? "player" : "players"],
-                  [sports.length, sports.length === 1 ? "sport" : "sports"],
-                ] as const
+                ] as readonly (readonly [number, string])[]
               ).map(([n, label]) => (
                 <div key={label}>
                   <div className="text-xl font-extrabold tabular-nums leading-none">{n}</div>
@@ -485,22 +103,25 @@ function RecordBook() {
 
       {showHelp && (
         <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/40 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
-          <p className="mb-1 font-semibold text-[var(--foreground)]">
-            How to read this room — it&apos;s your group&apos;s career, across every finished event:
-          </p>
           <ol className="list-decimal space-y-1 pl-4">
-            <li>An <b>event</b> is one completed tournament. Solo practice rounds don&apos;t count — nobody was beaten.</li>
-            <li><b>Reigning champion</b> — whoever won the most recent event. That&apos;s all it means.</li>
-            <li>The <b>podium</b> ranks career records: most golds, then silvers, then bronzes. Identical records share a step — a whole winning team can stand on one. It opens after 3 events; until then you get the plain champions list.</li>
-            <li>The <b>Hall of Fame</b> is the same ranking as a table. The three small numbers are gold / silver / bronze counts; the % is titles ÷ events, shown once someone has 3 events behind it.</li>
-            <li><b>Past events</b> is the concrete list — every event and who won it. Tap any name anywhere for their trophy case, where you can also merge a name typed two ways.</li>
+            <li>Every finished event logs here, newest first. Tap a row for its full results.</li>
+            <li>An <b>event</b> crowns a champion 🏆. A casual golf round (fewer than 5 players) is just a <b>round</b> — its scores log and feed the Seed Index, but nobody gets a medal for beating three friends on a Tuesday. Trips, cups, and bigger outings all count as events.</li>
+            <li>Tap any <b>name</b> in a result to open that player&apos;s page — medals, title rate, streaks, and their golf stats all live there.</li>
           </ol>
         </div>
       )}
 
-      <ReigningChampion completed={allCompleted} />
+      {profileName && allDone.length > 0 && (
+        <Link
+          href={playerHref(profileName)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand)]/50 bg-[var(--brand-soft)]/50 px-3.5 py-1.5 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand-soft)]"
+        >
+          <Avatar name={profileName} color={colorForName(profileName)} className="h-5 w-5 text-[9px]" />
+          My page →
+        </Link>
+      )}
 
-      {/* One trophy case per sport — the chips narrow everything below. */}
+      {/* One log per sport — the chips narrow it. */}
       {sports.length > 1 && (
         <div className="flex flex-wrap gap-2">
           <button
@@ -532,135 +153,53 @@ function RecordBook() {
         </div>
       )}
 
-      {completed.length === 0 ? (
+      {done.length === 0 ? (
         <Card className="p-10 text-center">
           <div className="text-4xl mb-2">🏅</div>
-          <p className="font-medium">No finished events yet</p>
+          <p className="font-medium">Nothing finished yet</p>
           <p className="text-sm text-[var(--muted)]">
-            Complete a tournament and your champions show up here.
+            Complete a tournament (or a round of golf) and it shows up here.
           </p>
         </Card>
       ) : (
-        <>
-          {/* Podium — gold / silver / bronze steps, each showing all its medalists.
-              A career podium needs a career behind it: with one or two events it
-              just restates a finish (a whole winning team piled on the gold riser),
-              so until three events exist the room shows the champions plainly. */}
-          {completed.length >= 3 && golds.length > 0 ? (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-4">
-              <div className="flex items-end justify-center gap-3 sm:gap-6">
-                <PodiumTier players={silvers} tier={2} />
-                <PodiumTier players={golds} tier={1} />
-                <PodiumTier players={bronzes} tier={3} />
-              </div>
-              <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
-                Best career records across every event — not one event&apos;s result. Matching
-                records share a step.
-              </p>
-            </div>
-          ) : (
-            <ChampionsSoFar completed={completed} />
-          )}
-
-          {profileName && (
-            <YourRecord
-              records={records}
-              rankOf={rankOf}
-              name={profileName}
-              streaks={allStreaks}
-              tournaments={sport ? tournaments.filter((t) => t.sport === sport) : tournaments}
-            />
-          )}
-
-          {/* Streaks & rivalries — the stories between the medals */}
-          {(streaks.length > 0 || rivalries.length > 0) && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {streaks.length > 0 && (
-                <Card className="p-4">
-                  <h2 className="font-bold text-sm mb-2">🔥 Title streaks</h2>
-                  <ul className="space-y-2">
-                    {streaks.map((s) => (
-                      <li key={s.name} className="flex items-center gap-2.5 text-sm">
-                        <Avatar name={s.name} color={colorForName(s.name)} className="h-6 w-6 text-[10px]" />
-                        <Link href={playerHref(s.name)} className="font-medium flex-1 truncate hover:underline">
-                          {s.name}
-                        </Link>
-                        <span className="tabular-nums text-[var(--muted)]">
-                          {s.current >= 2 ? (
-                            <span className="font-semibold text-amber-500">{s.current} in a row</span>
-                          ) : (
-                            <>best {s.best}</>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              )}
-              {rivalries.length > 0 && (
-                <Card className="p-4">
-                  <h2 className="font-bold text-sm mb-2">⚔️ Your rivalries</h2>
-                  <ul className="space-y-2">
-                    {rivalries.map((r) => (
-                      <li key={r.rival} className="flex items-center gap-2.5 text-sm">
-                        <Avatar name={r.rival} color={colorForName(r.rival)} className="h-6 w-6 text-[10px]" />
-                        <Link href={playerHref(r.rival)} className="font-medium flex-1 truncate hover:underline">
-                          {r.rival}
-                        </Link>
-                        <span
-                          className={`tabular-nums font-semibold ${
-                            r.wins > r.losses
-                              ? "text-[var(--brand)]"
-                              : r.wins < r.losses
-                                ? "text-rose-400"
-                                : "text-[var(--muted)]"
-                          }`}
-                        >
-                          {r.wins}–{r.losses}
-                        </span>
-                        <span className="text-[10px] text-[var(--muted)] tabular-nums w-14 text-right">
-                          {r.events} shared
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-[10px] text-[var(--muted)]">
-                    Who finished ahead, event by event — as {profileName}.
-                  </p>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Hall of Fame — 8b: rates, not just counts, with season scope */}
-          <HallOfFame tournaments={scoped} />
-
-          {/* Past events with full final rankings */}
-          <div>
-            <h2 className="font-bold mb-3">Past events</h2>
-            <div className="space-y-3">
-              {completed
-                .slice()
-                .sort((a, b) => b.updatedAt - a.updatedAt)
-                .map((t) => (
-                  <EventRow key={t.id} t={t} />
-                ))}
-            </div>
-          </div>
-        </>
+        <div className="space-y-3">
+          {done
+            .slice()
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map((t) => (
+              <EventRow key={t.id} t={t} />
+            ))}
+        </div>
       )}
     </div>
   );
 }
 
+// A casual round's one-line summary: the top cards, plainly.
+function roundLine(t: Tournament): string {
+  try {
+    const rows = computeGolf(t, "stroke").filter((r) => r.thru > 0);
+    return rows
+      .slice(0, 4)
+      .map((r) => `${r.name.split(/\s+/)[0]} ${r.gross}`)
+      .join(" · ");
+  } catch {
+    return "";
+  }
+}
+
 function EventRow({ t }: { t: Tournament }) {
   const [open, setOpen] = useState(false);
   const res = getResult(t);
-  // Flatten placements into display rows, keeping each placement's shared rank and
-  // medal — both doubles champions show 🥇 at #1, both runners-up 🥈 at #2, and the
-  // field that didn't advance keeps its round-robin rank (5th onward after a top-4 final).
+  const isEvent = hasCompetition(t);
+  // Flatten placements into display rows with each placement's shared rank —
+  // medals only where a championship was actually at stake.
   const entries = getPlacements(t).flatMap((pl) =>
-    pl.names.map((name) => ({ name, rank: pl.rank, medal: pl.medal ? MEDAL_EMOJI[pl.medal] : undefined })),
+    pl.names.map((name) => ({
+      name,
+      rank: pl.rank,
+      medal: isEvent && pl.medal ? MEDAL_EMOJI[pl.medal] : undefined,
+    })),
   );
 
   return (
@@ -670,13 +209,24 @@ function EventRow({ t }: { t: Tournament }) {
           <Link href={`/t/${t.id}`} className="font-semibold hover:text-[var(--brand)] flex items-center gap-2">
             <SportIcon sport={t.sport} className="h-4 w-4" style={{ color: sportAccent(t.sport) }} />
             <span className="truncate">{t.name}</span>
+            {!isEvent && (
+              <span className="shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--muted)]">
+                Round
+              </span>
+            )}
           </Link>
-          <span className="text-sm text-amber-500 font-medium flex items-center gap-1.5 mt-0.5">
-            <Trophy className="h-3.5 w-3.5" /> {res.winner}
-          </span>
+          {isEvent ? (
+            <span className="text-sm text-amber-500 font-medium flex items-center gap-1.5 mt-0.5">
+              <Trophy className="h-3.5 w-3.5" /> {res.winner}
+            </span>
+          ) : (
+            <span className="mt-0.5 block truncate text-sm tabular-nums text-[var(--muted)]">
+              {roundLine(t) || res.winner}
+            </span>
+          )}
         </span>
         <span className="text-xs text-[var(--muted)] shrink-0">
-          {FORMAT_LABELS[t.format]} · {open ? "hide" : "results"}
+          {ago(t.updatedAt)} · {open ? "hide" : "results"}
         </span>
       </button>
 
@@ -685,12 +235,24 @@ function EventRow({ t }: { t: Tournament }) {
           {entries.map((e, i) => (
             <li key={`${e.name}-${i}`} className="flex items-center gap-2.5">
               <span className="w-6 flex justify-center">
-                {e.medal ? <Emoji e={e.medal} className="h-4 w-4" /> : `${e.rank}.`}
+                {e.medal ? (
+                  <Emoji e={e.medal} className="h-4 w-4" />
+                ) : (
+                  <span className="text-xs font-bold text-[var(--muted)]">{e.rank}.</span>
+                )}
               </span>
               <Avatar name={e.name} color={colorForName(e.name)} className="h-6 w-6 text-[10px]" />
-              <span className={e.rank === 1 ? "font-semibold" : ""}>{e.name}</span>
+              <Link
+                href={playerHref(e.name)}
+                className={`hover:underline ${e.rank === 1 && isEvent ? "font-semibold" : ""}`}
+              >
+                {e.name}
+              </Link>
             </li>
           ))}
+          <li className="pt-1 text-[10px] text-[var(--muted)]">
+            {FORMAT_LABELS[t.format]} · tap a name for their medals, streaks, and stats
+          </li>
         </ol>
       )}
     </Card>

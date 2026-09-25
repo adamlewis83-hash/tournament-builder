@@ -797,39 +797,47 @@ check("trophy room — head-to-head records and title streaks", () => {
   assert(!st.find((s) => s.name === "P2"), "a single title is a medal, not a streak");
 });
 
-// ---- Trophy Room: solo rounds are practice, and aliases fold spellings -----
-check("trophy room — a solo golf round mints no medals", () => {
-  const P = players(1);
-  const g = defaultGolf(18, [P[0].id]);
-  g.scores[P[0].id] = g.pars.map((par) => par + 1);
-  const solo = tour({
-    format: "golf",
-    updatedAt: 5,
-    participants: P,
-    golf: g,
-    config: cfg({ golfMode: "stroke" }),
-  }) as Tournament;
-  assert(getResult(solo).complete, "solo round should complete");
-  assert(!hasCompetition(solo), "one player is not a contest");
-  assert(aggregateRecords([solo]).length === 0, "solo round should mint no records");
-  assert(titleStreaks([solo]).length === 0, "solo round should start no streak");
+// ---- Records: rounds are rounds, tournaments are tournaments ---------------
+check("records — a casual golf round logs without minting medals", () => {
+  const golfRound = (n: number, at: number): Tournament => {
+    const P = players(n);
+    const g = defaultGolf(18, P.map((p) => p.id));
+    P.forEach((p, i) => {
+      g.scores[p.id] = g.pars.map((par) => par + i);
+    });
+    return tour({
+      format: "golf",
+      updatedAt: at,
+      participants: P,
+      golf: g,
+      config: cfg({ golfMode: "stroke" }),
+    }) as Tournament;
+  };
 
-  // Alongside a real contest, only the contest counts.
-  const P2 = players(2);
-  const g2 = defaultGolf(18, P2.map((p) => p.id));
-  P2.forEach((p, i) => {
-    g2.scores[p.id] = g2.pars.map((par) => par + i);
-  });
-  const duel = tour({
-    format: "golf",
-    updatedAt: 6,
-    participants: P2,
-    golf: g2,
-    config: cfg({ golfMode: "stroke" }),
-  }) as Tournament;
-  const rec = aggregateRecords([solo, duel]);
-  assert(rec.length === 2, `only the duel's two players should have rows, got ${rec.length}`);
-  assert(rec[0].name === "P1" && rec[0].firsts === 1 && rec[0].events === 1, "duel winner takes the gold");
+  // One player is practice; a Tuesday foursome is a round; a 5-player outing
+  // is an event. (Adam's line, 2026-09-25.)
+  const solo = golfRound(1, 5);
+  const foursome = golfRound(4, 6);
+  const outing = golfRound(5, 7);
+  assert(getResult(solo).complete && getResult(foursome).complete, "rounds should complete");
+  assert(!hasCompetition(solo), "one player is not a contest");
+  assert(!hasCompetition(foursome), "a foursome is a round, not a tournament");
+  assert(hasCompetition(outing), "a 5-player outing is an event");
+
+  const rec = aggregateRecords([solo, foursome, outing]);
+  assert(rec.length === 5, `only the outing's five should have rows, got ${rec.length}`);
+  assert(rec[0].name === "P1" && rec[0].firsts === 1 && rec[0].events === 1, "outing winner takes the gold");
+  assert(titleStreaks([solo, foursome]).length === 0, "rounds start no streaks");
+
+  // Trips and cups stay tournaments at any size: a 2-player multi-round event
+  // still crowns its champion.
+  const trip = golfRound(2, 8);
+  trip.golf!.rounds = [
+    { id: "r1", name: "Round 1", holes: 18, pars: trip.golf!.pars, strokeIndex: trip.golf!.strokeIndex, scores: trip.golf!.scores },
+    { id: "r2", name: "Round 2", holes: 18, pars: trip.golf!.pars, strokeIndex: trip.golf!.strokeIndex, scores: trip.golf!.scores },
+  ];
+  trip.golf!.roundId = "r2";
+  assert(hasCompetition(trip), "a multi-round trip is a tournament at any size");
 });
 
 check("trophy room — an alias folds two spellings into one player", () => {
