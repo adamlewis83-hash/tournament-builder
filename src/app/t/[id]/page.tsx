@@ -123,8 +123,9 @@ function TournamentDetail({ id }: { id: string }) {
           <span className="h-2 w-2 rounded-full bg-[var(--win)] pulse-ring shrink-0" />
           {isGrantedScorer(t) ? (
             <span>
-              <span className="font-semibold">You can keep score</span> — the host added you as a
-              scorekeeper. Your entries sync to everyone. (Recognized by your profile name.)
+              <span className="font-semibold">You can keep score</span> — you&apos;re in this round
+              as a player or scorekeeper. Your entries sync to everyone. (Recognized by your
+              profile name.)
             </span>
           ) : (
             <span>

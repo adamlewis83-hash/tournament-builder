@@ -14,6 +14,7 @@ export function LivePanel({ t }: { t: Tournament }) {
   const publishLive = useStore((s) => s.publishLive);
   const goOffline = useStore((s) => s.goOffline);
   const setScorers = useStore((s) => s.setScorers);
+  const patchTournament = useStore((s) => s.patchTournament);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [showScorers, setShowScorers] = useState(false);
@@ -170,14 +171,29 @@ export function LivePanel({ t }: { t: Tournament }) {
                 title="How scorekeepers work:"
               >
                 <ol className="list-decimal space-y-1 pl-4">
-                  <li>By default only you enter scores. Everything a scorekeeper enters syncs live to everyone.</li>
-                  <li>They must <b>join your live link or code</b> on their phone first — the grant upgrades them from watching to scoring.</li>
+                  <li>Players keep score from their own phones: they open your live link, tap <b>I&apos;m playing</b> and pick their name. Turn that off below to keep the scoring to you and the names you pick here.</li>
+                  <li>Everything a player or scorekeeper enters syncs live to everyone.</li>
+                  <li>Scorekeepers must <b>join your live link or code</b> on their phone first — the grant upgrades them from watching to scoring.</li>
                   <li>They&apos;re recognized by the <b>profile name on their phone</b> (Settings → Your profile), not the name on the matchup. If it doesn&apos;t match the name you picked here, their screen shows a <b>&ldquo;That&apos;s me&rdquo;</b> prompt listing these names — one tap claims it. If someone says it won&apos;t let them score, that prompt is the answer.</li>
                   <li>Scorekeepers can enter and fix scores — nothing else. No adding players, changing setup, or reseeding. Tap a name off here to revoke anytime.</li>
                   <li>Anyone can be a scorekeeper — a spouse or friend who isn&apos;t playing keeps book just fine.</li>
                 </ol>
               </InfoTip>
             </div>
+            <label className="mb-2 flex items-center justify-between gap-3 rounded-lg bg-[var(--subtle)] px-3 py-2 text-sm">
+              <span>
+                <span className="block font-medium">Players keep score from their phones</span>
+                <span className="block text-[11px] text-[var(--muted)]">
+                  Off = only you and the scorekeepers below.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={t.playersScore !== false}
+                onChange={(e) => patchTournament(t.id, { playersScore: e.target.checked })}
+                className="h-5 w-5 shrink-0 accent-[var(--brand)]"
+              />
+            </label>
             <div className="flex flex-wrap gap-1.5">
               {t.participants.map((p) => {
                 const on = isScorer(p.name);

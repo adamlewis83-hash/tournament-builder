@@ -502,6 +502,9 @@ export interface Tournament {
   // then removes stays removed — the lobby poll must not resurrect them.
   syncedRegs?: string[];
   scorers?: string[]; // participant names the host lets keep score from their own device
+  /** false = only the host and the named scorekeepers enter scores. Otherwise a
+   *  player who joins the live round under their roster name keeps score too. */
+  playersScore?: boolean;
   // Per-match game clocks, synced so everyone watching sees the same countdown.
   // endAt = ms timestamp it hits zero (running); leftSec = frozen remaining (paused).
   clocks?: Record<string, { endAt?: number; leftSec?: number }>;

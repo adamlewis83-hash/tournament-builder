@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
-import { canEditScores } from "@/lib/perms";
+import { canEditScores, claimableNames } from "@/lib/perms";
 import { useStore } from "@/lib/store";
 import { getProfile, setProfile } from "@/lib/profile";
 import { Button } from "./ui";
@@ -25,7 +25,8 @@ import { Button } from "./ui";
  */
 export function ScorerClaim({ t }: { t: Tournament }) {
   const [open, setOpen] = useState(false);
-  const scorers = t.scorers ?? [];
+  // The players (unless the host keeps score alone) and the named scorekeepers.
+  const scorers = claimableNames(t);
   const blockedTry = useStore((s) => s.blockedTry);
   // A refusal from before this page opened is not news, and each one shows
   // for a few seconds or until dismissed.
@@ -61,8 +62,8 @@ export function ScorerClaim({ t }: { t: Tournament }) {
           <span className="text-[var(--muted)]">
             {scorers.length
               ? me
-                ? `This phone is set up as "${me}", which isn't on the host's scorekeeper list.`
-                : "This phone doesn't have a name set, so the host's scorekeeper list can't recognize it."
+                ? `This phone is set up as "${me}", which isn't a player or scorekeeper in this round.`
+                : "This phone doesn't have a name set, so this round can't tell who you are."
               : "You're watching this round. Ask the host to add you under Scorekeepers in their Live panel."}
           </span>
         </p>
@@ -104,8 +105,8 @@ export function ScorerClaim({ t }: { t: Tournament }) {
             <span className="font-semibold">Meant to be keeping score?</span>{" "}
             <span className="text-[var(--muted)]">
               {me
-                ? `This phone is set up as "${me}", which isn't on the host's list.`
-                : "This phone doesn't have a name set yet, so the host can't recognize it."}
+                ? `This phone is set up as "${me}", which isn't a player or scorekeeper in this round.`
+                : "This phone doesn't have a name set yet, so this round can't tell who you are."}
             </span>
           </span>
           <Button variant="outline" className="px-3 py-1.5" onClick={() => setOpen((v) => !v)}>
@@ -116,8 +117,8 @@ export function ScorerClaim({ t }: { t: Tournament }) {
         {open && (
           <div className="mt-3 border-t border-[var(--border)] pt-3">
             <p className="text-xs text-[var(--muted)] mb-2">
-              The host gave scorekeeping to the {scorers.length === 1 ? "name" : "names"} below. Tap
-              yours to claim it on this device and start entering scores.
+              {scorers.length === 1 ? "This name keeps" : "These names keep"} score in this round.
+              Tap yours to claim it on this device and start entering scores.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {scorers.map((name) => (
