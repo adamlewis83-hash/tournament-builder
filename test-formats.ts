@@ -3178,4 +3178,4 @@ if (failures.length) {
   process.exit(1);
 } else {
   console.log("✅ All format/sport scenarios passed.");
-}
+}
