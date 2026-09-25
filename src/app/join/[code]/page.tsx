@@ -7,6 +7,7 @@ import { fetchLive, registerPlayer } from "@/lib/live";
 import { getProfile } from "@/lib/profile";
 import { PhotoCropper } from "@/components/PhotoCropper";
 import { Button, Card } from "@/components/ui";
+import { OpenInApp } from "@/components/OpenInApp";
 import { registrationOpen, Tournament } from "@/lib/types";
 
 export default function JoinPage() {
@@ -136,6 +137,7 @@ export default function JoinPage() {
           }}
         />
       )}
+      <OpenInApp path={`/join/${code}`} />
       <div className="text-center">
         <p className="text-xs uppercase tracking-widest text-[var(--muted)] font-bold">
           Join tournament

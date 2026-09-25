@@ -10,6 +10,12 @@ export async function generateMetadata({
   params: Promise<{ code: string }>;
 }): Promise<Metadata> {
   const { code } = await params;
+  // Safari's Smart App Banner: OPEN when Sporos is installed, GET when it
+  // isn't, and it hands the app this exact link so the round opens there.
+  const itunes = {
+    appId: "6787539978",
+    appArgument: `https://sporos.app/live/${encodeURIComponent(code.toUpperCase())}`,
+  };
   try {
     const live = await prisma.liveTournament.findUnique({
       where: { code: code.toUpperCase() },
@@ -17,8 +23,8 @@ export async function generateMetadata({
     const t = live?.data as { name?: string; sport?: string; participants?: unknown[] } | null;
     if (t?.name) {
       const title = `${t.name} — live on Sporos`;
-      const description = `${t.sport ?? "Tournament"} · ${t.participants?.length ?? 0} playing. Follow the scores live — no app needed.`;
-      return { title, description, openGraph: { title, description } };
+      const description = `${t.sport ?? "Tournament"} · ${t.participants?.length ?? 0} playing. Watch it live, or jump in and keep score.`;
+      return { title, description, openGraph: { title, description }, itunes };
     }
   } catch {
     /* DB hiccup — fall back to the site-wide card */
@@ -26,6 +32,7 @@ export async function generateMetadata({
   return {
     title: "Watch live — Sporos",
     description: "Follow this tournament's scores live.",
+    itunes,
   };
 }
 

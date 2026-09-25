@@ -253,7 +253,10 @@ export interface Friend {
 // GIR, scrambling, up-and-downs, and sand saves are all computed from these.
 export interface HoleEntry {
   putts?: number | null; // 0–4, where 4 means "4+"
-  tee?: "L" | "F" | "R" | null; // tee-shot result: miss left, fairway, miss right
+  // Tee-shot result: miss left, fairway, miss right, short of the fairway
+  // (didn't reach it) or long (drove through it). Every miss counts against
+  // fairways hit.
+  tee?: "L" | "F" | "R" | "S" | "O" | null;
   bunker?: boolean; // visited a greenside bunker (optional flag for sand saves)
   // Trouble — the strokes that actually wreck a card. Water and OB hold the
   // number of PENALTY strokes taken on the hole (not the shots played), so a
@@ -502,6 +505,9 @@ export interface Tournament {
   // then removes stays removed — the lobby poll must not resurrect them.
   syncedRegs?: string[];
   scorers?: string[]; // participant names the host lets keep score from their own device
+  /** false = only the host and the named scorekeepers enter scores. Otherwise a
+   *  player who joins the live round under their roster name keeps score too. */
+  playersScore?: boolean;
   // Per-match game clocks, synced so everyone watching sees the same countdown.
   // endAt = ms timestamp it hits zero (running); leftSec = frozen remaining (paused).
   clocks?: Record<string, { endAt?: number; leftSec?: number }>;

@@ -8,6 +8,7 @@ import { getLibraryKey, hasSporosData } from "@/lib/library";
 import { getProfile } from "@/lib/profile";
 import { Button, Card } from "@/components/ui";
 import { Sprout } from "@/components/icons";
+import { APP_OPENS_SCHEME, OpenInApp } from "@/components/OpenInApp";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/sporos-tournament-builder/id6787539978";
 
@@ -53,7 +54,10 @@ export default function FriendInvitePage() {
   // install, so the code (also in the invite text) is what finishes the link.
   const isIphone =
     typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const bouncing = isIphone && hasLibrary === false && !!inviter && !stay && state === "idle";
+  // Once the app answers sporos:// links, the Open in the app button beats a
+  // trip to the App Store, which can open the app but not this invite.
+  const bouncing =
+    !APP_OPENS_SCHEME && isIphone && hasLibrary === false && !!inviter && !stay && state === "idle";
   useEffect(() => {
     if (!bouncing) return;
     const timer = setTimeout(() => {
@@ -103,6 +107,7 @@ export default function FriendInvitePage() {
         ) : (
           <>
             <h1 className="text-xl font-bold">{inviter} wants to link up on Sporos</h1>
+            {state !== "done" && <OpenInApp path={`/f/${code}`} />}
             <p className="text-sm text-[var(--muted)]">
               Linked friends see each other&apos;s rounds and results — live golf included.
             </p>
