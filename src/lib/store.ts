@@ -93,6 +93,9 @@ interface State {
    *  library past quota and make that write fail, taking live score-saving down with
    *  it. Undo only ever offers the last setup change, so one is all it was using. */
   snapshot: Snapshot | null;
+  /** The last score entry this device tried and wasn't allowed to make. Never
+   *  persisted: it only exists so the page can say why a tap did nothing. */
+  blockedTry: { tournamentId: string; at: number } | null;
   hydrated: boolean;
   saveCourse: (input: Omit<Course, "id"> & { id?: string }) => string;
   removeCourse: (id: string) => void;
@@ -547,9 +550,14 @@ export const useStore = create<State>()(
         });
       };
 
+      // A refused entry used to vanish without a word, so a scorekeeper whose
+      // profile name didn't match tapped + and saw nothing happen. Recording the
+      // attempt lets the page explain it and offer the fix.
       const blocked = (id: string) => {
         const t = get().tournaments.find((x) => x.id === id);
-        return t ? !canEditScores(t) : false;
+        const no = t ? !canEditScores(t) : false;
+        if (no) set({ blockedTry: { tournamentId: id, at: Date.now() } });
+        return no;
       };
 
       return {
@@ -558,6 +566,7 @@ export const useStore = create<State>()(
       friends: [],
       friendTombstones: [],
       snapshot: null,
+      blockedTry: null,
       hydrated: false,
 
       saveFriend: (input) => {

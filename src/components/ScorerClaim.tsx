@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tournament } from "@/lib/types";
 import { canEditScores } from "@/lib/perms";
+import { useStore } from "@/lib/store";
 import { getProfile, setProfile } from "@/lib/profile";
 import { Button } from "./ui";
 
@@ -16,13 +17,29 @@ import { Button } from "./ui";
  *
  * This closes that loop from the side that can actually fix it: show the granted
  * names to the spectator and let them claim theirs in one tap.
+ *
+ * The box sits at the top of the page, and the golf card is a long way below
+ * it, so a refused tap down there also raises a note at the bottom of the
+ * screen with the same one tap claim. A tap that does nothing is the one thing
+ * a scorekeeper can't diagnose.
  */
 export function ScorerClaim({ t }: { t: Tournament }) {
   const [open, setOpen] = useState(false);
   const scorers = t.scorers ?? [];
+  const blockedTry = useStore((s) => s.blockedTry);
+  // A refusal from before this page opened is not news, and each one shows
+  // for a few seconds or until dismissed.
+  const [mountedAt] = useState(() => Date.now());
+  const [hiddenAt, setHiddenAt] = useState<number | null>(null);
+  const tryAt = blockedTry?.tournamentId === t.id ? blockedTry.at : null;
+  useEffect(() => {
+    if (tryAt == null) return;
+    const timer = setTimeout(() => setHiddenAt(tryAt), 8000);
+    return () => clearTimeout(timer);
+  }, [tryAt]);
+  const refused = tryAt != null && tryAt >= mountedAt && tryAt !== hiddenAt;
 
-  // Only for a spectator the host has left out of a scorekeeping list that exists.
-  if (!t.spectator || !scorers.length || canEditScores(t)) return null;
+  if (!t.spectator || canEditScores(t)) return null;
 
   const me = getProfile().name.trim();
 
@@ -33,50 +50,98 @@ export function ScorerClaim({ t }: { t: Tournament }) {
     window.location.reload();
   }
 
-  return (
-    <div className="no-print rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 px-4 py-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span>
-          <span className="font-semibold">Meant to be keeping score?</span>{" "}
+  const note = refused && (
+    <div
+      role="status"
+      className="no-print fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] inset-x-4 z-50 mx-auto max-w-md rounded-xl border border-amber-400/50 bg-[var(--surface)] px-4 py-3 text-sm shadow-lg"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p>
+          <span className="font-semibold">That score didn&apos;t save.</span>{" "}
           <span className="text-[var(--muted)]">
-            {me
-              ? `This phone is set up as "${me}", which isn't on the host's list.`
-              : "This phone doesn't have a name set yet, so the host can't recognize it."}
+            {scorers.length
+              ? me
+                ? `This phone is set up as "${me}", which isn't on the host's scorekeeper list.`
+                : "This phone doesn't have a name set, so the host's scorekeeper list can't recognize it."
+              : "You're watching this round. Ask the host to add you under Scorekeepers in their Live panel."}
           </span>
-        </span>
-        <Button variant="outline" className="px-3 py-1.5" onClick={() => setOpen((v) => !v)}>
-          {open ? "Close" : "That's me →"}
-        </Button>
+        </p>
+        <button
+          type="button"
+          onClick={() => setHiddenAt(tryAt)}
+          aria-label="Dismiss"
+          className="shrink-0 px-1 text-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          ✕
+        </button>
       </div>
-
-      {open && (
-        <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <p className="text-xs text-[var(--muted)] mb-2">
-            The host gave scorekeeping to the {scorers.length === 1 ? "name" : "names"} below. Tap
-            yours to claim it on this device and start entering scores.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {scorers.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => claim(name)}
-                className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium transition hover:bg-[var(--hover)] hover:border-[var(--brand)]"
-              >
-                I&apos;m {name}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] text-[var(--muted)]">
-            This sets your profile name on this phone — the same name used for your photo and
-            handicap elsewhere. Change it any time in{" "}
-            <Link href="/settings" className="text-[var(--brand)] hover:underline">
-              Settings
-            </Link>
-            . Not on the list? Ask the host to add the name you go by.
-          </p>
+      {scorers.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {scorers.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => claim(name)}
+              className="rounded-full border border-[var(--brand)] bg-[var(--brand-soft)] px-3 py-1 text-xs font-medium text-[var(--brand)]"
+            >
+              I&apos;m {name}
+            </button>
+          ))}
         </div>
       )}
     </div>
+  );
+
+  // No list at all: nothing to claim, so only the refused tap note applies.
+  if (!scorers.length) return note || null;
+
+  return (
+    <>
+      {note}
+      <div className="no-print rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            <span className="font-semibold">Meant to be keeping score?</span>{" "}
+            <span className="text-[var(--muted)]">
+              {me
+                ? `This phone is set up as "${me}", which isn't on the host's list.`
+                : "This phone doesn't have a name set yet, so the host can't recognize it."}
+            </span>
+          </span>
+          <Button variant="outline" className="px-3 py-1.5" onClick={() => setOpen((v) => !v)}>
+            {open ? "Close" : "That's me →"}
+          </Button>
+        </div>
+
+        {open && (
+          <div className="mt-3 border-t border-[var(--border)] pt-3">
+            <p className="text-xs text-[var(--muted)] mb-2">
+              The host gave scorekeeping to the {scorers.length === 1 ? "name" : "names"} below. Tap
+              yours to claim it on this device and start entering scores.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {scorers.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => claim(name)}
+                  className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium transition hover:bg-[var(--hover)] hover:border-[var(--brand)]"
+                >
+                  I&apos;m {name}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-[var(--muted)]">
+              This sets your profile name on this phone — the same name used for your photo and
+              handicap elsewhere. Change it any time in{" "}
+              <Link href="/settings" className="text-[var(--brand)] hover:underline">
+                Settings
+              </Link>
+              . Not on the list? Ask the host to add the name you go by.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
