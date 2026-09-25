@@ -347,7 +347,8 @@ function StatsGrid({
     if (pars[h] === 3) return { txt: "·", cls: "text-[var(--muted)] opacity-50" };
     if (!e?.tee) return { txt: "–", cls: "text-[var(--muted)] opacity-50" };
     if (e.tee === "F") return { txt: "✓", cls: "text-[var(--win)] font-bold" };
-    return { txt: e.tee === "L" ? "←" : "→", cls: "text-rose-400 font-semibold" };
+    const miss = { L: "←", R: "→", S: "↓", O: "↑" } as const;
+    return { txt: miss[e.tee], cls: "text-rose-400 font-semibold" };
   };
   const cell = "px-0.5 py-1 text-center tabular-nums";
   const label = "px-1.5 py-1 text-left text-[9px] font-bold uppercase tracking-wide text-[var(--muted)] whitespace-nowrap";
@@ -916,7 +917,9 @@ function StatTaps({
           {(
             [
               ["L", "◀ L"],
+              ["S", "Short"],
               ["F", "Fairway"],
+              ["O", "Long"],
               ["R", "R ▶"],
             ] as const
           ).map(([v, text]) => (
@@ -924,7 +927,7 @@ function StatTaps({
               key={v}
               type="button"
               onClick={() => onStat({ tee: entry?.tee === v ? null : v })}
-              className={`${h} flex-1 rounded-lg border text-sm font-semibold transition ${
+              className={`${h} min-w-0 flex-1 rounded-lg border px-0.5 text-xs font-semibold transition ${
                 entry?.tee === v ? on : off
               }`}
             >
@@ -1150,7 +1153,11 @@ function HoleDetail({
         ? "Missed left"
         : entry?.tee === "R"
           ? "Missed right"
-          : "—";
+          : entry?.tee === "S"
+            ? "Short of the fairway"
+            : entry?.tee === "O"
+              ? "Through the fairway"
+              : "—";
 
   return (
     <div className="mt-2">

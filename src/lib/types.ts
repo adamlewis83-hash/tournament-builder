@@ -253,7 +253,10 @@ export interface Friend {
 // GIR, scrambling, up-and-downs, and sand saves are all computed from these.
 export interface HoleEntry {
   putts?: number | null; // 0–4, where 4 means "4+"
-  tee?: "L" | "F" | "R" | null; // tee-shot result: miss left, fairway, miss right
+  // Tee-shot result: miss left, fairway, miss right, short of the fairway
+  // (didn't reach it) or long (drove through it). Every miss counts against
+  // fairways hit.
+  tee?: "L" | "F" | "R" | "S" | "O" | null;
   bunker?: boolean; // visited a greenside bunker (optional flag for sand saves)
   // Trouble — the strokes that actually wreck a card. Water and OB hold the
   // number of PENALTY strokes taken on the hole (not the shots played), so a

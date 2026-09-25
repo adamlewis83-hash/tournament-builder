@@ -297,21 +297,28 @@ export function roundInsights(
     }
   }
 
-  // Tee shots — a directional lean is the most fixable miss there is.
+  // Tee shots — a pattern in the misses is the most fixable thing there is:
+  // a lean left or right, or drives that keep coming up short or running
+  // through the fairway.
   {
-    let L = 0;
-    let R = 0;
+    const n = { L: 0, R: 0, S: 0, O: 0 };
     for (let h = 0; h < pars.length; h++) {
       const e = entries?.[h];
-      if (!e?.tee || pars[h] < 4) continue;
-      if (e.tee === "L") L++;
-      if (e.tee === "R") R++;
+      if (!e?.tee || e.tee === "F" || pars[h] < 4) continue;
+      n[e.tee]++;
     }
-    const miss = L + R;
-    if (miss >= 3 && Math.max(L, R) / miss >= 0.7) {
-      const side = L > R ? "left" : "right";
+    const miss = n.L + n.R + n.S + n.O;
+    const [top, count] = (Object.entries(n) as [keyof typeof n, number][]).sort(
+      (a, b) => b[1] - a[1],
+    )[0];
+    if (miss >= 3 && count / miss >= 0.7) {
+      const of = `${count} of ${miss} missed fairways`;
       out.push(
-        `Your tee misses lean ${side} — ${Math.max(L, R)} of ${miss} missed fairways went ${side}. One swing thought fixes a pattern.`,
+        top === "S"
+          ? `Your tee misses come up short. ${of} didn't reach the fairway, so more club or a fuller swing gets you there.`
+          : top === "O"
+            ? `Your drives are running through the fairway. ${of} went long, so less club off the tee keeps it in the short grass.`
+            : `Your tee misses lean ${top === "L" ? "left" : "right"}. ${of} went ${top === "L" ? "left" : "right"}, and one swing thought fixes a pattern.`,
       );
     }
   }

@@ -678,6 +678,24 @@ check("golf insights — evidence-backed sentences, nothing invented", () => {
   );
   // A score-only round (no taps) asserts nothing.
   assert(roundInsights(pars9, scores, undefined).length === 0, "insights invented from score alone");
+
+  // Short and long are misses too: a round of drives that don't reach the
+  // fairway says so, and they count against fairways hit.
+  const shortTee = [
+    { putts: 2, tee: "S" as const },
+    { putts: 2, tee: "S" as const },
+    { putts: 2, tee: "F" as const },
+    { putts: 2, tee: "S" as const },
+    { putts: 2, tee: "O" as const },
+    ...Array(4).fill({ putts: 2, tee: "F" as const }),
+  ];
+  const shortLines = roundInsights(pars9, scores, shortTee);
+  assert(
+    shortLines.some((l) => l.includes("come up short") && l.includes("3 of 4")),
+    `short-tee insight missing: ${JSON.stringify(shortLines)}`,
+  );
+  const shortFw = roundStats(pars9, scores, shortTee).fairways;
+  assert(shortFw.opps === 9 && shortFw.hit === 5, `short/long fairways ${JSON.stringify(shortFw)}`);
 });
 
 // ---- Race Day: the pinewood derby that demanded the format -----------------
